@@ -1,0 +1,5 @@
+alias gc='git cz'
+alias gs='git status'
+alias ga='git add'
+alias gca='git cz --amend'
+alias gb='git branch'

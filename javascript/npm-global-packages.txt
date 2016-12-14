@@ -9,6 +9,7 @@ cssnano-cli
 cssstats
 exorcist
 faker-cli
+fileicon
 gifify
 grunt-cli
 gulp

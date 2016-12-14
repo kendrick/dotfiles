@@ -9,6 +9,7 @@ tmp
 .sass-cache/
 .npm
 .grunt
+Gemfile.lock
 
 # Mac desktop service store files
 .DS_Store

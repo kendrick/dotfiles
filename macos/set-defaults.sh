@@ -127,4 +127,4 @@ defaults write com.apple.ActivityMonitor SortColumn -string "CPUUsage"
 defaults write com.apple.ActivityMonitor SortDirection -int 0
 
 # Kill affected applications
-for app in Safari Finder Dock Mail SystemUIServer; do killall "$app" >/dev/null 2>&1; done
+for APP in Safari Finder Dock Mail SystemUIServer; do killall "$APP" >/dev/null 2>&1; done

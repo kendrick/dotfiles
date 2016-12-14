@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/local/bin/bash
 
 # Use Homebrew's zsh by default
 sudo dscl . -create /Users/$USER UserShell /usr/local/bin/zsh

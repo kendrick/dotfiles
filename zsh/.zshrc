@@ -1,5 +1,4 @@
 alias changelog='conventional-changelog -p angular -i CHANGELOG.md -s'
-alias gc='git cz'
 alias h='history'
 alias ssid='/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '"'"'/ SSID/ {print substr($0, index($0, $2))}'"'"''
 alias dfh='ssh kendrick@designedforhumans.co'
@@ -8,20 +7,16 @@ alias ws='wstorm'
 alias o='open .' # Open '.' in Finder
 alias cls='clear && fortune | cowsay | lolcat'
 alias cdg='cd ~/Dropbox/dev/git-repos'
-alias jshint='jshint --reporter /usr/local/lib/node_modules/jshint-stylish/stylish.js'
 alias rmdstore="find . -name '*.DS_Store' -type f -delete"
-alias gs='git status'
-alias ga='git add'
-alias gca='git cz --amend'
-alias gb='git branch'
-alias gui='git update-index --assume-unchanged'
-alias c='git cz -m'
 alias fake='faker-cli'
 alias xkp='xkp "-/:;$&@.,?" -p wswswsddp -n 10'
 alias top='htop'
 alias oops='TF_CMD=$(TF_ALIAS=oops PYTHONIOENCODING=utf-8 TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1 | tail -n 1)) && eval $TF_CMD && print -s $TF_CMD'
 
 DEFAULT_USER='kmarnett'
+
+EMOJI_FAILURE="❌ "
+EMOJI_SUCCESS="✅ "
 
 # Include Z
 . ~/.z.sh
@@ -38,7 +33,8 @@ ZSH_THEME="agnoster"
 
 source $ZSH/oh-my-zsh.sh
 
-export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"
+export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$HOME/.rvm/bin"
+export PATH="$PATH://usr/local/Cellar/terminal-notifier/1.7.1/bin"
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then
@@ -46,8 +42,6 @@ if [[ -n $SSH_CONNECTION ]]; then
 else
   export EDITOR='atom'
 fi
-
-export PATH="$PATH:$HOME/.rvm/bin" # Add RVM to PATH for scripting
 
 # added by travis gem
 [ -f ~/.travis/travis.sh ] && source ~/.travis/travis.sh

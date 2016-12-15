@@ -1,5 +1,16 @@
-DOTFILESDIR=~/.dotfiles
-source $DOTFILESDIR/zsh/aliases.zsh
+DOTFILES=$HOME/.dotfiles
+
+# Source ALLTHETHINGS
+for CONFIG_FILE ($DOTFILES/**/*.zsh) do
+  source $CONFIG_FILE
+done
+
+# Keep secret stuff in .localrc that you
+# don't want in your public, versioned repo
+if [[ -a $HOME/.localrc ]]
+then
+  source $HOME/.localrc
+fi
 
 DEFAULT_USER='kmarnett'
 

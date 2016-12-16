@@ -1,3 +1,5 @@
+alias g="git"
+
 # Turns .gitconfig aliases into shell aliases.
 # cf. http://i.giphy.com/ms4x9Ipgego8g.gif
 eval "$( \

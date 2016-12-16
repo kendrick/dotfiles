@@ -14,11 +14,10 @@ fi
 
 DEFAULT_USER='kmarnett'
 
-EMOJI_FAILURE="❌ "
-EMOJI_SUCCESS="✅ "
-
-# Include Z
-. ~/.z.sh
+ICON_FAILURE="❌ "
+ICON_SUCCESS="✅ "
+ICON_WARNING="⚠️ "
+ICON_INFO="ℹ️ "
 
 # Include rvm
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"

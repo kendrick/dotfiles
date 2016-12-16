@@ -22,7 +22,9 @@ alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
 export HISTCONTROL=ignoredups
-setopt HIST_IGNORE_ALL_DUPS
-setopt HIST_REDUCE_BLANKS
 export HISTSIZE=50000
 export SAVEHIST=50000
+
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_REDUCE_BLANKS
+setopt CORRECT

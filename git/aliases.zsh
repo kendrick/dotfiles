@@ -1,6 +1,8 @@
-alias gc='git cz'
-alias gs='git status'
-alias ga='git add'
-alias gca='git cz --amend'
-alias gb='git branch'
-alias gui='git update-index --assume-unchanged'
+# Turns .gitconfig aliases into shell aliases.
+# cf. http://i.giphy.com/ms4x9Ipgego8g.gif
+eval "$( \
+  git config --global --get-regexp alias | \
+  perl -pe 's/alias\./alias g/g;' | \
+  perl -pe 's/(alias [\w]+)/$1=git/g' | \
+  perl -pe 's/git !//g' | perl -pe 's/=(.*)$/="$1"/g' \
+)"

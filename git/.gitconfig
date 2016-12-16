@@ -32,13 +32,73 @@
 [url "https://"]
   insteadOf = git://
 [alias]
-  fall = fetch --all -p
+  # Cobbled together from my existing .zshrc aliases and
+  # http://durdn.com/blog/2012/11/22/must-have-git-aliases-advanced-examples/ and
+
+  # DO IT LIVE!
+  ac = !git add . && git commit -am
+
+  # Show full diff of a given revision
+  dr  = "!f() { git diff "$1"^.."$1"; }; f"
+  lc  = "!f() { git ll "$1"^.."$1"; }; f"
+
+  # History of a given file w/ diffs
+  fl = log -u
+
+  # `log` variations...
+  ## Short form with branches/tags
+  ls = log --pretty='format:"%C(yellow)%h%Cred%d\\ %Creset%s%Cblue\\ [%cn]"' --decorate
+  ## With relative time
+  ld = log --pretty='format:"%C(yellow)%h\\ %ad%Cred%d\\ %Creset%s%Cblue\\ [%cn]"' --decorate --date=relative
+  ## With graph
   lg = log --color --graph
-  loll = log --graph --decorate --pretty=oneline --abbrev-commit
-  lol = !git --no-pager loll
-  lolal = log --graph --decorate --pretty=oneline --abbrev-commit --all
-  lola = !git --no-pager lolal
+  ## With changed files
+  ll =  log --pretty='format:"%C(yellow)%h%Cred%d\\ %Creset%s%Cblue\\ [%cn]"' --decorate --numstat
+
+  # Files modified in last commit
+  dl = "!git ll -1"
+
+  # Diff of last commit
+  dlc = diff --cached HEAD^
+  fall = fetch --all -p
+
+  # Find a file
+  f = "!git ls-files | grep -i"
+
+  # Find a string in any file
+  grep = grep -Ii
+  gr = grep -Ii
+
+  # Find from root folder
+  groot = "!f() { A=$(pwd) && TOPLEVEL=$(git rev-parse --show-toplevel) && cd $TOPLEVEL && git grep --full-name -In $1 | xargs -I{} echo $TOPLEVEL/{} && cd $A; }; f"
+
+  # List aliases
+  la = "!git config -l | grep alias | cut -c 7-"
+
+  # Merge ours/theirs
+  ours = "!f() { git checkout --ours $@ && git add $@; }; f"
+  theirs = "!f() { git checkout --theirs $@ && git add $@; }; f"
+
+  # Stashes
+  sl = stash list
+  sa = stash apply
+  ss = stash save
   unstash = stash pop
+
+  # Resets
+  r = reset
+  r1 = reset HEAD^
+  r2 = reset HEAD^^
+  rh = reset --hard
+  rh1 = reset HEAD^ --hard
+  rh2 = reset HEAD^^ --hard
+
+  c="cz"
+  ca="cz --amend"
+  s="status"
+  sb="status -sb"
+  a="add"
+  b="branch"
 [credential]
   helper = osxkeychain
 [diff]

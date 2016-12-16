@@ -32,8 +32,7 @@ ZSH_THEME="agnoster"
 
 source $ZSH/oh-my-zsh.sh
 
-export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$HOME/.rvm/bin"
-export PATH="$PATH:/usr/local/Cellar/terminal-notifier/1.7.1/bin"
+export PATH="$PATH:/usr/local/bin:$DOTFILES/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.rvm/bin"
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then

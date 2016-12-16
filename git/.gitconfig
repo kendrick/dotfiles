@@ -33,7 +33,7 @@
   insteadOf = git://
 [alias]
   # Cobbled together from my existing .zshrc aliases and
-  # http://durdn.com/blog/2012/11/22/must-have-git-aliases-advanced-examples/ and
+  # http://durdn.com/blog/2012/11/22/must-have-git-aliases-advanced-examples/
 
   # DO IT LIVE!
   ac = !git add . && git commit -am

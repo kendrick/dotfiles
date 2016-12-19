@@ -1,0 +1,9 @@
+units:imperial
+show_daylight:false
+show_pressure:false
+show_daylight:false
+greeting_text:Currently in
+
+background:\033[49m
+text:\033[30m
+data:\033[34m

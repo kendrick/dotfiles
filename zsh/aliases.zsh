@@ -16,15 +16,3 @@ alias ssid='/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Curr
 alias top='htop'
 alias ws='wstorm'
 alias xkp='xkp "-/:;$&@.,?" -p wswswsddp -n 10'
-
-alias grep='grep --color=auto'
-alias fgrep='fgrep --color=auto'
-alias egrep='egrep --color=auto'
-
-export HISTCONTROL=ignoredups
-export HISTSIZE=50000
-export SAVEHIST=50000
-
-setopt HIST_IGNORE_ALL_DUPS
-setopt HIST_REDUCE_BLANKS
-setopt CORRECT

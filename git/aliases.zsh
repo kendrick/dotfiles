@@ -10,5 +10,5 @@ if type -p perl > /dev/null; then
     perl -pe 's/git !//g' | perl -pe 's/=(.*)$/="$1"/g' \
   )"
 else
-  echo "perl must be installed to generate shell aliases from gitconfig."
+  e_error "perl must be installed to generate shell aliases from gitconfig."
 fi

@@ -63,10 +63,37 @@ brew 'wget'
 brew 'youtube-dl'
 brew 'zsh'
 
-brew 'homebrew/dupes/grep'
+brew 'homebrew/dupes/grep', args: ['with-default-names']
 brew 'homebrew/dupes/openssh'
 brew 'homebrew/dupes/rsync'
+brew 'homebrew/dupes/file-formula'
+brew 'homebrew/dupes/grep'
+brew 'homebrew/dupes/less'
+brew 'homebrew/dupes/make'
 
+brew 'oniguruma'
+brew 'jq'
+brew 'ansiweather'
+brew 'boost'
+brew 'diff-so-fancy'
+brew 'figlet'
+brew 'findutils', args: ['with-default-names']
+brew 'git-open'
+brew 'gnu-sed', args: ['with-default-names']
+brew 'gnu-which', args: ['with-default-names']
+brew 'hh'
+brew 'lua'
+brew 'highlight'
+brew 'htop'
+brew 'libmagic'
+brew 'ncdu'
+brew 'speedtest_cli'
+brew 'ssh-copy-id'
+brew 'terminal-notifier'
+brew 'thefuck'
+
+cask 'bartender'
+cask 'qlvideo'
 cask 'adobe-photoshop-cc'
 cask 'adobe-illustrator-cc'
 cask 'adobe-photoshop-lightroom571'

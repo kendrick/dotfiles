@@ -23,3 +23,7 @@ e_warning() {
 e_info() {
   printf "$(tput setaf 4)$ICON_INFO %s$(tput sgr0)\n" "$@"
 }
+
+add_to_path() {
+  [[ -d "$1" ]] && PATH="$1:$PATH"
+}

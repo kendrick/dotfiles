@@ -27,3 +27,9 @@ e_info() {
 add_to_path() {
   [[ -d "$1" ]] && PATH="$1:$PATH"
 }
+
+print_result() {
+  [ $1 -eq 0 ] \
+    && e_success "$2" \
+    || e_error "$2"
+}

@@ -12,3 +12,6 @@ setopt ALIASES
 setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_REDUCE_BLANKS
 setopt CORRECT
+
+# Initialize fasd
+eval "$(fasd --init auto)"

@@ -33,3 +33,40 @@ print_result() {
     && e_success "$2" \
     || e_error "$2"
 }
+
+exec_with_status() {
+  MESSAGE=$1
+  shift
+
+  TMP='/tmp/dotfiles'
+  ! [[ -d $TMP ]] && mkdir -p $TMP
+
+  OUTFILE=$TMP/execwithstatus.out
+  touch $OUTFILE
+
+  { $@ 2>$OUTFILE & disown; } 2> /dev/null
+  PID=$! # Process id of the previous command
+
+  # SPIN='⣾⣽⣻⢿⡿⣟⣯⣷'
+  # SPIN='✶✸✹✺✹✷'
+  SPIN='⢄⢂⢁⡁⡈⡐⡠'
+
+  i=0
+  while kill -0 $PID 2> /dev/null;
+  do
+    i=$(( (i+1) %7 ))
+    printf "\r${SPIN:$i:1} $MESSAGE"
+    sleep .08
+  done
+
+  printf "\r"
+
+  if [[ -s $OUTFILE ]]; then
+    MESSAGE_ERROR="Error: $( cat $OUTFILE | perl -pe 's/.*?:\d+:\s+//' )."
+    e_error $MESSAGE_ERROR
+  else
+    e_success $MESSAGE
+  fi
+
+  rm $OUTFILE
+}

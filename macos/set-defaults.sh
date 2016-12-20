@@ -105,8 +105,8 @@ defaults write NSGlobalDomain AppleFontSmoothing -int 2
 defaults write com.apple.dock autohide -bool true
 
 # Show remaining battery time; hide percentage
-# defaults write com.apple.menuextra.battery ShowPercent -string "NO"
-defaults write com.apple.menuextra.battery ShowTime -string "YES"
+defaults write com.apple.menuextra.battery ShowPercent -string "YES"
+# defaults write com.apple.menuextra.battery ShowTime -string "YES"
 
 # Set up Safari for development
 defaults write com.apple.Safari IncludeInternalDebugMenu -bool true

@@ -15,4 +15,8 @@ then
   fi
 fi
 
+brew tap homebrew/bundle
+brew bundle
+brew cleanup
+
 exit 0

@@ -49,6 +49,7 @@ brew 'libvo-aacenc'
 brew 'libyaml'
 brew 'libzip'
 brew 'mackup'
+brew 'mas'
 brew 'openssl'
 brew 'mongodb', restart_service: true
 brew 'node'

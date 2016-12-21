@@ -99,6 +99,7 @@
   sb="status -sb"
   a="add"
   b="branch"
+  h="open"
 [credential]
   helper = osxkeychain
 [diff]

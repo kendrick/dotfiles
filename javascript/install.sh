@@ -2,11 +2,9 @@
 
 PACKAGES=$(< ./npm-global-packages.txt)
 
-npm install -g $PACKAGES --quiet
+exec_with_status "Installing global npm packages" npm install -g $PACKAGES --quiet
 
 # Ensure the latest stable version of Node is installed
 if type "n" > /dev/null; then
-  n stable
-else
-  echo "n not found. 😵"
+  exec_with_status "Installing the latest version of node" n stable
 fi

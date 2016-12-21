@@ -3,9 +3,8 @@
 xcode-select -p > /dev/null
 
 if [ $? -ne 0 ]; then
-  xcode-select --install
-  sudo xcodebuild -license accept
-  e_success "Xcode command line tools successfully installed."
+  exec_with_status "Installing Xcode command line tools" xcode-select --install
+  exec_with_status "Accepting Xcode license" sudo xcodebuild -license accept
 else
   e_info "Xcode command line tools already installed; skipping."
 fi

@@ -1,6 +1,6 @@
-#!/usr/local/bin/bash
-set -e
+#!/usr/local/bin/zsh
 
-fileicon set \
-  /Applications/iTerm.app \
-  $DOTFILES/iterm2/iTerm2.icns
+exec_with_status "Using a better iTerm icon" \
+  fileicon set \
+    /Applications/iTerm.app \
+    $DOTFILES/iterm2/iTerm2.icns

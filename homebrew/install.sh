@@ -3,20 +3,22 @@
 # Check for Homebrew
 if test ! $(which brew)
 then
-  echo "Installing Homebrew..."
-
   # Install the correct homebrew for each OS type
   if test "$(uname)" = "Darwin"
   then
-    ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    exec_with_status "Installing Homebrew" \
+      ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
   elif test "$(expr substr $(uname -s) 1 5)" = "Linux"
   then
-    ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Linuxbrew/install/master/install)"
+    exec_with_status "Installing Homebrew" \
+      ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Linuxbrew/install/master/install)"
   fi
+else
+  e_success "Homebrew already installed"
 fi
 
-brew tap homebrew/bundle
-brew bundle
-brew cleanup
+exec_with_status "Tapping homebrew/bundle" brew tap homebrew/bundle
+exec_with_status "Installing from Brewfile (this could take a while)" brew bundle
+exec_with_status "Cleaning up Homebrew packages" brew cleanup
 
 exit 0

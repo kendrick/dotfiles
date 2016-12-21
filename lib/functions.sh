@@ -1,5 +1,3 @@
-#!/usr/local/bin/zsh
-
 # Header logging
 e_header() {
   printf "\n➤ \e[4m$(tput setaf 0)%s$(tput sgr0)\e[0m\n" "$@"
@@ -41,16 +39,14 @@ exec_with_status() {
   TMP='/tmp/dotfiles'
   ! [[ -d $TMP ]] && mkdir -p $TMP
 
-  OUTFILE=$TMP/execwithstatus.out
+  FILENAME=execwithstatus.err
+  OUTFILE=$TMP/$FILENAME
   touch $OUTFILE
 
   { $@ 2>$OUTFILE & disown; } 2> /dev/null
   PID=$! # Process id of the previous command
 
-  # SPIN='⣾⣽⣻⢿⡿⣟⣯⣷'
-  # SPIN='✶✸✹✺✹✷'
   SPIN='⢄⢂⢁⡁⡈⡐⡠'
-
   i=0
   while kill -0 $PID 2> /dev/null;
   do
@@ -64,9 +60,11 @@ exec_with_status() {
   if [[ -s $OUTFILE ]]; then
     MESSAGE_ERROR="Error: $( cat $OUTFILE | perl -pe 's/.*?:\d+:\s+//' )."
     e_error $MESSAGE_ERROR
+
+    sed  -i "1i > $1" $OUTFILE
+    mv $OUTFILE $TMP/$PID-$FILENAME
   else
     e_success $MESSAGE
+    rm $OUTFILE
   fi
-
-  rm $OUTFILE
 }

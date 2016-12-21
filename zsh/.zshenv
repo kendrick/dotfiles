@@ -1,5 +1,9 @@
 DOTFILES=$HOME/.dotfiles
 
+for UTIL ($DOTFILES/lib/*.sh) do
+  source $UTIL
+done
+
 # Source ALLTHETHINGS
 for CONFIG_FILE ($DOTFILES/**/*.zsh) do
   source $CONFIG_FILE
@@ -11,16 +15,6 @@ if [[ -a $HOME/.localrc ]]
 then
   source $HOME/.localrc
 fi
-
-DEFAULT_USER='kmarnett'
-
-APP_SETTINGS_BACKUP_PATH=$HOME/Dropbox
-APP_SETTINGS_BACKUP_DIR='app-settings'
-
-ICON_FAILURE="❌ "
-ICON_SUCCESS="✅ "
-ICON_WARNING="⚠️ "
-ICON_INFO="ℹ️ "
 
 # Include rvm
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"

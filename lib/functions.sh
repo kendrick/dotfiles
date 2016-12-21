@@ -1,6 +1,6 @@
 # Header logging
 e_header() {
-  printf "\n➤ \e[4m$(tput setaf 0)%s$(tput sgr0)\e[0m\n" "$@"
+  printf "\n$(tput setaf 4)➤ \e[4m$(tput setaf 0)%s$(tput sgr0)\e[0m\n" "$@"
 }
 
 # Success logging

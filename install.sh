@@ -11,33 +11,14 @@ printf "
 
 "
 
+DOTFILES_REPO="git@github.com:kendrick/dotfiles.git"
+
 for UTIL in lib/*.sh; do
   source $UTIL
 done
 
-# Check for Xcode
-if [ ! -e "/Applications/Xcode.app/Contents/MacOS/Xcode" ]; then
-  printf "Install the latest version of Xcode from the Mac App Store before continuing. Launch the [A]pp Store, or [S]kip: "
-  read WANT_XCODE
-  WANT_XCODE=$( echo $WANT_XCODE | tr '[:upper:]' '[:lower:]' )
-  case $WANT_XCODE in
-    "a" )
-      open "https://itunes.apple.com/us/app/xcode/id497799835"
-      ;;
-    * )
-      ;;
-  esac
-fi
-
-poll_for_xcode() {
-  while [ ! -e "/Applications/Xcode.app/Contents/MacOS/Xcode" ];
-  do
-    sleep 5
-  done
-}
-exec_with_status "Waiting for Xcode install" poll_for_xcode
-
-DOTFILES_REPO="git@github.com:kendrick/dotfiles.git"
+# Install Xcode first so we can use mas-cli to install from the App Store
+./xcode/install.sh
 
 # Ask for dotfiles directory
 printf "Enter a name for your dotfiles directory. [Enter for '.dotfiles'] "
@@ -79,4 +60,3 @@ exec_with_status "Creating symlinks to dotfiles" symlink_files
 ./iterm2/install.sh
 ./javascript/install.sh
 ./ruby/install.sh
-./xcode/install.sh # Xcode commandline tools

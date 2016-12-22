@@ -60,3 +60,6 @@ exec_with_status "Creating symlinks to dotfiles" symlink_files
 ./iterm2/install.sh
 ./javascript/install.sh
 ./ruby/install.sh
+
+./macos/set-defaults.sh
+./macos/dock-icons.sh

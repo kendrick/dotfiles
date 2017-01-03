@@ -16,3 +16,4 @@ alias ssid='/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Curr
 alias top='htop'
 alias ws='wstorm'
 alias xkp='xkp "-/:;$&@.,?" -p wswswsddp -n 10'
+alias youtube-mp3='youtube-dl --extract-audio --audio-format mp3 --audio-quality 0'

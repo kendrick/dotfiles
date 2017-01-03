@@ -17,7 +17,7 @@ else
   e_success "Homebrew already installed"
 fi
 
-ln -s Brewfile $HOME/Brewfile
+ln -s $DOTFILES_DIR/Brewfile $HOME/Brewfile
 
 exec_with_status "Updating Homebrew" brew update
 exec_with_status "Tapping homebrew/bundle" brew tap homebrew/bundle

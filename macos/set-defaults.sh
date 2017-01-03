@@ -98,6 +98,9 @@ defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool
 defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
 defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
 
+# Set mouse tracking speed
+defaults write -g com.apple.mouse.scaling 2
+
 # Enable subpixel font rendering for non-Apple displays
 defaults write NSGlobalDomain AppleFontSmoothing -int 2
 

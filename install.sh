@@ -25,7 +25,7 @@ printf "Enter a name for your dotfiles directory. [Enter for '.dotfiles'] "
 read DOTFILES_DIR
 
 if [ -z "$DOTFILES_DIR" ]; then DOTFILES_DIR='.dotfiles'; fi
-DOTFILES_DIR=$HOME/$DOTFILES_DIR
+export DOTFILES_DIR=$HOME/$DOTFILES_DIR
 
 # Check for existence of directory
 if [ -d "$DOTFILES_DIR" ]; then

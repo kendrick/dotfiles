@@ -1,10 +1,10 @@
-DEFAULT_USER='kmarnett'
-DOTFILES=$HOME/.dotfiles
+export DEFAULT_USER='kmarnett'
+export DOTFILES=$HOME/.dotfiles
 
-APP_SETTINGS_BACKUP_PATH=$HOME/Dropbox
-APP_SETTINGS_BACKUP_DIR='app-settings'
+export APP_SETTINGS_BACKUP_PATH=$HOME/Dropbox
+export APP_SETTINGS_BACKUP_DIR='app-settings'
 
-ICON_FAILURE="❌ "
-ICON_SUCCESS="✅ "
-ICON_WARNING="⚠️ "
-ICON_INFO="ℹ️ "
+export ICON_FAILURE="❌ "
+export ICON_SUCCESS="✅ "
+export ICON_WARNING="⚠️ "
+export ICON_INFO="ℹ️ "

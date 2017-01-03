@@ -40,10 +40,11 @@ print_result() {
 export print_result
 
 exec_with_status() {
+  EWS_USER=$(id -un)
   MESSAGE=$1
   shift
 
-  TMP='/tmp/dotfiles'
+  TMP=/tmp/$EWS_USER/dotfiles
   ! [[ -d $TMP ]] && mkdir -p $TMP
 
   FILENAME=execwithstatus.err

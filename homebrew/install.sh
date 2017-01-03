@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Check for Homebrew
 if test ! $(which brew)
@@ -16,6 +16,8 @@ then
 else
   e_success "Homebrew already installed"
 fi
+
+ln -s Brewfile $HOME/Brewfile
 
 exec_with_status "Updating Homebrew" brew update
 exec_with_status "Tapping homebrew/bundle" brew tap homebrew/bundle

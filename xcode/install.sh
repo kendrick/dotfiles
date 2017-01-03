@@ -1,6 +1,6 @@
 #!/usr/local/bin/zsh
 
-PATH_TO_XCODE="/Applications/Xcode.app/Contents/MacOS/Xcodde"
+PATH_TO_XCODE="/Applications/Xcode.app/Contents/MacOS/Xcode"
 
 poll_for_xcode() {
   while [ ! -e "$PATH_TO_XCODE" ];

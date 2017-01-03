@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 printf "
        ●               ●           ◼︎ ◼︎   ◼︎   ◼︎
@@ -11,7 +11,7 @@ printf "
 
 "
 
-DOTFILES_REPO="git@github.com:kendrick/dotfiles.git"
+DOTFILES_REPO="https://github.com/kendrick/dotfiles.git"
 
 for UTIL in lib/*.sh; do
   source $UTIL

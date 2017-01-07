@@ -17,6 +17,7 @@ else
   e_success "Homebrew already installed"
 fi
 
+# TODO: Create 2 Brewfiles - 1 for macOS, 1 for Linux
 ln -s $DOTFILES_DIR/Brewfile $HOME/Brewfile
 
 exec_with_status "Updating Homebrew" brew update

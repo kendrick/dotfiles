@@ -28,7 +28,11 @@ ZSH_THEME="agnoster"
 
 source $ZSH/oh-my-zsh.sh
 
-export PATH="$PATH:/usr/local/bin:$DOTFILES/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.rvm/bin"
+add_to_path /usr/local/bin
+add_to_path /usr/bin
+add_to_path /usr/sbin
+add_to_path /bin
+add_to_path /sbin
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then

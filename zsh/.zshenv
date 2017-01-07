@@ -16,8 +16,11 @@ then
   source $HOME/.localrc
 fi
 
+add_to_path /bin
+
 # Include rvm
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"
+
 
 # Path to your oh-my-zsh installation.
 export ZSH=$HOME/.oh-my-zsh
@@ -27,12 +30,6 @@ plugins=(bower brew dircycle encode64 fasd gitfast git-extras git-flow-completio
 ZSH_THEME="agnoster"
 
 source $ZSH/oh-my-zsh.sh
-
-add_to_path /usr/local/bin
-add_to_path /usr/bin
-add_to_path /usr/sbin
-add_to_path /bin
-add_to_path /sbin
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then

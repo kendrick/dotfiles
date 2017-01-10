@@ -9,9 +9,9 @@ export ICON_SUCCESS="✅ "
 export ICON_WARNING="⚠️ "
 export ICON_INFO="ℹ️ "
 
-for VARIABLES ($DOTFILES/*/variables.sh) do
-  case $VARIABLES in
-    *lib/variables.sh* ) continue;; # Avoid infinite recursion
-    *) source $VARIABLES;;
+for VARS_FILE in $DOTFILES/*/variables.sh; do
+  case $VARS_FILE in
+    *lib/variables.sh* ) continue;;
+    *) source $VARS_FILE;;
   esac
 done

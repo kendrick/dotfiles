@@ -1,6 +1,8 @@
 export DEFAULT_USER='kmarnett'
 export DOTFILES=$HOME/.dotfiles
 
+export PLATFORM=$(uname -s)
+
 export APP_SETTINGS_BACKUP_PATH=$HOME/Dropbox
 export APP_SETTINGS_BACKUP_DIR='app-settings'
 

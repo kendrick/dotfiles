@@ -9,7 +9,6 @@ cssnano-cli
 cssstats
 exorcist
 faker-cli
-fileicon
 gifify
 grunt-cli
 gulp
@@ -34,7 +33,6 @@ sassdoc
 slimerjs
 svgo
 tldr
-trash-cli
 uglify-js
 uncss
 watchify

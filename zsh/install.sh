@@ -9,3 +9,7 @@ exec_with_status "Changing default shell to zsh"\
 # Install oh-my-zsh
 exec_with_status "Installing oh-my-zsh" \
   sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+
+# oh-my-zsh clobbers existing .zshrc files; re-link it.
+rm $HOME/.zshrc
+ln -s $DOTFILES/zsh/.zshrc $HOME/.zshrc

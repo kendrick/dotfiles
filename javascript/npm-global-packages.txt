@@ -10,6 +10,7 @@ cssstats
 exorcist
 faker-cli
 gifify
+git-open
 grunt-cli
 gulp
 http-server

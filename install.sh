@@ -17,9 +17,6 @@ for UTIL in lib/*.sh; do
   source $UTIL
 done
 
-# Install Xcode first so we can use mas-cli to install from the App Store
-./xcode/install.sh
-
 # Ask for dotfiles directory
 printf "Enter a name for your dotfiles directory. [Enter for '.dotfiles'] "
 read DOTFILES_DIR
@@ -53,14 +50,20 @@ symlink_files() {
 
 exec_with_status "Creating symlinks to dotfiles" symlink_files
 
-./homebrew/install.sh
-./apt-get/install.sh
-./app-settings/install.sh
-
+# Common installs for all platforms
 ./zsh/install.sh
-./iterm2/install.sh
 ./javascript/install.sh
 ./ruby/install.sh
 
-./macos/set-defaults.sh
-./macos/dock-icons.sh
+if [[ "$PLATFORM" == "Darwin" ]]; then
+  # Install Xcode first so we can use mas-cli to install from the App Store
+  ./xcode/install.sh
+  ./homebrew/install.sh
+  ./app-settings/install.sh
+
+  ./macos/set-defaults.sh
+  ./macos/dock-icons.sh
+fi
+elif [[ "$PLATFORM" == "Linux" ]]; then
+  ./apt-get/install.sh
+fi

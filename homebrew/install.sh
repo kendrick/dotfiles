@@ -1,28 +1,24 @@
 #!/bin/bash
 
-# Check for Homebrew
-if test ! $(which brew)
+# Only install homebrew for macOS
+if test "$(uname)" = "Darwin"
 then
-  # Install the correct homebrew for each OS type
-  if test "$(uname)" = "Darwin"
+  # Check for Homebrew
+  if test ! $(which brew)
   then
     exec_with_status "Installing Homebrew" \
       ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-  elif test "$(expr substr $(uname -s) 1 5)" = "Linux"
-  then
-    exec_with_status "Installing Homebrew" \
-      ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Linuxbrew/install/master/install)"
+
+    # TODO: Create 2 Brewfiles - 1 for macOS, 1 for Linux
+    ln -s $DOTFILES_DIR/Brewfile $HOME/Brewfile
+
+    exec_with_status "Updating Homebrew" brew update
+    exec_with_status "Tapping homebrew/bundle" brew tap homebrew/bundle
+    exec_with_status "Installing from Brewfile (this could take a while)" brew bundle
+    exec_with_status "Cleaning up Homebrew packages" brew cleanup
+  else
+    e_success "Homebrew already installed"
   fi
-else
-  e_success "Homebrew already installed"
 fi
-
-# TODO: Create 2 Brewfiles - 1 for macOS, 1 for Linux
-ln -s $DOTFILES_DIR/Brewfile $HOME/Brewfile
-
-exec_with_status "Updating Homebrew" brew update
-exec_with_status "Tapping homebrew/bundle" brew tap homebrew/bundle
-exec_with_status "Installing from Brewfile (this could take a while)" brew bundle
-exec_with_status "Cleaning up Homebrew packages" brew cleanup
 
 exit 0

@@ -54,6 +54,7 @@ symlink_files() {
 exec_with_status "Creating symlinks to dotfiles" symlink_files
 
 ./homebrew/install.sh
+./apt-get/install.sh
 ./app-settings/install.sh
 
 ./zsh/install.sh

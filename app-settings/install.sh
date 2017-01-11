@@ -3,11 +3,11 @@
 # If $APP_SETTINGS_BACKUP_PATH & $APP_SETTINGS_BACKUP_DIR are non-zero, ask to
 # start Dropbox & restore from mackup
 start_dropbox() {
-  if [[ $PLATFORM == "Darwin" ]]; then
+  if [[ "$PLATFORM" == "Darwin" ]]; then
     DROPBOX_EXE=/Applications/Dropbox.app/Contents/MacOS/Dropbox
     $DROPBOX_EXE > /dev/null &
     disown
-  elif [[ $PLATFORM == "Linux" ]]; then
+  elif [[ "$PLATFORM" == "Linux" ]]; then
     dropbox start > /dev/null &
     disown
     dropbox autostart > /dev/null &

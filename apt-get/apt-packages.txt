@@ -6,4 +6,5 @@ git-flow
 git-extras
 fasd
 make
+nautilus-dropbox
 python

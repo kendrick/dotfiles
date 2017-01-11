@@ -2,17 +2,24 @@
 
 # If $APP_SETTINGS_BACKUP_PATH & $APP_SETTINGS_BACKUP_DIR are non-zero, ask to
 # start Dropbox & restore from mackup
-DROPBOX_EXE=/Applications/Dropbox.app/Contents/MacOS/Dropbox
 start_dropbox() {
-  $DROPBOX_EXE > /dev/null &
-  disown
+  if [[ $PLATFORM == "Darwin" ]]; then
+    DROPBOX_EXE=/Applications/Dropbox.app/Contents/MacOS/Dropbox
+    $DROPBOX_EXE > /dev/null &
+    disown
+  elif [[ $PLATFORM == "Linux" ]]; then
+    dropbox start > /dev/null &
+    disown
+    dropbox autostart > /dev/null &
+    disown
+  fi
 }
 
 e_header "Checking for extended app settings."
 if [ ! -z "$APP_SETTINGS_BACKUP_PATH" ] && [ ! -z "$APP_SETTINGS_BACKUP_DIR" ]; then
   printf "Looks like you may have backed up extended application settings at $APP_SETTINGS_BACKUP_PATH/$APP_SETTINGS_BACKUP_DIR.\n\n"
 
-  if [ -e $DROPBOX_EXE ]; then
+  if [ -e $DROPBOX_EXE ] || test $(which dropbox); then
     printf "Press [D] to start the Dropbox sync client, or [S]kip: "
     read WANT_DROPBOX
     WANT_DROPBOX=$( echo $WANT_DROPBOX | tr '[:upper:]' '[:lower:]' )

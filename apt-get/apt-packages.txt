@@ -1,5 +1,9 @@
 zsh
+g++
+gcc
 git-core
 git-flow
 git-extras
 fasd
+make
+python

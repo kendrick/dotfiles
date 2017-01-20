@@ -18,6 +18,7 @@
     showInvisibles: true
     softWrap: true
     softWrapAtPreferredLineLength: true
+    softWrapHangingIndent: 2
     tabType: "soft"
   "exception-reporting":
     userId: "930b0e89-fa64-58fa-2074-827e30ebef0c"

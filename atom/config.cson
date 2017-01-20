@@ -1,0 +1,27 @@
+"*":
+  core:
+    telemetryConsent: "limited"
+    themes: [
+      "one-light-ui"
+      "one-light-syntax"
+    ]
+    useCustomTitleBar: true
+  editor:
+    autoIndentOnPaste: false
+    fontFamily: "Fira Code"
+    invisibles:
+      cr: "↩"
+      eol: " "
+      tab: "⇥"
+    preferredLineLength: 100
+    showIndentGuide: true
+    showInvisibles: true
+    softWrap: true
+    softWrapAtPreferredLineLength: true
+    tabType: "soft"
+  "exception-reporting":
+    userId: "930b0e89-fa64-58fa-2074-827e30ebef0c"
+  "one-light-ui":
+    fontSize: 14
+  welcome:
+    showOnStartup: false

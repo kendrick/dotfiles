@@ -13,3 +13,5 @@ do
     ln -s $file $ATOM_DIR/$(basename $file)
   fi
 done
+
+apm install $(cat $DOTFILES/atom/packages.list)

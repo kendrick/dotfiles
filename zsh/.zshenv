@@ -17,6 +17,7 @@ then
 fi
 
 add_to_path /bin
+add_to_path $DOTFILES/bin
 
 # Include rvm
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"

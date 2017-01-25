@@ -1,0 +1,12 @@
+#!/usr/local/bin/zsh
+
+FILENAME="${1%.*}"
+EXTENSION="${1##*.}"
+
+if [[ "$EXTENSION" == "svg" ]] || [[ "$EXTENSION" == "SVG" ]]; then
+  CMD="/usr/local/bin/svgo"
+else
+  CMD="/usr/local/bin/imagemin"
+fi
+
+$CMD $1 > $FILENAME.min.$EXTENSION

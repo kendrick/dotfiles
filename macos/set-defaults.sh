@@ -53,7 +53,7 @@ defaults write com.apple.finder QLEnableTextSelection -bool true
 defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
 
 # Set a faster keyboard repeat rate
-defaults write NSGlobalDomain KeyRepeat -int 0.20
+defaults write NSGlobalDomain KeyRepeat -int 0.15
 
 # Set a shorter Delay until key repeat
 defaults write NSGlobalDomain InitialKeyRepeat -int 30

@@ -14,4 +14,4 @@ do
   fi
 done
 
-apm install $(cat $DOTFILES/editor/atom/packages.list)
+apm install $(cat $DOTFILES/editor/atom/packages.txt)

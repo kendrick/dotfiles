@@ -7,6 +7,7 @@ conventional-changelog-cli
 csscomb
 cssnano-cli
 cssstats
+dart-sass
 exorcist
 faker-cli
 gifify
@@ -30,7 +31,9 @@ phantomas
 phantomjs-prebuilt
 polyjuice
 psi
+sass-lint
 sassdoc
+sitespeed.io
 slimerjs
 svgo
 tldr
@@ -38,3 +41,5 @@ uglify-js
 uncss
 watchify
 xkpasswd
+yarn
+

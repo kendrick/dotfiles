@@ -1,3 +1,4 @@
 #!/usr/local/bin/zsh
 
-apm list --installed --bare > $DOTFILES/editor/atom/packages.txt
+apm list --installed --bare | \
+  perl -pe 's/^([A-Za-z0-9.-]+)@.+$/$1/g;' > $DOTFILES/editor/atom/packages.txt

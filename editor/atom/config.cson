@@ -25,6 +25,9 @@
     tabType: "soft"
   "exception-reporting":
     userId: "930b0e89-fa64-58fa-2074-827e30ebef0c"
+  linter:
+    errorPanelHeight: 166
+    showErrorPanel: false
   "linter-eslint":
     eslintrcPath: "~"
   "one-light-ui":

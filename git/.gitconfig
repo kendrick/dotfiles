@@ -46,6 +46,12 @@
   # History of a given file w/ diffs
   fl = log -u
 
+  # Show a diff of all unpushed changes
+  du = "!f() { BRANCH=$(git rev-parse --abbrev-ref HEAD); git diff origin/$BRANCH..HEAD}; f"
+
+  # Undo the last commit, keep changes
+  un = "!git reset --soft HEAD^"
+
   # `log` variations...
   # Short form with branches/tags
   ls = log --pretty='format:"%C(yellow)%h%Cred%d\\ %Creset%s%Cblue\\ [%cn]"' --decorate

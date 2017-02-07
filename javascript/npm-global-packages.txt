@@ -31,6 +31,7 @@ phantomas
 phantomjs-prebuilt
 polyjuice
 psi
+pug-lint
 sass-lint
 sassdoc
 sitespeed.io

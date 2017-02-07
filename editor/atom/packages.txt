@@ -16,6 +16,8 @@ less-than-slash
 linter
 linter-csslint
 linter-eslint
+linter-pug
+linter-pug-lint
 linter-sass-lint
 merge-conflicts
 pigments

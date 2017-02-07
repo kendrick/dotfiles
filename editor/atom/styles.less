@@ -1,0 +1,35 @@
+@highlight-0: #526fff;
+@highlight-1: lighten(@highlight-0, 20%);
+@highlight-1-a: fadeout(@highlight-1, 40%);
+
+
+@keyframes bracketanimation {
+  from  {
+    border-width: 1px;
+    border-color: @highlight-0;
+  }
+  50% {
+    background-color: @highlight-0;
+  }
+  to {
+    border-width: 2px;
+    border-color: @highlight-1-a;
+  }
+}
+
+atom-text-editor::shadow {
+  .bracket-matcher .region {
+    border-bottom: 0;
+
+    &::after {
+      content: '';
+      animation: bracketanimation 300ms ease-in-out;
+      border: 1px solid @highlight-0;
+      border-radius: 2px;
+      background-color: @highlight-1-a;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+    }
+  }
+}

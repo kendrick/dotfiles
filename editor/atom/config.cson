@@ -3,6 +3,13 @@
     disabledPackages: [
       "merge-conflicts"
     ]
+    followSymlinks: true
+    ignoredNames: [
+      ".git"
+      ".DS_Store"
+      ".keep"
+      "._*"
+    ]
     telemetryConsent: "limited"
     themes: [
       "one-light-ui"
@@ -32,5 +39,6 @@
     eslintrcPath: "~"
   "one-light-ui":
     fontSize: 14
+  "spell-check": {}
   welcome:
     showOnStartup: false

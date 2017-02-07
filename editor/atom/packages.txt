@@ -1,3 +1,4 @@
+advanced-open-file
 atom-beautify
 atom-csscomb
 atom-jade

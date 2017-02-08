@@ -47,7 +47,7 @@
   fl = log -u
 
   # Show a diff of all unpushed changes
-  du = "!f() { BRANCH=$(git rev-parse --abbrev-ref HEAD); git diff origin/$BRANCH..HEAD}; f"
+  #du = "!f() { BRANCH=$(git rev-parse --abbrev-ref HEAD); git diff origin/$BRANCH..HEAD}; f"
 
   # Undo the last commit, keep changes
   un = "!git reset --soft HEAD^"

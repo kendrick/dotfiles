@@ -54,13 +54,13 @@
 
   # `log` variations...
   # Short form with branches/tags
-  ls = log --pretty='format:"%C(yellow)%h%Cred%d\\ %Creset%s%Cblue\\ [%cn]"' --decorate
+  ls = log --pretty='format:"%C(yellow)%h%Cred%d %Creset%s%Cblue [%cn]"' --decorate
   # With relative time
-  ld = log --pretty='format:"%C(yellow)%h\\ %ad%Cred%d\\ %Creset%s%Cblue\\ [%cn]"' --decorate --date=relative
+  ld = log --pretty='format:"%C(yellow)%h %ad%Cred%d %Creset%s%Cblue [%cn]"' --decorate --date=relative
   # With graph
   lg = log --color --graph
   # With changed files
-  ll =  log --pretty='format:"%C(yellow)%h%Cred%d\\ %Creset%s%Cblue\\ [%cn]"' --decorate --numstat
+  ll =  log --pretty='format:"%C(yellow)%h%Cred%d %Creset%s%Cblue [%cn]"' --decorate --numstat
 
   # Files modified in last commit
   dl = "!git ll -1"

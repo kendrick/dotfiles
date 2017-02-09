@@ -17,10 +17,10 @@ linter
 linter-csslint
 linter-eslint
 linter-pug
-linter-pug-lint
 linter-sass-lint
 merge-conflicts
 pigments
+platformio-ide-terminal
 pretty-json
 synced-sidebar
 unity-ui

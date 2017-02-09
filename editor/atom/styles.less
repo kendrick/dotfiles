@@ -2,7 +2,6 @@
 @highlight-1: lighten(@highlight-0, 20%);
 @highlight-1-a: fadeout(@highlight-1, 40%);
 
-
 @keyframes bracketanimation {
   from  {
     border-width: 1px;
@@ -32,5 +31,19 @@ atom-text-editor::shadow {
       height: 100%;
       position: absolute;
     }
+  }
+}
+
+
+.platformio-ide-terminal .xterm {
+  background-color: #fafafa;
+  color: #383a42;
+
+  ::selection {
+    background-color: #f1f1f1;
+  }
+
+  .terminal-cursor {
+    background-color: #383a42;
   }
 }

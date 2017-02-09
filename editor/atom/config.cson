@@ -39,6 +39,30 @@
     eslintrcPath: "~"
   "one-light-ui":
     fontSize: 14
+  "platformio-ide-terminal":
+    ansiColors:
+      normal:
+        black: "#484b54"
+        blue: "#4078f2"
+        cyan: "#50a14f"
+        green: "#50a14f"
+        magenta: "#a62ea4"
+        red: "#e45649"
+        white: "#c7c7c7"
+        yellow: "#dab148"
+      zBright:
+        brightBlack: "#000000"
+        brightBlue: "#4078f2"
+        brightCyan: "#50a14f"
+        brightGreen: "#50a14f"
+        brightMagenta: "#b02fa4"
+        brightRed: "#e45649"
+        brightYellow: "#efc65a"
   "spell-check": {}
+  "terminal-plus":
+    core:
+      workingDirectory: "Active File"
+    style:
+      theme: "inverse"
   welcome:
     showOnStartup: false

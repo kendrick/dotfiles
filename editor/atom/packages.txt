@@ -19,6 +19,7 @@ linter-eslint
 linter-pug
 linter-sass-lint
 merge-conflicts
+open-terminal-here
 pigments
 platformio-ide-terminal
 pretty-json

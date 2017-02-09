@@ -39,6 +39,8 @@
     eslintrcPath: "~"
   "one-light-ui":
     fontSize: 14
+  "open-terminal-here":
+    command: "open -a iTerm.app \"$PWD\""
   "platformio-ide-terminal":
     ansiColors:
       normal:

@@ -58,6 +58,10 @@
         brightMagenta: "#b02fa4"
         brightRed: "#e45649"
         brightYellow: "#efc65a"
+    core:
+      mapTerminalsTo: "Folder"
+      workingDirectory: "Active File"
+    style: {}
   "spell-check": {}
   "terminal-plus":
     core:

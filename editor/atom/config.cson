@@ -62,6 +62,7 @@
         brightYellow: "#efc65a"
     core:
       mapTerminalsTo: "Folder"
+      mapTerminalsToAutoOpen: true
       workingDirectory: "Active File"
     style: {}
   "spell-check": {}

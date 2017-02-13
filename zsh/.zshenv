@@ -17,7 +17,6 @@ then
 fi
 
 add_to_path /bin
-add_to_path /usr/local/sbin
 add_to_path $DOTFILES/bin
 
 # Include rvm

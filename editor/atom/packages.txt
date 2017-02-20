@@ -7,6 +7,7 @@ atom-material-syntax-light
 atom-material-ui
 autoclose-html
 autocomplete-sass
+compare-files
 editorconfig
 file-icons
 highlight-line

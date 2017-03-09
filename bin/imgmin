@@ -1,17 +1,22 @@
 #!/usr/local/bin/zsh
 
-FILENAME="${1%.*}"
-EXTENSION="${1##*.}"
+for BIGFILE in "$@"
+do
+  if [[ "$BIGFILE" != *.min.* ]]; then
+    FILENAME="${BIGFILE%.*}"
+    EXTENSION="${BIGFILE##*.}"
 
-EXT=$( echo $EXTENSION | tr '[:upper:]' '[:lower:]' )
+    EXT=$( echo $EXTENSION | tr '[:upper:]' '[:lower:]' )
 
-if [[ "$EXT" == "png" ]]; then
-  CMD="/usr/local/bin/pngquant"
-  $CMD --speed 1 --ext .min.$EXTENSION $1
-elif [[ "$EXT" == "svg" ]]; then
-  CMD="/usr/local/bin/svgo"
-  $CMD $1 -o $FILENAME.min.$EXTENSION
-else
-  CMD="/usr/local/bin/imagemin"
-  $CMD $1 > $FILENAME.min.$EXTENSION
-fi
+    if [[ "$EXT" == "png" ]]; then
+      CMD="/usr/local/bin/pngquant"
+      $CMD --speed 1 --ext .min.$EXTENSION $BIGFILE
+    elif [[ "$EXT" == "svg" ]]; then
+      CMD="/usr/local/bin/svgo"
+      $CMD $BIGFILE -o $FILENAME.min.$EXTENSION
+    else
+      CMD="/usr/local/bin/imagemin -p"
+      $CMD $BIGFILE > $FILENAME.min.$EXTENSION
+    fi
+  fi
+done

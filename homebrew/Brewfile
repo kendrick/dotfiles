@@ -17,6 +17,7 @@ brew 'automake'
 brew 'readline'
 brew 'bash'
 brew 'bash-completion'
+brew 'blueutil'
 brew 'boost'
 brew 'coreutils'
 brew 'cowsay'
@@ -94,6 +95,8 @@ brew 'homebrew/dupes/grep', args: ['with-default-names']
 brew 'homebrew/dupes/less'
 brew 'homebrew/dupes/make'
 brew 'homebrew/dupes/rsync'
+cask 'atom'
+cask 'atom-beta'
 cask 'bartender'
 cask 'betterzipql'
 cask 'firefox'
@@ -134,6 +137,7 @@ cask 'quicklook-csv'
 cask 'quicklook-json'
 cask 'reflector'
 cask 'safari-technology-preview'
+cask 'skype'
 cask 'spectacle'
 cask 'suspicious-package'
 cask 'teamviewer'
@@ -144,6 +148,7 @@ cask 'visual-studio-code'
 cask 'vlc'
 cask 'webpquicklook'
 mas '1Password', id: 443987910
+mas 'Bear', id: 1091189122
 mas 'DaisyDisk', id: 411643860
 mas 'Evernote', id: 406056744
 mas 'GIPHY CAPTURE', id: 668208984

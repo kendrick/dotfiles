@@ -7,11 +7,13 @@ atom-material-syntax-light
 atom-material-ui
 autoclose-html
 autocomplete-sass
+busy-signal
 compare-files
 editorconfig
 file-icons
 highlight-line
 highlight-selected
+intentions
 language-pug
 less-than-slash
 linter
@@ -19,6 +21,7 @@ linter-csslint
 linter-eslint
 linter-pug
 linter-sass-lint
+linter-ui-default
 merge-conflicts
 open-terminal-here
 pigments

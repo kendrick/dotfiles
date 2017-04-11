@@ -41,7 +41,8 @@ if [ ! -z "$APP_SETTINGS_BACKUP_PATH" ] && [ ! -z "$APP_SETTINGS_BACKUP_DIR" ]; 
     WANT_MACKUP=$( echo $WANT_MACKUP | tr '[:upper:]' '[:lower:]' )
     case $WANT_MACKUP in
       "m" )
-        exec_with_status "Restoring settings via Mackup" mackup restore
+        e_header "Restoring settings via Mackup"
+        mackup restore
         ;;
       * )
         ;;

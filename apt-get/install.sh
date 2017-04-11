@@ -8,5 +8,6 @@ then
 
   PACKAGES=$(tr '\n' ' ' < ./apt-packages.txt)
 
-  exec_with_status "Installing apt packages" echo $PACKAGES | xargs sudo apt-get install -y
+  e_header "Installing apt packages"
+  echo $PACKAGES | xargs sudo apt-get install -y
 fi

@@ -34,7 +34,8 @@ if [ -d "$DOTFILES_DIR" ]; then
   git checkout master
   git merge upstream/master
 else
-  exec_with_status "Cloning dotfiles repo" git clone -q $DOTFILES_REPO $DOTFILES_DIR
+  e_header "Cloning dotfiles repo"
+  git clone -q $DOTFILES_REPO $DOTFILES_DIR
 fi
 
 cd $DOTFILES_DIR
@@ -48,12 +49,13 @@ symlink_files() {
   done
 }
 
-exec_with_status "Creating symlinks to dotfiles" symlink_files
+e_header "Creating symlinks to dotfiles"
+symlink_files
 
 # Common installs for all platforms
+./ruby/install.sh
 ./zsh/install.sh
 ./javascript/install.sh
-./ruby/install.sh
 
 if [[ "$PLATFORM" == "Darwin" ]]; then
   # Install Xcode first so we can use mas-cli to install from the App Store

@@ -15,8 +15,8 @@ do
       CMD="/usr/local/bin/svgo"
       $CMD $BIGFILE -o $FILENAME.min.$EXTENSION
     else
-      CMD="/usr/local/bin/imagemin -p"
-      $CMD $BIGFILE > $FILENAME.min.$EXTENSION
+      CMD="/usr/local/bin/imagemin"
+      $CMD -p $BIGFILE > $FILENAME.min.$EXTENSION
     fi
   fi
 done

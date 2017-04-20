@@ -14,6 +14,7 @@ alias oops='TF_CMD=$(TF_ALIAS=oops PYTHONIOENCODING=utf-8 TF_SHELL_ALIASES=$(ali
 alias rmdsstore="find . -name '*.DS_Store' -type f -delete"
 alias ssid='/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '"'"'/ SSID/ {print substr($0, index($0, $2))}'"'"''
 alias top='htop'
+alias upgrade-sketchtool='/Applications/Sketch.app/Contents/Resources/sketchtool/install.sh'
 alias ws='wstorm'
 alias xkp='xkp "-/:;$&@.,?" -p wswswsddp -n 10'
 alias youtube-mp3='youtube-dl --extract-audio --audio-format mp3 --audio-quality 0'

@@ -13,6 +13,7 @@ faker-cli
 gifify
 git-open
 grunt-cli
+guetzli
 gulp
 http-server
 imagemin-cli

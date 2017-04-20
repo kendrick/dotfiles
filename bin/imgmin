@@ -14,9 +14,13 @@ do
     elif [[ "$EXT" == "svg" ]]; then
       CMD="/usr/local/bin/svgo"
       $CMD $BIGFILE -o $FILENAME.min.$EXTENSION
+    elif [[ "$EXT" == "jpg" ]] || [[ "$EXT" == "jpeg" ]]; then
+      CMD="/usr/local/bin/guetzli"
+      $CMD --quality 88 $BIGFILE $FILENAME.min.$EXTENSION
     else
       CMD="/usr/local/bin/imagemin"
       $CMD -p $BIGFILE > $FILENAME.min.$EXTENSION
     fi
+
   fi
 done

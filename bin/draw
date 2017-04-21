@@ -1,0 +1,10 @@
+#!/usr/local/bin/bash
+
+if [[ -e $(which convert) ]]; then
+  for IMG in "$@"
+  do
+    convert $IMG -edge 1 -negate -normalize -colorspace Gray -blur 0x.5 -contrast-stretch 0x50% $IMG
+  done
+else
+  echo "ERROR: ImageMagick not installed."
+fi

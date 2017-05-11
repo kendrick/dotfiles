@@ -34,6 +34,7 @@ polyjuice
 psi
 pug-cli
 pug-lint
+pushover-cli
 sass-lint
 sassdoc
 sitespeed.io

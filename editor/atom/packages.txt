@@ -30,6 +30,5 @@ open-terminal-here
 pigments
 platformio-ide-terminal
 pretty-json
-synced-sidebar
 unity-ui
 

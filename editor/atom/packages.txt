@@ -5,6 +5,7 @@ atom-jade
 atom-material-syntax
 atom-material-syntax-light
 atom-material-ui
+atom-ternjs
 autoclose-html
 autocomplete-sass
 busy-signal
@@ -13,7 +14,9 @@ editorconfig
 file-icons
 highlight-line
 highlight-selected
+hyperclick
 intentions
+js-hyperclick
 language-pug
 less-than-slash
 linter

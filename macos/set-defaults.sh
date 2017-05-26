@@ -25,8 +25,9 @@ defaults write com.apple.finder AppleShowAllFiles YES
 defaults write NSGlobalDomain AppleShowAllExtensions -bool true
 
 # Save screenshots to the desktop & disable the dumb shadow
+mkdir -p ~/Desktop/Screenshots
 defaults write com.apple.screencapture disable-shadow -bool true
-defaults write com.apple.screencapture location "${HOME}/Desktop/Screenshots"
+defaults write com.apple.screencapture location "~/Desktop/Screenshots"
 
 # Save to disk (not to iCloud) by default
 defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false

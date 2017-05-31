@@ -1,0 +1,44 @@
+#!/usr/local/bin/zsh
+# Usage: backup <src> <dest> <label>
+
+if [[ "$#" -ne 3 ]]; then
+    echo "$0: Expected 3 arguments. Received $#: $@" >&2
+    exit 1
+fi
+
+# Parse arguments
+#   $1 should be a space-separated list of directories.
+#   $2 should be the destination directory
+#   $3 should probably indicate backup frequency—daily, weekly, monthly, etc.
+DIRS=("${(f)1}")
+BASEDIR=$2
+LABEL=$3
+
+BACKUP_PATH=$BASEDIR/$BACKUP_TARGET_PATH
+PATH_W_LABEL=$BACKUP_PATH/$LABEL
+
+# Check ssid
+# if [[ (! -z $(alias | grep ssid=)) && ($(ssid) = "$BACKUP_SSID_HOME") ]]; then
+#   SSID=$(ssid)
+#
+#   # Run local network backup, else run rclone
+# fi
+
+mkdir -p $PATH_W_LABEL.{0,1,2,3}
+
+rm -rf $PATH_W_LABEL.3
+mv $PATH_W_LABEL.2 $PATH_W_LABEL.3
+mv $PATH_W_LABEL.1 $PATH_W_LABEL.2
+mv $PATH_W_LABEL.0 $PATH_W_LABEL.1
+
+for DIR in $DIRS; do
+  SUMMARY=$(rsync -a --delete --stats --link-dest=$PATH_W_LABEL.1 $DIR $PATH_W_LABEL.0/)
+
+  SHORTDIR=(${(s|/|)DIR})
+  INDEX=${#SHORTDIR}
+  type pushover &>/dev/null && \
+    pushover -t "Backed up ${SHORTDIR[INDEX]}." $SUMMARY
+done
+
+# Run rsync
+# rsync -ax -e ssh --delete --ignore-errors --stats $BACKUP_SRC_DIRS $BACKUP_SSH_CONNECTION:$BACKUP_TARGET_PATH

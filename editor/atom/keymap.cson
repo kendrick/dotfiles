@@ -1,0 +1,2 @@
+'.platform-darwin atom-workspace':
+  'shift-cmd-T': 'pane:reopen-closed-item'

@@ -1,6 +1,5 @@
 a11y
 browser-sync
-browserify
 casperjs
 commitizen
 conventional-changelog-cli
@@ -21,15 +20,12 @@ jscs
 jshint
 jshint-stylish
 live-server
-localtunnel
 n
-node-inspector
 npm
 npm-check
 npm-check-updates
 parker
 phantomas
-phantomjs-prebuilt
 polyjuice
 psi
 pug-cli
@@ -39,9 +35,7 @@ sass-lint
 sassdoc
 sitespeed.io
 slimerjs
-svgo
 tldr
-uglify-js
 uncss
 watchify
 xkpasswd

@@ -1,3 +1,4 @@
+Sublime-Style-Column-Selection
 advanced-open-file
 atom-beautify
 atom-csscomb
@@ -7,9 +8,11 @@ atom-material-syntax-light
 atom-material-ui
 atom-ternjs
 autoclose-html
+autocomplete-modules
 autocomplete-sass
 busy-signal
 compare-files
+copy-path
 editorconfig
 file-icons
 highlight-line
@@ -26,6 +29,7 @@ linter-pug
 linter-sass-lint
 linter-ui-default
 merge-conflicts
+open-in-browser
 open-terminal-here
 pigments
 platformio-ide-terminal

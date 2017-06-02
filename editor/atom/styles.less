@@ -1,18 +1,15 @@
 @highlight-0: #526fff;
 @highlight-1: lighten(@highlight-0, 20%);
-@highlight-1-a: fadeout(@highlight-1, 40%);
 
 @keyframes bracketanimation {
   from  {
-    border-width: 1px;
-    border-color: @highlight-0;
+    border-bottom: 2px solid @highlight-0;
   }
   50% {
-    background-color: @highlight-0;
+    border-bottom: 2px solid @highlight-1;
   }
   to {
-    border-width: 2px;
-    border-color: @highlight-1-a;
+    border-bottom: 2px solid @highlight-0;
   }
 }
 
@@ -22,11 +19,10 @@ atom-text-editor.editor {
 
     &::after {
       content: '';
-      animation: bracketanimation 300ms ease-in-out;
-      animation-delay: 100ms;
-      border: 1px solid @highlight-0;
-      border-radius: 2px;
-      background-color: @highlight-1-a;
+      animation: bracketanimation 1500ms ease-in-out;
+      animation-delay: 1000ms;
+      animation-iteration-count: infinite;
+      border-bottom: 2px solid @highlight-0;
       width: 100%;
       height: 100%;
       position: absolute;

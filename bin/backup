@@ -11,31 +11,41 @@ fi
 #   $2 should be the destination directory
 #   $3 should probably indicate backup frequency—daily, weekly, monthly, etc.
 DIRS=("${(f)1}")
-BASEDIR=$2
-LABEL=$3
+BASEDIR=$2 # Probably a good idea for this to be the machine name
+LABEL=$(echo $3 | tr '[:upper:]' '[:lower:]')   # Hourly, daily, weekly, monthly
+PATH_W_LABEL=$BASEDIR/$BACKUP_TARGET_PATH/$LABEL
+NUM_TO_KEEP=6
 
-BACKUP_PATH=$BASEDIR/$BACKUP_TARGET_PATH
-PATH_W_LABEL=$BACKUP_PATH/$LABEL
+case $LABEL in
+  "hourly" )
+    NUM_TO_KEEP=23
+    ;;
+  "daily" )
+    NUM_TO_KEEP=6
+    ;;
+  "weekly" )
+    NUM_TO_KEEP=3
+    ;;
+  "monthly" )
+    NUM_TO_KEEP=23
+    ;;
+esac
 
-# Check ssid
-# if [[ (! -z $(alias | grep ssid=)) && ($(ssid) = "$BACKUP_SSID_HOME") ]]; then
-#   SSID=$(ssid)
-#
-#   # Run local network backup, else run rclone
-# fi
+mkdir -p $PATH_W_LABEL.{0..${NUM_TO_KEEP}}
 
-mkdir -p $PATH_W_LABEL.{0,1,2,3}
+rm -rf $PATH_W_LABEL.${NUM_TO_KEEP}
 
-rm -rf $PATH_W_LABEL.3
-mv $PATH_W_LABEL.2 $PATH_W_LABEL.3
-mv $PATH_W_LABEL.1 $PATH_W_LABEL.2
-mv $PATH_W_LABEL.0 $PATH_W_LABEL.1
+for (( I = $NUM_TO_KEEP; I > 0; I-- )); do
+  J=$((I - 1))
+  mv $PATH_W_LABEL.${J} $PATH_W_LABEL.${I}
+done
 
 for DIR in $DIRS; do
   SUMMARY=$(rsync -a --delete --stats --link-dest=$PATH_W_LABEL.1 $DIR $PATH_W_LABEL.0/)
 
   SHORTDIR=(${(s|/|)DIR})
   INDEX=${#SHORTDIR}
+
   type pushover &>/dev/null && \
     pushover -t "Backed up ${SHORTDIR[INDEX]}." $SUMMARY
 done

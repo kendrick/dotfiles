@@ -11,9 +11,9 @@ fi
 #   $2 should be the destination directory
 #   $3 should probably indicate backup frequency—daily, weekly, monthly, etc.
 DIRS=("${(f)1}")
-BASEDIR=$2 # Probably a good idea for this to be the machine name
+BASEDIR=$2
 LABEL=$(echo $3 | tr '[:upper:]' '[:lower:]')   # Hourly, daily, weekly, monthly
-PATH_W_LABEL=$BASEDIR/$BACKUP_TARGET_PATH/$LABEL
+PATH_W_LABEL=$BASEDIR/$BACKUP_MACHINE_NAME/$LABEL
 NUM_TO_KEEP=6
 
 case $LABEL in
@@ -31,24 +31,25 @@ case $LABEL in
     ;;
 esac
 
-mkdir -p $PATH_W_LABEL.{0..${NUM_TO_KEEP}}
-
-rm -rf $PATH_W_LABEL.${NUM_TO_KEEP}
-
-for (( I = $NUM_TO_KEEP; I > 0; I-- )); do
-  J=$((I - 1))
-  mv $PATH_W_LABEL.${J} $PATH_W_LABEL.${I}
-done
+# Pass remote backup rotation script via ssh
+ssh $BACKUP_SSH_CONNECTION 'bash -s' < "$BACKUP_ROTATE_PATH" $PATH_W_LABEL $NUM_TO_KEEP
 
 for DIR in $DIRS; do
-  SUMMARY=$(rsync -a --delete --stats --link-dest=$PATH_W_LABEL.1 $DIR $PATH_W_LABEL.0/)
+  SUMMARY=$(rsync -ax --delete --delete-excluded --exclude-from="$BACKUP_EXCLUDE_LIST" --ignore-errors --stats --link-dest="$PATH_W_LABEL".1 $DIR $PATH_W_LABEL.0/)
+
+  ERR=$?
+  if [[ $ERR != 0 ]]; then
+    LEDE="Backup failed: "
+  else
+    LEDE="Backed up "
+  fi
 
   SHORTDIR=(${(s|/|)DIR})
   INDEX=${#SHORTDIR}
 
   type pushover &>/dev/null && \
-    pushover -t "Backed up ${SHORTDIR[INDEX]}." $SUMMARY
+    pushover -t "${LEDE}${SHORTDIR[INDEX]}." $SUMMARY
 done
 
 # Run rsync
-# rsync -ax -e ssh --delete --ignore-errors --stats $BACKUP_SRC_DIRS $BACKUP_SSH_CONNECTION:$BACKUP_TARGET_PATH
+# rsync -ax -e ssh --delete --delete-excluded --exclude-from="$BACKUP_EXCLUDE_LIST" --ignore-errors --stats --link-dest=$PATH_W_LABEL.1 $DIR $BACKUP_SSH_CONNECTION:$PATH_W_LABEL.0/

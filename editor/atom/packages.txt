@@ -34,5 +34,6 @@ open-terminal-here
 pigments
 platformio-ide-terminal
 pretty-json
+sort-lines
 unity-ui
 

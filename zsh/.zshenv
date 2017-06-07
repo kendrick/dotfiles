@@ -26,7 +26,7 @@ add_to_path $DOTFILES/bin
 export ZSH=$HOME/.oh-my-zsh
 
 # oh-my-zsh plugins
-plugins=(bower brew dircycle encode64 fasd gitfast git-extras git-flow-completion grunt gulp jsontools npm osx)
+plugins=(bower brew dircycle encode64 fasd gitfast git-extras git-flow-completion grunt gulp jsontools npm osx zsh-syntax-highlighting)
 ZSH_THEME="agnoster"
 
 source $ZSH/oh-my-zsh.sh

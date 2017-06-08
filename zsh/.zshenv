@@ -30,6 +30,7 @@ plugins=(bower brew dircycle encode64 fasd gitfast git-extras git-flow-completio
 ZSH_THEME="agnoster"
 
 source $ZSH/oh-my-zsh.sh
+source /usr/local/share/zsh-history-substring-search/zsh-history-substring-search.zsh
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then

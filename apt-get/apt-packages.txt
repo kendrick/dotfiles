@@ -2,9 +2,10 @@ zsh
 g++
 gcc
 git-core
+git-extras
 git-flow
 git-extras
-fasd
+libimage-exiftool-perl
 make
 nautilus-dropbox
 python

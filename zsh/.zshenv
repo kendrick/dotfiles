@@ -19,6 +19,9 @@ fi
 add_to_path /bin
 add_to_path $DOTFILES/bin
 
+# Add pip packages to path if they exist
+[[ -d $HOME/.local/bin ]] && add_to_path $HOME/.local/bin
+
 # Include rvm
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"
 
@@ -39,9 +42,12 @@ else
   export EDITOR='atom'
 fi
 
-LUNCHY_DIR=$(dirname `gem which lunchy`)/../extras
-if [ -f $LUNCHY_DIR/lunchy-completion.zsh ]; then
-  . $LUNCHY_DIR/lunchy-completion.zsh
+$(gem which lunchy >/dev/null 2>&1)
+if [[ $? -eq 0 ]]; then
+  LUNCHY_DIR=$(dirname `gem which lunchy`)/../extras
+  if [ -f $LUNCHY_DIR/lunchy-completion.zsh ]; then
+    . $LUNCHY_DIR/lunchy-completion.zsh
+  fi
 fi
 
 # added by travis gem

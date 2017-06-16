@@ -1,5 +1,9 @@
 alias g="git"
 
+# Jog my memory for CHANGELOGs
+alias gch="git log --oneline --no-merges $([ -d .git ]; git describe --tags --abbrev=0).."
+
+
 if [[ $(uname -s) -eq "Darwin" ]]; then
   CRED_HELPER=osxkeychain;
 else
@@ -7,6 +11,7 @@ else
 fi
 
 git config --add credential.helper $CRED_HELPER
+
 
 # Turns .gitconfig aliases into shell aliases.
 # cf. http://i.giphy.com/ms4x9Ipgego8g.gif

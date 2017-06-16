@@ -1,12 +1,12 @@
 alias g="git"
 
-if [[ $(uname -a ) -eq "Darwin" ]]; then
+if [[ $(uname -s) -eq "Darwin" ]]; then
   CRED_HELPER=osxkeychain;
 else
   CRED_HELPER=cache;
 fi
 
-git config --global credential.helper $CRED_HELPER
+git config --add credential.helper $CRED_HELPER
 
 # Turns .gitconfig aliases into shell aliases.
 # cf. http://i.giphy.com/ms4x9Ipgego8g.gif

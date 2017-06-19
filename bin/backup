@@ -9,7 +9,7 @@ fi
 # Parse arguments
 #   $1 should be a space-separated list of directories.
 #   $2 should be the destination directory
-#   $3 should probably indicate backup frequency—daily, weekly, monthly, etc.
+#   $3 should indicate backup frequency—daily, weekly, monthly, etc.
 DIRS=("${(f)1}")
 BASEDIR=$2
 LABEL=$(echo $3 | tr '[:upper:]' '[:lower:]')   # Hourly, daily, weekly, monthly

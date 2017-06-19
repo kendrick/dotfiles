@@ -1953,6 +1953,8 @@
 	<integer>0</integer>
 	<key>HotkeyCode</key>
 	<integer>0</integer>
+	<key>HotkeyMigratedFromSingleToMulti</key>
+	<true/>
 	<key>HotkeyModifiers</key>
 	<integer>0</integer>
 	<key>IRMemory</key>
@@ -2018,13 +2020,13 @@
 	<key>NSWindow Frame Preferences</key>
 	<string>736 954 606 456 0 0 2560 1417 </string>
 	<key>NSWindow Frame SUUpdateAlert</key>
-	<string>530 477 620 392 0 0 1680 1027 </string>
+	<string>970 769 620 392 0 0 2560 1417 </string>
 	<key>NSWindow Frame SharedPreferences</key>
-	<string>1110 437 918 381 0 0 2560 1417 </string>
+	<string>-1429 515 918 381 -1440 46 1440 877 </string>
 	<key>NSWindow Frame iTerm Window 0</key>
-	<string>0 19 665 858 0 0 1680 1027 </string>
+	<string>0 18 650 859 0 0 2560 1417 </string>
 	<key>NSWindow Frame iTerm Window 1</key>
-	<string>22 949 665 452 0 0 2560 1417 </string>
+	<string>22 948 650 452 0 0 2560 1417 </string>
 	<key>NSWindow Frame iTerm Window 2</key>
 	<string>0 426 650 451 0 0 1440 877 </string>
 	<key>New Bookmarks</key>
@@ -2909,7 +2911,7 @@
 	<key>SUHasLaunchedBefore</key>
 	<true/>
 	<key>SULastCheckTime</key>
-	<date>2017-01-19T02:23:23Z</date>
+	<date>2017-06-19T16:47:05Z</date>
 	<key>SavePasteHistory</key>
 	<false/>
 	<key>ShowBookmarkName</key>
@@ -4491,7 +4493,7 @@
 	<key>findRegex_iTerm</key>
 	<false/>
 	<key>iTerm Version</key>
-	<string>3.0.13</string>
+	<string>3.1.beta.5</string>
 	<key>kCPKSelectionViewPreferredModeKey</key>
 	<integer>6</integer>
 	<key>kCPKSelectionViewShowHSBTextFieldsKey</key>

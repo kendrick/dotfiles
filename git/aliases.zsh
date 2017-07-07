@@ -8,7 +8,7 @@ gch() {
   fi
 }
 
-./gitconfig.sh
+$DOTFILES/git/gitconfig.sh
 
 # Turns .gitconfig aliases into shell aliases.
 # cf. http://i.giphy.com/ms4x9Ipgego8g.gif

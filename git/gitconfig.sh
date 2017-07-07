@@ -1,10 +1,15 @@
+#!/bin/bash
+
+cat > $HOME/.gitconfig <<'EOF'
+# This .gitconfig was generated via ~/.dotfiles/git/gitconfig.sh.
+# Edit that file to make changes to this .gitconfig!
+[user]
+  name = Kendrick Arnett
+  email = kmarnett@gmail.com
 [core]
   editor = "atom --wait"
   excludesfile = ~/.gitignore
   pager = diff-so-fancy | less --tabs=2 -RFX
-[user]
-  name = Kendrick Arnett
-  email = kmarnett@gmail.com
 [color]
   ui = always
 [color "diff"]
@@ -29,7 +34,7 @@
   untracked = cyan
 [push]
   default = simple
-	followTags = true
+  followTags = true
 [url "https://"]
   insteadOf = git://
 [alias]
@@ -126,4 +131,23 @@
   trustExitCode = true
   cmd = open -W -a Meld --args --auto-merge \"$PWD/$LOCAL\" \"$PWD/$BASE\" \"$PWD/$REMOTE\" --output=\"$PWD/$MERGED\"
 [diff-so-fancy]
-	stripLeadingSymbols = false
+  stripLeadingSymbols = false
+[filter "lfs"]
+  clean = git-lfs clean -- %f
+  smudge = git-lfs smudge -- %f
+  process = git-lfs filter-process
+  required = true
+EOF
+
+if [[ "$(uname)" == Darwin ]]; then
+  CREDENTIAL_HELPER="osxkeychain"
+else
+  CREDENTIAL_HELPER="cache"
+fi
+
+if [[ -n "$CREDENTIAL_HELPER" ]]; then
+  cat >> $HOME/.gitconfig <<'EOF'
+[credential]
+  helper = $CREDENTIAL_HELPER
+EOF
+fi

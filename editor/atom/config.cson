@@ -1,4 +1,22 @@
 "*":
+  "atom-beautify":
+    general: {}
+    html:
+      beautify_on_save: true
+    jade:
+      beautify_on_save: true
+    js:
+      beautify_on_save: true
+      break_chained_methods: true
+    json:
+      beautify_on_save: true
+    markdown:
+      beautify_on_save: true
+    sass:
+      beautify_on_save: true
+    scss:
+      align_assignments: true
+      beautify_on_save: true
   core:
     disabledPackages: [
       "merge-conflicts"
@@ -35,6 +53,9 @@
   linter: {}
   "linter-eslint":
     eslintrcPath: "~"
+  "linter-ui-default":
+    panelHeight: 173
+    showPanel: true
   "one-light-ui":
     fontSize: 14
   "open-terminal-here":

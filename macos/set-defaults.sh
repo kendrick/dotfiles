@@ -123,7 +123,7 @@ defaults write com.apple.menuextra.battery ShowPercent -string "YES"
 defaults write com.apple.Safari IncludeInternalDebugMenu -bool true
 defaults write com.apple.Safari IncludeDevelopMenu -bool true
 defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
-defaults write com.apple.Safari "com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled" -bool true
+defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled -bool true
 defaults write NSGlobalDomain WebKitDeveloperExtras -bool true
 
 # Open pages in tabs instead of windows: automatically
@@ -136,9 +136,9 @@ defaults write com.apple.Safari OpenNewTabsInFront -bool false
 defaults write com.apple.Safari CommandClickMakesTabs -bool true
 
 # Remove useless icons from Safari’s bookmarks bar
-defaults write com.apple.Safari ProxiesInBookmarksBar "()"
+defaults write com.apple.Safari ProxiesInBookmarksBar \"()\"
 
-# Enable “Do Not Track” in Safari
+# Enable Do Not Track in Safari
 defaults write com.apple.Safari SendDoNotTrackHTTPHeader -bool true
 
 # Website use of location services

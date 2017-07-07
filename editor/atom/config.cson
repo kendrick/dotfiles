@@ -1,6 +1,7 @@
 "*":
   "atom-beautify":
-    general: {}
+    general:
+      _analyticsUserId: "fbd4248e-5f93-468c-8f06-1d0020110b7e"
     html:
       beautify_on_save: true
     jade:
@@ -15,7 +16,6 @@
     sass:
       beautify_on_save: true
     scss:
-      align_assignments: true
       beautify_on_save: true
   core:
     disabledPackages: [
@@ -55,7 +55,6 @@
     eslintrcPath: "~"
   "linter-ui-default":
     panelHeight: 173
-    showPanel: true
   "one-light-ui":
     fontSize: 14
   "open-terminal-here":

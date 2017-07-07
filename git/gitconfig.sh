@@ -146,7 +146,7 @@ else
 fi
 
 if [[ -n "$CREDENTIAL_HELPER" ]]; then
-  cat >> $HOME/.gitconfig <<'EOF'
+  cat >> $HOME/.gitconfig <<EOF
 [credential]
   helper = $CREDENTIAL_HELPER
 EOF

@@ -19,6 +19,9 @@ fi
 add_to_path /bin
 add_to_path $DOTFILES/bin
 
+# Add n to path if it exists
+[[ -d $HOME/.n ]] && add_to_path $HOME/.n/bin
+
 # Add pip packages to path if they exist
 [[ -d $HOME/.local/bin ]] && add_to_path $HOME/.local/bin
 

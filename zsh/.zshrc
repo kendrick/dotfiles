@@ -15,3 +15,7 @@ setopt CORRECT
 
 # Initialize fasd
 eval "$(fasd --init auto)"
+
+if [[ $(which keychain) ]]; then
+  keychain --eval $HOME/.ssh/id_rsa
+fi

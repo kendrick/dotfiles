@@ -42,7 +42,7 @@ else
   export EDITOR='atom'
 fi
 
-$(gem which lunchy >/dev/null 2>&1)
+$(which gem && gem which lunchy) >/dev/null 2>&1
 if [[ $? -eq 0 ]]; then
   LUNCHY_DIR=$(dirname `gem which lunchy`)/../extras
   if [ -f $LUNCHY_DIR/lunchy-completion.zsh ]; then

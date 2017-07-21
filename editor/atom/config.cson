@@ -9,6 +9,7 @@
     js:
       beautify_on_save: true
       break_chained_methods: true
+      space_after_anon_function: true
     json:
       beautify_on_save: true
     markdown:

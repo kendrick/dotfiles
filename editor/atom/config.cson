@@ -90,5 +90,9 @@
       workingDirectory: "Active File"
     style:
       theme: "inverse"
+  "tree-view":
+    alwaysOpenExisting: true
+    autoReveal: true
+    squashDirectoryNames: true
   welcome:
     showOnStartup: false

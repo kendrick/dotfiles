@@ -15,9 +15,9 @@
     markdown:
       beautify_on_save: true
     sass:
-      beautify_on_save: true
+      disabled: true
     scss:
-      beautify_on_save: true
+      disabled: true
   core:
     disabledPackages: [
       "merge-conflicts"

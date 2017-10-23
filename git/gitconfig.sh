@@ -45,14 +45,14 @@ cat > $HOME/.gitconfig <<'EOF'
   ac = !git add . && git commit -am
 
   # Show full diff of a given revision
-  dr  = "!f() { git diff "$1"^.."$1"; }; f"
-  lc  = "!f() { git ll "$1"^.."$1"; }; f"
+  dr  = "!fn() { git diff "$1"^.."$1"; }; fn"
+  lc  = "!fn() { git ll "$1"^.."$1"; }; fn"
 
   # History of a given file w/ diffs
   fl = log -u
 
   # Show a diff of all unpushed changes
-  #du = "!f() { BRANCH=$(git rev-parse --abbrev-ref HEAD); git diff origin/$BRANCH..HEAD}; f"
+  du = "!fn() { BRANCH=$(git rev-parse --abbrev-ref HEAD); git diff origin/$BRANCH..HEAD}; fn"
 
   # Undo the last commit, keep changes
   un = "!git reset --soft HEAD^"
@@ -81,15 +81,18 @@ cat > $HOME/.gitconfig <<'EOF'
   gr = grep -Ii
 
   # Find from root folder
-  # groot = "!f() { A=$(pwd) && TOPLEVEL=$(git rev-parse --show-toplevel) && cd $TOPLEVEL && git grep --full-name -In $1 | xargs -I{} echo $TOPLEVEL/{} && cd $A; }; f"
+  # groot = "!fn() { A=$(pwd) && TOPLEVEL=$(git rev-parse --show-toplevel) && cd $TOPLEVEL && git grep --full-name -In $1 | xargs -I{} echo $TOPLEVEL/{} && cd $A; }; fn"
 
   # List aliases
   la = "!git config -l | grep alias | cut -c 7-"
   ga = "!git la | grep"
 
+  # Pull down a pull request
+  pr  = "!fn() { git fetch -fu ${2:-$(git remote |grep -s ^upstream || echo origin)} refs/pull/$1/head:pr/$1 && git checkout pr/$1; }; fn"
+
   # Merge ours/theirs
-  ours = "!f() { git checkout --ours $@ && git add $@; }; f"
-  theirs = "!f() { git checkout --theirs $@ && git add $@; }; f"
+  ours = "!fn() { git checkout --ours $@ && git add $@; }; fn"
+  theirs = "!fn() { git checkout --theirs $@ && git add $@; }; fn"
 
   # Stashes
   sl = stash list

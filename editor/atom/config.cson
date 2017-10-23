@@ -54,8 +54,7 @@
   linter: {}
   "linter-eslint":
     eslintrcPath: "~"
-  "linter-ui-default":
-    panelHeight: 173
+  "linter-ui-default": {}
   "one-light-ui":
     fontSize: 14
   "open-terminal-here":

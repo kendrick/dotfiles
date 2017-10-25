@@ -8,6 +8,22 @@ gch() {
   fi
 }
 
+# Show a diff of all unpushed changes
+gdu() {
+  if [[ -d .git ]]; then
+    BRANCH=$(git rev-parse --abbrev-ref HEAD);
+    git diff origin/$BRANCH..HEAD;
+  fi
+}
+
+# Localize a PR
+gpr() {
+  if [[ -d .git ]]; then
+    git fetch -fu ${2:-$(git remote |grep -s ^upstream || echo origin)} refs/pull/$1/head:pr/$1
+    git checkout pr/$1;
+  fi
+}
+
 $DOTFILES/git/gitconfig.sh
 
 # Turns .gitconfig aliases into shell aliases.

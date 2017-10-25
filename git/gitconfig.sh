@@ -45,14 +45,11 @@ cat > $HOME/.gitconfig <<'EOF'
   ac = !git add . && git commit -am
 
   # Show full diff of a given revision
-  # dr  = "!fn() { git diff "$1"^.."$1"; }; fn"
-  # lc  = "!fn() { git ll "$1"^.."$1"; }; fn"
+  dr  = "!fn() { git diff "$1"^.."$1"; }; fn"
+  lc  = "!fn() { git ll "$1"^.."$1"; }; fn"
 
   # History of a given file w/ diffs
   fl = log -u
-
-  # Show a diff of all unpushed changes
-  # du = "!fn() { BRANCH=$(git rev-parse --abbrev-ref HEAD); git diff origin/$BRANCH..HEAD}; fn"
 
   # Undo the last commit, keep changes
   un = "!git reset --soft HEAD^"
@@ -87,12 +84,9 @@ cat > $HOME/.gitconfig <<'EOF'
   la = "!git config -l | grep alias | cut -c 7-"
   ga = "!git la | grep"
 
-  # Pull down a pull request
-  # pr  = "!fn() { git fetch -fu ${2:-$(git remote |grep -s ^upstream || echo origin)} refs/pull/$1/head:pr/$1 && git checkout pr/$1; }; fn"
-
   # Merge ours/theirs
-  # ours = "!fn() { git checkout --ours $@ && git add $@; }; fn"
-  # theirs = "!fn() { git checkout --theirs $@ && git add $@; }; fn"
+  ours = "!fn() { git checkout --ours $@ && git add $@; }; fn"
+  theirs = "!fn() { git checkout --theirs $@ && git add $@; }; fn"
 
   # Stashes
   sl = stash list

@@ -7,8 +7,6 @@
     jade:
       beautify_on_save: true
     js:
-      beautify_on_save: true
-      break_chained_methods: true
       space_after_anon_function: true
     json:
       beautify_on_save: true
@@ -54,7 +52,10 @@
   linter: {}
   "linter-eslint":
     eslintrcPath: "~"
-  "linter-ui-default": {}
+  "linter-sass-lint": {}
+  "linter-ui-default":
+    panelHeight: 291
+    showPanel: false
   "one-light-ui":
     fontSize: 14
   "open-terminal-here":

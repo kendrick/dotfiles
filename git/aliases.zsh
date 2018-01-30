@@ -24,6 +24,16 @@ gpr() {
   fi
 }
 
+gpr-d() {
+  if [[ -d .git ]]; then
+    git branch --list 'pr/*' | \
+    sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \ # Remove ANSI color codes from output
+      while read branch ; do
+        git branch -D $branch ;
+      done
+  fi
+}
+
 $DOTFILES/git/gitconfig.sh
 
 # Turns .gitconfig aliases into shell aliases.

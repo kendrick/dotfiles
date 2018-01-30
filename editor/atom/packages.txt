@@ -21,6 +21,7 @@ hyperclick
 intentions
 js-hyperclick
 language-pug
+language-twig
 less-than-slash
 linter
 linter-csslint
@@ -35,5 +36,6 @@ pigments
 platformio-ide-terminal
 pretty-json
 sort-lines
+toggle-quotes
 unity-ui
 

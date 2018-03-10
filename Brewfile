@@ -22,6 +22,9 @@ brew "bash"
 brew "bash-completion"
 brew "blueutil"
 brew "boost"
+brew "libpng"
+brew "gettext"
+brew "pcre"
 brew "coreutils"
 brew "cowsay"
 brew "dark-mode"
@@ -33,16 +36,15 @@ brew "dockutil"
 brew "exiftool"
 brew "fasd"
 brew "lame"
-brew "x264"
 brew "xvid"
 brew "ffmpeg"
 brew "figlet"
 brew "file-formula"
 brew "findutils", args: ["with-default-names"]
+brew "fonttools"
 brew "fortune"
-brew "libpng"
 brew "gdbm"
-brew "gettext"
+brew "pkg-config"
 brew "gifsicle"
 brew "git"
 brew "git-credential-manager"
@@ -54,7 +56,6 @@ brew "git-open"
 brew "gnu-sed", args: ["with-default-names"]
 brew "gnu-which", args: ["with-default-names"]
 brew "go"
-brew "pcre"
 brew "grep", args: ["with-default-names"]
 brew "guetzli"
 brew "hh"
@@ -81,7 +82,6 @@ brew "mongodb", restart_service: true
 brew "ncdu"
 brew "node", link: false
 brew "phantomjs", link: false
-brew "pkg-config"
 brew "pngcrush"
 brew "pngquant"
 brew "sqlite"
@@ -94,6 +94,7 @@ brew "ssh-copy-id"
 brew "terminal-notifier"
 brew "thefuck"
 brew "tree"
+brew "vips"
 brew "wget"
 brew "youtube-dl"
 brew "zsh"
@@ -103,8 +104,8 @@ brew "discoteq/discoteq/flock"
 brew "iveney/mocha/realpath", link: false
 cask "atom"
 cask "bartender"
+cask "betterzip"
 cask "betterzipql"
-cask "boom"
 cask "firefox"
 cask "firefoxnightly"
 cask "hazel"
@@ -114,6 +115,7 @@ cask "karabiner"
 cask "keepingyouawake"
 cask "keka"
 cask "linein"
+cask "liteicon"
 cask "lunchy"
 cask "macdown"
 cask "macid"
@@ -134,7 +136,6 @@ cask "sketchpacks"
 cask "skype"
 cask "spectacle"
 cask "spotify"
-cask "spotify-notifications"
 cask "suspicious-package"
 cask "teamviewer"
 cask "unetbootin"
@@ -171,6 +172,7 @@ cask "caskroom/fonts/font-roboto-mono-for-powerline"
 cask "caskroom/fonts/font-source-code-pro"
 cask "caskroom/fonts/font-source-code-pro-for-powerline"
 cask "caskroom/fonts/font-source-sans-pro"
+cask "caskroom/fonts/font-spectral"
 cask "caskroom/fonts/font-vollkorn"
 cask "caskroom/fonts/font-work-sans"
 cask "caskroom/versions/atom-beta"
@@ -187,6 +189,7 @@ mas "GIPHY CAPTURE", id: 668208984
 mas "img.urls", id: 542209299
 mas "Keynote", id: 409183694
 mas "Kindle", id: 405399194
+mas "macOS High Sierra", id: Install
 mas "Magnet", id: 441258766
 mas "Microsoft Remote Desktop", id: 715768417
 mas "MindNode", id: 992076693
@@ -196,6 +199,7 @@ mas "OneDrive", id: 823766827
 mas "Pages", id: 409201541
 mas "Paprika Recipe Manager", id: 451907568
 mas "Patterns", id: 429449079
+mas "Silicio", id: 933627574
 mas "Sip", id: 507257563
 mas "Skitch", id: 425955336
 mas "Slack", id: 803453959

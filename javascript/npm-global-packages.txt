@@ -1,3 +1,4 @@
+├── @metahub/cz-conventional-commit@2.0.1
 a11y
 browser-sync
 chromedriver
@@ -12,6 +13,7 @@ exorcist
 faker-cli
 gifify
 git-open
+glyphhanger
 grunt-cli
 gulp
 html2pug

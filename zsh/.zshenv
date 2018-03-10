@@ -42,7 +42,7 @@ source /usr/local/share/zsh-history-substring-search/zsh-history-substring-searc
 if [[ -n $SSH_CONNECTION ]]; then
   export EDITOR='vim'
 else
-  export EDITOR='atom'
+  export EDITOR='code'
 fi
 
 $(which gem && gem which lunchy) >/dev/null 2>&1

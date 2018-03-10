@@ -7,7 +7,7 @@ cat > $HOME/.gitconfig <<'EOF'
   name = Kendrick Arnett
   email = kmarnett@gmail.com
 [core]
-  editor = "atom --wait"
+  editor = "code --wait"
   excludesfile = ~/.gitignore
   pager = diff-so-fancy | less --tabs=2 -RFX
 [color]

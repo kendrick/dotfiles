@@ -20,6 +20,7 @@ html2pug
 http-server
 imagemin-cli
 jscs
+jsdoc
 jshint
 jshint-stylish
 live-server

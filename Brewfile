@@ -53,7 +53,9 @@ brew "git-open"
 brew "gnu-sed", args: ["with-default-names"]
 brew "gnu-which", args: ["with-default-names"]
 brew "go"
+brew "openssl"
 brew "pkg-config"
+brew "sqlite"
 brew "libtool"
 brew "grep", args: ["with-default-names"]
 brew "guetzli"
@@ -75,14 +77,12 @@ brew "libzip"
 brew "mackup"
 brew "make"
 brew "mas"
-brew "openssl"
 brew "mongodb", restart_service: true
 brew "ncdu"
 brew "node", link: false
 brew "phantomjs", link: false
 brew "pngcrush"
 brew "pngquant"
-brew "sqlite"
 brew "python"
 brew "rclone"
 brew "rsnapshot"
@@ -106,6 +106,7 @@ cask "betterzip"
 cask "betterzipql"
 cask "firefox"
 cask "firefoxnightly"
+cask "google-backup-and-sync"
 cask "hazel"
 cask "invisionsync"
 cask "iterm2"
@@ -191,7 +192,6 @@ mas "Keynote", id: 409183694
 mas "Kindle", id: 405399194
 mas "macOS High Sierra", id: Install
 mas "Magnet", id: 441258766
-mas "Microsoft Remote Desktop", id: 715768417
 mas "MindNode", id: 992076693
 mas "Moom", id: 419330170
 mas "OmniGraffle", id: 711830901
@@ -199,7 +199,6 @@ mas "OneDrive", id: 823766827
 mas "Pages", id: 409201541
 mas "Paprika Recipe Manager", id: 451907568
 mas "Patterns", id: 429449079
-mas "Silicio", id: 933627574
 mas "Sip", id: 507257563
 mas "Skitch", id: 425955336
 mas "Slack", id: 803453959

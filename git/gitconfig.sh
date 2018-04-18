@@ -110,6 +110,8 @@ cat > $HOME/.gitconfig <<'EOF'
   b="branch"
   h="open"
 
+  nb = "!sh -c \"git checkout -b $(superb | tr ' ' '-' | tr -d '\\047')-$(pokemon | tr '[:upper:]' '[:lower:]' | tr ' ' '-')\""
+
 [diff]
   tool = meld
 [diff "spaceman-diff"]

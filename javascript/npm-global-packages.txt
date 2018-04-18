@@ -37,6 +37,7 @@ psi
 pug-cli
 pug-lint
 pushover-cli
+random-word-cli
 sass-lint
 sassdoc
 sitespeed.io

@@ -112,6 +112,8 @@ cat > $HOME/.gitconfig <<'EOF'
 
 [diff]
   tool = meld
+[diff "spaceman-diff"]
+  command = ~/.dotfiles/bin/spaceman-diff
 [difftool]
   prompt = false
 [difftool "meld"]

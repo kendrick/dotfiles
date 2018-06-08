@@ -1,3 +1,4 @@
+alias add-dock-spacer="defaults write com.apple.dock persistent-apps -array-add '{\"tile-type"="spacer-tile\";}'; killall Dock"
 alias bulkerase='drutil bulkerase quick'
 alias changelog='conventional-changelog -p angular -i CHANGELOG.md -s'
 alias cls='clear && fortune | cowsay | lolcat'

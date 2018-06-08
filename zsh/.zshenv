@@ -4,6 +4,10 @@ for UTIL ($DOTFILES/lib/*.sh) do
   source $UTIL
 done
 
+add_to_path /bin
+add_to_path /usr/local/bin
+add_to_path $DOTFILES/bin
+
 # Source ALLTHETHINGS
 for CONFIG_FILE ($DOTFILES/**/*.zsh) do
   source $CONFIG_FILE
@@ -15,9 +19,6 @@ if [[ -a $HOME/.localrc ]]
 then
   source $HOME/.localrc
 fi
-
-add_to_path /bin
-add_to_path $DOTFILES/bin
 
 # Add n to path if it exists
 [[ -d $HOME/.n ]] && add_to_path $HOME/.n/bin

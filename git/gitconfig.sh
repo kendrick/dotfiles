@@ -112,8 +112,14 @@ cat > $HOME/.gitconfig <<'EOF'
 
   nb = "!sh -c \"git checkout -b $(superb | tr ' ' '-' | tr -d '\\047')-$(pokemon | tr '[:upper:]' '[:lower:]' | tr ' ' '-')\""
 
+[core]
+  attributesfile = ~/.gitattributes
 [diff]
   tool = meld
+[diff "sketchtool"]
+  textconv = "sketchtool dump"
+  cachetextconv = true
+  binary = true
 [diff "spaceman-diff"]
   command = ~/.dotfiles/bin/spaceman-diff
 [difftool]

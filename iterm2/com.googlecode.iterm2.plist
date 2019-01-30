@@ -1973,6 +1973,8 @@
 	<false/>
 	<key>NSColorPanelMode</key>
 	<string>1</string>
+	<key>NSColorPickerPreferredRGBEntryMode</key>
+	<integer>2</integer>
 	<key>NSColorPickerSlidersDefaults</key>
 	<string>1</string>
 	<key>NSNavLastRootDirectory</key>
@@ -2024,11 +2026,11 @@
 	<key>NSWindow Frame SUUpdateAlert</key>
 	<string>530 477 620 392 0 0 1680 1027 </string>
 	<key>NSWindow Frame SharedPreferences</key>
-	<string>173 421 796 473 0 0 1680 1028 </string>
+	<string>1385 584 928 394 0 0 2560 1417 </string>
 	<key>NSWindow Frame iTerm Window 0</key>
-	<string>0 0 1114 1028 0 0 1680 1028 </string>
+	<string>1564 251 650 859 0 0 2560 1418 </string>
 	<key>NSWindow Frame iTerm Window 1</key>
-	<string>168 264 650 452 0 0 1680 1027 </string>
+	<string>312 443 634 452 0 0 2560 1417 </string>
 	<key>NSWindow Frame iTerm Window 2</key>
 	<string>0 555 650 452 0 0 1680 1028 </string>
 	<key>New Bookmarks</key>
@@ -2187,12 +2189,16 @@
 			</dict>
 			<key>Ansi 9 Color</key>
 			<dict>
+				<key>Alpha Component</key>
+				<real>1</real>
 				<key>Blue Component</key>
-				<real>0.20784313725490197</real>
+				<real>0.26666666666666666</real>
+				<key>Color Space</key>
+				<string>sRGB</string>
 				<key>Green Component</key>
-				<real>0.24313725490196078</real>
+				<real>0.33333333333333331</real>
 				<key>Red Component</key>
-				<real>0.87058823529411766</real>
+				<real>0.90196078431372551</real>
 			</dict>
 			<key>Automatically Log</key>
 			<false/>
@@ -2921,7 +2927,7 @@
 	<key>SUHasLaunchedBefore</key>
 	<true/>
 	<key>SULastCheckTime</key>
-	<date>2018-05-25T04:16:14Z</date>
+	<date>2019-01-04T20:44:48Z</date>
 	<key>SavePasteHistory</key>
 	<false/>
 	<key>ShowBookmarkName</key>
@@ -4503,7 +4509,7 @@
 	<key>findRegex_iTerm</key>
 	<false/>
 	<key>iTerm Version</key>
-	<string>3.1.6beta5</string>
+	<string>3.2.7beta3</string>
 	<key>kCPKSelectionViewPreferredModeKey</key>
 	<integer>6</integer>
 	<key>kCPKSelectionViewShowHSBTextFieldsKey</key>

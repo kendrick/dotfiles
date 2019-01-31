@@ -1,6 +1,8 @@
-├── @metahub/cz-conventional-commit@2.0.1
-a11y
+@metahub/cz-conventional-commit@2.0.1
+auditjs
 browser-sync
+browserify
+cat-names
 chromedriver
 commitizen
 conventional-changelog-cli
@@ -11,6 +13,8 @@ dart-sass
 eslint
 exorcist
 faker-cli
+gatsby-cli
+generator-bookmarklet
 gif-term-cli
 gifify
 git-open
@@ -18,9 +22,7 @@ glyphhanger
 grunt-cli
 gulp
 html2pug
-http-server
 imagemin-cli
-jscs
 jsdoc
 jshint
 jshint-stylish
@@ -31,8 +33,7 @@ npm
 npm-check
 npm-check-updates
 parker
-phantomas
-polyjuice
+pokemon-cli
 psi
 pug-cli
 pug-lint
@@ -41,11 +42,11 @@ random-word-cli
 sass-lint
 sassdoc
 sitespeed.io
-slimerjs
-the-a11y-machine
+superb
+superheroes-cli
+supervillains-cli
 tldr
 uncss
-watchify
 xkpasswd
 yarn
 

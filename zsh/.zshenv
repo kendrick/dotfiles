@@ -46,13 +46,5 @@ else
   export EDITOR='code'
 fi
 
-$(which gem && gem which lunchy) >/dev/null 2>&1
-if [[ $? -eq 0 ]]; then
-  LUNCHY_DIR=$(dirname `gem which lunchy`)/../extras
-  if [ -f $LUNCHY_DIR/lunchy-completion.zsh ]; then
-    . $LUNCHY_DIR/lunchy-completion.zsh
-  fi
-fi
-
 # added by travis gem
 [ -f ~/.travis/travis.sh ] && source ~/.travis/travis.sh

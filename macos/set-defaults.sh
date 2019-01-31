@@ -159,7 +159,7 @@ defaults write com.apple.finder FXInfoPanesExpanded -dict \
 	Privileges -bool true
 
 # Disable local Time Machine backups
-hash tmutil &> /dev/null && sudo tmutil disablelocal
+hash tmutil &> /dev/null && sudo tmutil disable
 
 # Disable icons on the Desktop
 # This will "hide" all the files on the Desktop, but one can still access

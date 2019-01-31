@@ -1,19 +1,15 @@
-tap "discoteq/discoteq"
+tap "beeftornado/rmtree"
 tap "codeclimate/formulae"
-tap "iveney/mocha"
-tap "homebrew/dupes"
+tap "colindean/fonts-nonfree"
+tap "discoteq/discoteq"
+tap "gapple/services"
+tap "homebrew/bundle"
+tap "homebrew/cask"
+tap "homebrew/cask-fonts"
 tap "homebrew/cask-versions"
 tap "homebrew/core"
-tap "homebrew/gui"
-tap "homebrew/cask"
-tap "homebrew/bundle"
-tap "homebrew/cask-fonts"
-tap "gapple/services"
-tap "colindean/fonts-nonfree"
+tap "iveney/mocha"
 cask "java"
-brew "jq"
-brew "ansiweather"
-brew "archey"
 brew "autoconf"
 brew "automake"
 brew "bash"
@@ -33,15 +29,16 @@ brew "dockutil"
 brew "exiftool"
 brew "fasd"
 brew "lame"
+brew "openssl"
 brew "xvid"
 brew "ffmpeg"
 brew "figlet"
 brew "file-formula"
-brew "findutils", args: ["with-default-names"]
+brew "findutils"
 brew "gdbm"
-brew "openssl"
 brew "readline"
 brew "sqlite"
+brew "python"
 brew "fonttools"
 brew "fortune"
 brew "gifsicle"
@@ -51,16 +48,15 @@ brew "git-extras"
 brew "gnu-getopt"
 brew "git-flow-avh"
 brew "git-lfs"
-brew "git-open"
-brew "gnu-sed", args: ["with-default-names"]
-brew "gnu-which", args: ["with-default-names"]
+brew "git-open", link: false
+brew "gnu-sed"
+brew "gnu-which"
 brew "go"
-brew "pkg-config"
 brew "libtool"
-brew "grep", args: ["with-default-names"]
+brew "grep"
 brew "guetzli"
-brew "hh"
 brew "highlight"
+brew "hstr"
 brew "htop"
 brew "id3lib"
 brew "imagemagick"
@@ -68,7 +64,6 @@ brew "imgur-screenshot"
 brew "jp2a"
 brew "less"
 brew "libao"
-brew "libgpg-error"
 brew "libid3tag"
 brew "libksba"
 brew "libvo-aacenc"
@@ -79,18 +74,16 @@ brew "make"
 brew "mas"
 brew "mongodb", restart_service: true
 brew "ncdu"
-brew "node", link: false
-brew "phantomjs", link: false
+brew "node"
+brew "openssl@1.1"
+brew "pkg-config"
 brew "pngcrush"
 brew "pngquant"
-brew "python"
-brew "rclone"
 brew "rsnapshot"
 brew "rsync"
 brew "speedtest-cli"
 brew "ssh-copy-id"
 brew "terminal-notifier"
-brew "thefuck"
 brew "tree"
 brew "vips"
 brew "wget"
@@ -100,109 +93,75 @@ brew "zsh-history-substring-search"
 brew "zshdb"
 brew "discoteq/discoteq/flock"
 brew "iveney/mocha/realpath", link: false
-cask "atom"
 cask "bartender"
 cask "betterzip"
-cask "betterzipql"
 cask "clipy"
-cask "firefox"
-cask "firefoxnightly"
+cask "dropbox"
+cask "firefox-nightly"
+cask "flux"
+cask "font-consolas-for-powerline"
+cask "font-droid-sans-mono-for-powerline"
+cask "font-fantasque-sans-mono"
+cask "font-fira-code"
+cask "font-ibm-plex"
+cask "font-open-sans"
+cask "font-open-sans-condensed"
+cask "font-pathway-gothic-one"
+cask "font-raleway"
+cask "font-roboto"
+cask "font-roboto-mono-for-powerline"
+cask "font-rubik"
+cask "font-source-code-pro"
+cask "font-source-code-pro-for-powerline"
+cask "font-source-sans-pro"
+cask "font-spectral"
+cask "font-work-sans"
 cask "google-backup-and-sync"
+cask "google-chrome-canary"
 cask "hazel"
-cask "helium"
-cask "invisionsync"
 cask "iterm2"
-cask "karabiner"
 cask "keepingyouawake"
 cask "keka"
 cask "linein"
-cask "liteicon"
 cask "lunchy"
-cask "macdown"
-cask "macid"
 cask "numi"
 cask "osxfuse"
 cask "plain-clip"
 cask "qlcolorcode"
-cask "qlimagesize"
 cask "qlmarkdown"
 cask "qlprettypatch"
 cask "qlstephen"
 cask "qlvideo"
 cask "quicklook-csv"
 cask "quicklook-json"
-cask "reflector"
-cask "sketchpacks"
-cask "skype"
+cask "safari-technology-preview"
+cask "sketch"
 cask "spectacle"
 cask "spotify"
 cask "suspicious-package"
-cask "teamviewer"
 cask "unetbootin"
-cask "veracrypt"
-cask "virtualbox"
-cask "virtualbox-extension-pack"
 cask "visual-studio-code"
 cask "vlc"
 cask "webpquicklook"
-cask "colindean/fonts-nonfree/font-microsoft-office"
-cask "homebrew/cask-fonts/font-alegreya"
-cask "homebrew/cask-fonts/font-cabin"
-cask "homebrew/cask-fonts/font-cardo"
-cask "homebrew/cask-fonts/font-consolas-for-powerline"
-cask "homebrew/cask-fonts/font-crimson-text"
-cask "homebrew/cask-fonts/font-dejavu-sans-mono-for-powerline"
-cask "homebrew/cask-fonts/font-droid-sans-mono-for-powerline"
-cask "homebrew/cask-fonts/font-exo2"
-cask "homebrew/cask-fonts/font-fantasque-sans-mono"
-cask "homebrew/cask-fonts/font-fira-code"
-cask "homebrew/cask-fonts/font-fira-sans"
-cask "homebrew/cask-fonts/font-gravitas-one"
-cask "homebrew/cask-fonts/font-hasklig"
-cask "homebrew/cask-fonts/font-ibm-plex"
-cask "homebrew/cask-fonts/font-josefin-sans"
-cask "homebrew/cask-fonts/font-karla"
-cask "homebrew/cask-fonts/font-monoid"
-cask "homebrew/cask-fonts/font-muli"
-cask "homebrew/cask-fonts/font-open-sans"
-cask "homebrew/cask-fonts/font-open-sans-condensed"
-cask "homebrew/cask-fonts/font-pathway-gothic-one"
-cask "homebrew/cask-fonts/font-raleway"
-cask "homebrew/cask-fonts/font-roboto"
-cask "homebrew/cask-fonts/font-roboto-mono-for-powerline"
-cask "homebrew/cask-fonts/font-rubik"
-cask "homebrew/cask-fonts/font-source-code-pro"
-cask "homebrew/cask-fonts/font-source-code-pro-for-powerline"
-cask "homebrew/cask-fonts/font-source-sans-pro"
-cask "homebrew/cask-fonts/font-spectral"
-cask "homebrew/cask-fonts/font-vollkorn"
-cask "homebrew/cask-fonts/font-work-sans"
-cask "homebrew/cask-versions/atom-beta"
-cask "homebrew/cask-versions/google-chrome-canary"
-cask "homebrew/cask-versions/safari-technology-preview"
-mas "1Password", id: 443987910
-mas "Bear", id: 1091189122
-mas "Contrast", id: 1254981365
-mas "DaisyDisk", id: 411643860
-mas "Disk Cleaner", id: 970246631
-mas "Evernote", id: 406056744
-mas "GIF Brewery 3", id: 1081413713
-mas "GIPHY CAPTURE", id: 668208984
-mas "HeliumLift", id: 1018899653
-mas "img.urls", id: 542209299
-mas "Keynote", id: 409183694
-mas "Kindle", id: 405399194
-mas "Magnet", id: 441258766
-mas "MindNode", id: 992076693
-mas "Moom", id: 419330170
-mas "OmniGraffle", id: 711830901
-mas "Pages", id: 409201541
-mas "Paprika Recipe Manager", id: 451907568
-mas "Patterns", id: 429449079
-mas "Sip", id: 507257563
-mas "Skitch", id: 425955336
-mas "Slack", id: 803453959
-mas "Svgsus", id: 1106867065
-mas "Things3", id: 904280696
-mas "Tweetbot", id: 557168941
-mas "Xcode", id: 497799835
+mas "", id: 507257563
+mas "", id: 970246631
+mas "", id: 409183694
+mas "", id: 405399194
+mas "", id: 1018899653
+mas "", id: 419330170
+mas "", id: 441258766
+mas "", id: 711830901
+mas "", id: 425955336
+mas "", id: 668208984
+mas "", id: 1254981365
+mas "", id: 451907568
+mas "", id: 443987910
+mas "", id: 992076693
+mas "", id: 429449079
+mas "", id: 411643860
+mas "", id: 497799835
+mas "", id: 557168941
+mas "", id: 409201541
+mas "", id: 1081413713
+mas "", id: 1106867065
+mas "", id: 904280696

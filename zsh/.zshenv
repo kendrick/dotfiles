@@ -21,23 +21,26 @@ then
 fi
 
 # Add n to path if it exists
-[[ -d $HOME/.n ]] && add_to_path $HOME/.n/bin
+add_to_path $HOME/.n/bin
 
 # Add pip packages to path if they exist
-[[ -d $HOME/.local/bin ]] && add_to_path $HOME/.local/bin
+add_to_path $HOME/.local/bin
 
 # Include rvm
-[[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"
+alias loadrvm='[[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"'
 
 # Path to your oh-my-zsh installation.
 export ZSH=$HOME/.oh-my-zsh
 
 # oh-my-zsh plugins
-plugins=(bower brew dircycle encode64 fasd gitfast git-extras git-flow-completion grunt gulp jsontools npm osx zsh-syntax-highlighting)
+plugins=(brew dircycle encode64 fasd gitfast git-flow-completion gulp jsontools npm osx zsh-autosuggestions zsh-syntax-highlighting)
 ZSH_THEME="agnoster"
 
 source $ZSH/oh-my-zsh.sh
 source /usr/local/share/zsh-history-substring-search/zsh-history-substring-search.zsh
+
+bindkey '^[[A' history-substring-search-up
+bindkey '^[[B' history-substring-search-down
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then
@@ -45,14 +48,3 @@ if [[ -n $SSH_CONNECTION ]]; then
 else
   export EDITOR='code'
 fi
-
-$(which gem && gem which lunchy) >/dev/null 2>&1
-if [[ $? -eq 0 ]]; then
-  LUNCHY_DIR=$(dirname `gem which lunchy`)/../extras
-  if [ -f $LUNCHY_DIR/lunchy-completion.zsh ]; then
-    . $LUNCHY_DIR/lunchy-completion.zsh
-  fi
-fi
-
-# added by travis gem
-[ -f ~/.travis/travis.sh ] && source ~/.travis/travis.sh

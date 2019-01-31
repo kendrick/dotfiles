@@ -1,25 +1,19 @@
+tap "beeftornado/rmtree"
 tap "codeclimate/formulae"
 tap "colindean/fonts-nonfree"
 tap "discoteq/discoteq"
-tap "folkloreatelier/fonts"
 tap "gapple/services"
 tap "homebrew/bundle"
 tap "homebrew/cask"
 tap "homebrew/cask-fonts"
 tap "homebrew/cask-versions"
 tap "homebrew/core"
-tap "homebrew/dupes"
-tap "homebrew/gui"
 tap "iveney/mocha"
 cask "java"
-brew "jq"
-brew "ansiweather"
-brew "archey"
 brew "autoconf"
 brew "automake"
 brew "bash"
 brew "bash-completion"
-brew "bfg"
 brew "blueutil"
 brew "boost"
 brew "libpng"
@@ -35,12 +29,14 @@ brew "dockutil"
 brew "exiftool"
 brew "fasd"
 brew "lame"
+brew "openssl"
 brew "xvid"
 brew "ffmpeg"
 brew "figlet"
 brew "file-formula"
-brew "findutils", args: ["with-default-names"]
-brew "libtool"
+brew "findutils"
+brew "gdbm"
+brew "readline"
 brew "sqlite"
 brew "python"
 brew "fonttools"
@@ -53,11 +49,11 @@ brew "gnu-getopt"
 brew "git-flow-avh"
 brew "git-lfs"
 brew "git-open", link: false
-brew "gnu-sed", args: ["with-default-names"]
-brew "gnu-which", args: ["with-default-names"]
+brew "gnu-sed"
+brew "gnu-which"
 brew "go"
-brew "pkg-config"
-brew "grep", args: ["with-default-names"]
+brew "libtool"
+brew "grep"
 brew "guetzli"
 brew "highlight"
 brew "hstr"
@@ -68,7 +64,6 @@ brew "imgur-screenshot"
 brew "jp2a"
 brew "less"
 brew "libao"
-brew "libgpg-error"
 brew "libid3tag"
 brew "libksba"
 brew "libvo-aacenc"
@@ -79,17 +74,16 @@ brew "make"
 brew "mas"
 brew "mongodb", restart_service: true
 brew "ncdu"
-brew "node", link: false
+brew "node"
+brew "openssl@1.1"
+brew "pkg-config"
 brew "pngcrush"
 brew "pngquant"
-brew "rbenv"
-brew "rclone"
 brew "rsnapshot"
 brew "rsync"
 brew "speedtest-cli"
 brew "ssh-copy-id"
 brew "terminal-notifier"
-brew "thefuck"
 brew "tree"
 brew "vips"
 brew "wget"
@@ -98,109 +92,76 @@ brew "zsh"
 brew "zsh-history-substring-search"
 brew "zshdb"
 brew "discoteq/discoteq/flock"
-brew "folkloreatelier/fonts/css3-font-converter"
 brew "iveney/mocha/realpath", link: false
-cask "atom"
 cask "bartender"
 cask "betterzip"
-cask "betterzipql"
-cask "chromedriver"
 cask "clipy"
-cask "firefox"
-cask "firefoxnightly"
-cask "font-alegreya"
-cask "font-cabin"
-cask "font-cardo"
+cask "dropbox"
+cask "firefox-nightly"
+cask "flux"
 cask "font-consolas-for-powerline"
-cask "font-crimson-text"
-cask "font-dejavu-sans-mono-for-powerline"
 cask "font-droid-sans-mono-for-powerline"
-cask "font-exo2"
 cask "font-fantasque-sans-mono"
 cask "font-fira-code"
-cask "font-fira-sans"
-cask "font-gloria-hallelujah"
-cask "font-gravitas-one"
-cask "font-hasklig"
 cask "font-ibm-plex"
-cask "font-josefin-sans"
-cask "font-karla"
-cask "font-monoid"
 cask "font-open-sans"
 cask "font-open-sans-condensed"
+cask "font-pathway-gothic-one"
+cask "font-raleway"
 cask "font-roboto"
 cask "font-roboto-mono-for-powerline"
 cask "font-rubik"
 cask "font-source-code-pro"
 cask "font-source-code-pro-for-powerline"
+cask "font-source-sans-pro"
 cask "font-spectral"
-cask "font-vollkorn"
 cask "font-work-sans"
 cask "google-backup-and-sync"
 cask "google-chrome-canary"
 cask "hazel"
-cask "helium"
-cask "invisionsync"
 cask "iterm2"
-cask "karabiner"
 cask "keepingyouawake"
 cask "keka"
 cask "linein"
-cask "liteicon"
 cask "lunchy"
-cask "macdown"
-cask "macid"
 cask "numi"
 cask "osxfuse"
 cask "plain-clip"
 cask "qlcolorcode"
-cask "qlimagesize"
 cask "qlmarkdown"
 cask "qlprettypatch"
 cask "qlstephen"
 cask "qlvideo"
 cask "quicklook-csv"
 cask "quicklook-json"
-cask "reflector"
 cask "safari-technology-preview"
-cask "sketchpacks"
-cask "skype"
+cask "sketch"
 cask "spectacle"
 cask "spotify"
 cask "suspicious-package"
-cask "teamviewer"
 cask "unetbootin"
-cask "veracrypt"
-cask "virtualbox"
-cask "virtualbox-extension-pack"
 cask "visual-studio-code"
 cask "vlc"
 cask "webpquicklook"
-cask "colindean/fonts-nonfree/font-microsoft-office"
-mas "1Password", id: 443987910
-mas "Bear", id: 1091189122
-mas "Contrast", id: 1254981365
-mas "DaisyDisk", id: 411643860
-mas "Disk Cleaner", id: 970246631
-mas "Evernote", id: 406056744
-mas "GIF Brewery 3", id: 1081413713
-mas "GIPHY CAPTURE", id: 668208984
-mas "img.urls", id: 542209299
-mas "iMovie", id: 408981434
-mas "Keynote", id: 409183694
-mas "Kindle", id: 405399194
-mas "Magnet", id: 441258766
-mas "MindNode", id: 992076693
-mas "Moom", id: 419330170
-mas "OmniGraffle", id: 711830901
-mas "Pages", id: 409201541
-mas "Paprika Recipe Manager", id: 451907568
-mas "Patterns", id: 429449079
-mas "PiPifier", id: 1160374471
-mas "Sip", id: 507257563
-mas "Skitch", id: 425955336
-mas "Slack", id: 803453959
-mas "Svgsus", id: 1106867065
-mas "Things3", id: 904280696
-mas "Tweetbot", id: 557168941
-mas "Xcode", id: 497799835
+mas "", id: 507257563
+mas "", id: 970246631
+mas "", id: 409183694
+mas "", id: 405399194
+mas "", id: 1018899653
+mas "", id: 419330170
+mas "", id: 441258766
+mas "", id: 711830901
+mas "", id: 425955336
+mas "", id: 668208984
+mas "", id: 1254981365
+mas "", id: 451907568
+mas "", id: 443987910
+mas "", id: 992076693
+mas "", id: 429449079
+mas "", id: 411643860
+mas "", id: 497799835
+mas "", id: 557168941
+mas "", id: 409201541
+mas "", id: 1081413713
+mas "", id: 1106867065
+mas "", id: 904280696

@@ -1,6 +1,7 @@
 # Ignoring .gitconfig because it's dynamic based on platform—don't want the repo
 # to change every time a terminal is used on a different platform.
 git/.gitconfig
+.localrc
 
 dist/
 node_modules/

@@ -26,6 +26,9 @@ add_to_path $HOME/.n/bin
 # Add pip packages to path if they exist
 add_to_path $HOME/.local/bin
 
+# Add mozjpeg to path
+add_to_path /usr/local/opt/mozjpeg/bin
+
 # Include rvm
 alias loadrvm='[[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"'
 

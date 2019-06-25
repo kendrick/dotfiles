@@ -1,3 +1,22 @@
+use-profile() {
+  echo -e "\033]50;SetProfile=$1\a"
+}
+
+dk() {
+  if [ -v $DARK_MODE ]; then
+    if [[ $DARK_MODE = 0 ]]; then
+      use-profile Dark
+      DARK_MODE=1
+    else
+      use-profile Light
+      DARK_MODE=0
+    fi
+  else
+    use-profile Light
+    DARK_MODE=0
+  fi
+}
+
 alias add-dock-spacer="defaults write com.apple.dock persistent-apps -array-add '{\"tile-type"="spacer-tile\";}'; killall Dock"
 alias bulkerase='drutil bulkerase quick'
 alias changelog='conventional-changelog -p angular -i CHANGELOG.md -s'
@@ -16,7 +35,6 @@ alias rmdsstore="find . -name '*.DS_Store' -type f -delete"
 alias sshh='ssh $SSH_HOME'
 alias ssid='/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '"'"'/ SSID/ {print substr($0, index($0, $2))}'"'"''
 alias top='htop'
-alias upgrade-sketchtool='/Applications/Sketch.app/Contents/Resources/sketchtool/install.sh'
-alias ws='wstorm'
+alias sketchtool='/Applications/Sketch.app/Contents/Resources/sketchtool/bin/sketchtool'
 alias xkp='xkp "-/:;$&@.,?" -p wswswsddp -n 10'
 alias youtube-mp3='youtube-dl --extract-audio --audio-format mp3 --audio-quality 0'

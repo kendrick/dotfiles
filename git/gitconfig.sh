@@ -104,13 +104,16 @@ cat > $HOME/.gitconfig <<'EOF'
 
   c="cz"
   ca="cz --amend"
+  co="checkout"
+  d="diff"
   s="status"
   sb="status -sb"
   a="add"
   b="branch"
   h="open"
+  p="push"
 
-  nb = "!sh -c \"git checkout -b $(superb | tr ' ' '-' | tr -d '\\047')-$(pokemon | tr '[:upper:]' '[:lower:]' | tr ' ' '-')\""
+  #nb = "!sh -c \"git checkout -b $(superb | tr ' ' '-' | tr -d '\\047')-$(pokemon | tr '[:upper:]' '[:lower:]' | tr ' ' '-')\""
 
 [core]
   attributesfile = ~/.gitattributes

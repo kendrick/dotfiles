@@ -38,3 +38,5 @@ alias top='htop'
 alias sketchtool='/Applications/Sketch.app/Contents/Resources/sketchtool/bin/sketchtool'
 alias xkp='xkp "-/:;$&@.,?" -p wswswsddp -n 10'
 alias youtube-mp3='youtube-dl --extract-audio --audio-format mp3 --audio-quality 0'
+
+. $DOTFILES/git/git-aliases.sh

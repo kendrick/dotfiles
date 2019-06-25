@@ -14,7 +14,6 @@ eslint
 exorcist
 faker-cli
 gatsby-cli
-generator-bookmarklet
 gif-term-cli
 gifify
 git-open
@@ -23,6 +22,8 @@ grunt-cli
 gulp
 html2pug
 imagemin-cli
+imagemin-mozjpeg
+imagemin-pngquant
 jsdoc
 jshint
 jshint-stylish
@@ -42,7 +43,7 @@ random-word-cli
 sass-lint
 sassdoc
 sitespeed.io
-superb
+superb-cli
 superheroes-cli
 supervillains-cli
 tldr

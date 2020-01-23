@@ -35,6 +35,10 @@ alias loadrvm='[[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"'
 # Path to your oh-my-zsh installation.
 export ZSH=$HOME/.oh-my-zsh
 
+# Fix oh-my-zsh's horribly slow pasting:
+# https://github.com/robbyrussell/oh-my-zsh/issues/6338
+DISABLE_MAGIC_FUNCTIONS=true
+
 # oh-my-zsh plugins
 plugins=(brew dircycle encode64 fasd gitfast git-flow-completion gulp jsontools npm osx zsh-autosuggestions zsh-syntax-highlighting)
 ZSH_THEME="agnoster"

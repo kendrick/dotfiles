@@ -13,3 +13,8 @@ exec_with_status "Installing oh-my-zsh" \
 # oh-my-zsh clobbers existing .zshrc files; re-link it.
 rm $HOME/.zshrc
 ln -s $DOTFILES/zsh/.zshrc $HOME/.zshrc
+
+# Install zsh plugins
+git clone https://github.com/bobthecow/git-flow-completion ~/.oh-my-zsh/custom/plugins/git-flow-completion
+git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting 

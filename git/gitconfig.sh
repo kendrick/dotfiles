@@ -77,9 +77,6 @@ cat > $HOME/.gitconfig <<'EOF'
   # Find a string in any file
   gr = grep -Ii
 
-  # Find from root folder
-  # groot = "!fn() { A=$(pwd) && TOPLEVEL=$(git rev-parse --show-toplevel) && cd $TOPLEVEL && git grep --full-name -In $1 | xargs -I{} echo $TOPLEVEL/{} && cd $A; }; fn"
-
   # List aliases
   la = "!git config -l | grep alias | cut -c 7-"
   ga = "!git la | grep"

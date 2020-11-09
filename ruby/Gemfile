@@ -1,5 +1,2 @@
 gem 'git.io'
 gem 'lolcat'
-gem 'lunchy'
-gem 'pry'
-gem 'travis'

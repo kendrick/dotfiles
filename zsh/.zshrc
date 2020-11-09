@@ -26,6 +26,7 @@ setopt ALIASES
 setopt CORRECT
 setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_REDUCE_BLANKS
+<<<<<<< HEAD
 setopt PROMPT_SUBST
 
 # Initialize fasd & fzf
@@ -42,3 +43,8 @@ zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 source ~/.powerlevel10k/powerlevel10k.zsh-theme
+=======
+setopt CORRECT
+
+export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+>>>>>>> c1f0d5d53986077ef584b06a2f7f85e5bd29b7de

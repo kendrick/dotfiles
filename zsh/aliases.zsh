@@ -19,14 +19,16 @@ dk() {
 
 alias add-dock-spacer="defaults write com.apple.dock persistent-apps -array-add '{\"tile-type"="spacer-tile\";}'; killall Dock"
 alias bulkerase='drutil bulkerase quick'
+alias cdf="cd $(osascript -e 'tell application "Finder" to get the POSIX path of (target of front window as alias)')"
 alias changelog='conventional-changelog -p angular -i CHANGELOG.md -s'
 alias cls='clear && fortune | cowsay | lolcat'
 alias fake='faker-cli'
 alias fhere='find . -name'
 alias h='history'
 alias hg='history | grep'
-alias l='ls -alhAF'
-alias ll='ls -alhAF'
+alias ls='ls -hG'
+alias l='ls -alhAFG'
+alias ll='ls -alhAFG'
 alias mkdir='mkdir -pv'
 alias o='open .'
 alias oops='TF_CMD=$(TF_ALIAS=oops PYTHONIOENCODING=utf-8 TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1 | tail -n 1)) && eval $TF_CMD && print -s $TF_CMD'

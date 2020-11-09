@@ -21,33 +21,32 @@ then
 fi
 
 # Add n to path if it exists
-add_to_path $HOME/.n/bin
+#add_to_path $HOME/.n/bin
 
 # Add pip packages to path if they exist
-add_to_path $HOME/.local/bin
+#add_to_path $HOME/.local/bin
 
 # Add mozjpeg to path
-add_to_path /usr/local/opt/mozjpeg/bin
+#add_to_path /usr/local/opt/mozjpeg/bin
 
 # Include rvm
-alias loadrvm='[[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"'
+#alias loadrvm='[[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm"'
 
 # Path to your oh-my-zsh installation.
-export ZSH=$HOME/.oh-my-zsh
+#export ZSH=$HOME/.oh-my-zsh
 
 # Fix oh-my-zsh's horribly slow pasting:
 # https://github.com/robbyrussell/oh-my-zsh/issues/6338
 DISABLE_MAGIC_FUNCTIONS=true
 
 # oh-my-zsh plugins
-plugins=(brew dircycle encode64 fasd gitfast git-flow-completion gulp jsontools npm osx zsh-autosuggestions zsh-syntax-highlighting)
-ZSH_THEME="agnoster"
+#plugins=(brew dircycle encode64 fasd gitfast git-flow-completion gulp jsontools npm osx zsh-autosuggestions zsh-syntax-highlighting)
 
-source $ZSH/oh-my-zsh.sh
-source /usr/local/share/zsh-history-substring-search/zsh-history-substring-search.zsh
+#source $ZSH/oh-my-zsh.sh
+#source /usr/local/share/zsh-history-substring-search/zsh-history-substring-search.zsh
 
-bindkey '^[[A' history-substring-search-up
-bindkey '^[[B' history-substring-search-down
+#bindkey '^[[A' history-substring-search-up
+#bindkey '^[[B' history-substring-search-down
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then

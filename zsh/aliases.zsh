@@ -19,7 +19,6 @@ dk() {
 
 alias add-dock-spacer="defaults write com.apple.dock persistent-apps -array-add '{\"tile-type"="spacer-tile\";}'; killall Dock"
 alias bulkerase='drutil bulkerase quick'
-alias cdf="cd $(osascript -e 'tell application "Finder" to get the POSIX path of (target of front window as alias)')"
 alias changelog='conventional-changelog -p angular -i CHANGELOG.md -s'
 alias cls='clear && fortune | cowsay | lolcat'
 alias fake='faker-cli'

@@ -1,5 +1,17 @@
 alias g="git"
 
+cdf() {
+  finderPath=`osascript -e 'tell application "Finder"
+      try
+          set currentFolder to (folder of the front window as alias)
+      on error
+          set currentFolder to (path to desktop folder as alias)
+      end try
+      POSIX path of currentFolder
+  end tell'`;
+  cd "$finderPath"
+}
+
 # Jog my memory for CHANGELOGs
 gch() {
   if [[ -d .git ]]; then

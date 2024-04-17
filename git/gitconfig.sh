@@ -9,7 +9,7 @@ cat > $HOME/.gitconfig <<'EOF'
 [core]
   editor = "code --wait"
   excludesfile = ~/.gitignore
-  pager = diff-so-fancy | less --tabs=2 -RFX
+  pager = delta --diff-so-fancy | less --tabs=2 -RFX
 [color]
   ui = always
 [color "diff"]
@@ -32,6 +32,12 @@ cat > $HOME/.gitconfig <<'EOF'
   added = yellow
   changed = green
   untracked = cyan
+[delta]
+  features = decorations
+[decorations]
+  commit-decoration-style = blue ol
+[interactive]
+  diffFilter = delta --color-only --features=interactive
 [push]
   default = simple
   followTags = true

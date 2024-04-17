@@ -1,22 +1,3 @@
-use-profile() {
-  echo -e "\033]50;SetProfile=$1\a"
-}
-
-dk() {
-  if [ -v $DARK_MODE ]; then
-    if [[ $DARK_MODE = 0 ]]; then
-      use-profile Dark
-      DARK_MODE=1
-    else
-      use-profile Light
-      DARK_MODE=0
-    fi
-  else
-    use-profile Light
-    DARK_MODE=0
-  fi
-}
-
 alias add-dock-spacer="defaults write com.apple.dock persistent-apps -array-add '{\"tile-type"="spacer-tile\";}'; killall Dock"
 alias bulkerase='drutil bulkerase quick'
 alias changelog='conventional-changelog -p angular -i CHANGELOG.md -s'

@@ -1,5 +1,6 @@
 tap "homebrew/bundle"
 tap "romkatv/powerlevel10k"
+brew "antigen"
 brew "python@3.11"
 brew "awscli"
 brew "ccat"
@@ -28,19 +29,24 @@ cask "dropbox"
 cask "figma"
 cask "google-chrome"
 cask "imageoptim"
+cask "iterm2"
 cask "kap"
 cask "keycastr"
 cask "microsoft-auto-update"
 cask "microsoft-outlook"
 cask "microsoft-teams"
 cask "notion"
+cask "rectangle"
+cask "responsively"
 cask "slack"
 cask "spotify"
 cask "visual-studio-code"
 cask "zoom"
 mas "Contrast", id: 1254981365
 mas "DaisyDisk", id: 411643860
+mas "Data Jar", id: 1453273600
 mas "GarageBand", id: 682658836
+mas "Hand Mirror", id: 1502839586
 mas "Hidden Bar", id: 1452453066
 mas "iMovie", id: 408981434
 mas "Keynote", id: 409183694

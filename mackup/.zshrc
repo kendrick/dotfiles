@@ -20,10 +20,15 @@ source ~/znap-repos/znap/znap.zsh  # Start Znap
 znap source ohmyzsh/ohmyzsh plugins/colorize
 znap source ohmyzsh/ohmyzsh plugins/gitfast
 znap source zsh-users/zsh-syntax-highlighting
-# znap source zsh-users/zsh-autosuggestions
-# znap source zsh-users/zsh-completions
-# znap source zsh-users/zsh-history-substring-search
-# znap source marlonrichert/zsh-autocomplete
+znap source zsh-users/zsh-autosuggestions
+znap source zsh-users/zsh-completions
+znap source zsh-users/zsh-history-substring-search
+znap source marlonrichert/zsh-autocomplete
+
+zstyle ':autocomplete:*' ignored-input '..##'
+zstyle ':autocomplete:*' delay 0.1  # seconds (float)
+zstyle ':autocomplete:*' min-input 2
+zstyle ':completion:*:*' matcher-list 'm:{[:lower:]-}={[:upper:]_}' '+r:|[.]=**'
 
 . /opt/homebrew/etc/profile.d/z.sh
 

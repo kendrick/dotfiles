@@ -1,0 +1,78 @@
+{
+  "terminal.integrated.fontSize": 15,
+  "eslint.validate": ["javascript"],
+  "workbench.colorTheme": "SynthWave '84",
+  "editor.tokenColorCustomizations": null,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "bracket-pair-colorizer-2.colors": ["#383a42", "#a62ea4", "#e45649"],
+  "window.autoDetectColorScheme": true,
+  "editor.accessibilitySupport": "off",
+  "files.trimTrailingWhitespace": true,
+  "gitlens.views.compare.location": "gitlens",
+  "prettier.ignorePath": "",
+  "autoDarkMode.darkTheme": "One Dark+ (Sublime)",
+  "terminal.explorerKind": "external",
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "javascript.preferences.quoteStyle": "single",
+  "typescript.preferences.quoteStyle": "single",
+  "gitlens.views.fileHistory.location": "explorer",
+  "terminal.integrated.drawBoldTextInBrightColors": false,
+  "editor.suggestSelection": "first",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.stylelint": "explicit",
+    "source.fixAll.eslint": "explicit"
+  },
+  "gitlens.views.repositories.location": "scm",
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "editor.tabSize": 2,
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+  "workbench.colorCustomizations": {
+    "terminal.background": "#21172d"
+  },
+  "editor.fontFamily": "'OperatorMono Nerd Font', 'FiraCode Nerd Font', Menlo, Monaco, monospace",
+  "files.insertFinalNewline": true,
+  "editor.fontSize": 14,
+  "editor.columnSelection": false,
+  "workbench.preferredLightColorTheme": "Atom One Light",
+  "editor.linkedEditing": true,
+  "editor.largeFileOptimizations": false,
+  "terminal.external.osxExec": "iTerm.app",
+  "gitlens.views.lineHistory.location": "explorer",
+  "editor.matchBrackets": "always",
+  "autoDarkMode.lightTheme": "Atom One Light",
+  "bracket-pair-colorizer-2.scopeLineCSS": [
+    "borderStyle : dotted",
+    "borderWidth : 2px",
+    "borderColor : {color}; opacity: 0.5"
+  ],
+  "gitlens.views.search.location": "gitlens",
+  "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
+  "eslint.alwaysShowStatus": true,
+  "editor.fontLigatures": true,
+  "workbench.preferredDarkColorTheme": "SynthWave '84",
+  "editor.formatOnSave": true,
+  "editor.minimap.enabled": false,
+  "bracket-pair-colorizer-2.highlightActiveScope": true,
+  "bracket-pair-colorizer-2.activeScopeCSS": [
+    "borderStyle : dotted",
+    "borderWidth : 1px",
+    "borderColor : {color}; opacity: 0.5",
+    "backgroundColor: {color}; opacity: 0.4"
+  ],
+  "editor.rulers": [80],
+  "terminal.integrated.env.osx": {
+    "FIG_NEW_SESSION": "1"
+  },
+  "editor.inlineSuggest.enabled": true,
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "terminal.integrated.fontFamily": "MesloLGS NF",
+  "redhat.telemetry.enabled": false,
+  "window.zoomLevel": -1,
+  "debug.disassemblyView.showSourceCode": false,
+  "terminal.integrated.defaultProfile.osx": "zsh"
+}

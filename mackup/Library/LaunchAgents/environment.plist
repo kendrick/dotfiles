@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>my.startup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>sh</string>
+    <string>-c</string>
+    <string>
+      launchctl setenv SSH_HOME kendrick@internest.ddns.net
+      launchctl setenv PUSHOVER_TOKEN ah1aqofa22brhxqdvdes2yzs6wrnbe
+      launchctl setenv PUSHOVER_USER utr5pvzry21gthmo1cb669wr4cpq51
+      launchctl setenv BACKUP_SRC_DIRS "$(cat ~/.backup_include_list.txt)"
+      launchctl setenv BACKUP_SSH_CONNECTION kendrick@internest.ddns.net
+      launchctl setenv BACKUP_PATH_REMOTE "/mnt/c/Backups"
+      launchctl setenv BACKUP_MACHINE_NAME "$(uname -n)"
+      launchctl setenv BACKUP_EXCLUDE_LIST "/Users/kmarnett/.backup_exclude_list.txt"
+      launchctl setenv BACKUP_ROTATE_PATH "/Users/kmarnett/.dotfiles/bin/backup-rotate"
+    </string>
+
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>

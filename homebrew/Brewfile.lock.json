@@ -9,6 +9,20 @@
       }
     },
     "brew": {
+      "antigen": {
+        "version": "2.2.3",
+        "bottle": {
+          "rebuild": 0,
+          "root_url": "https://ghcr.io/v2/homebrew/core",
+          "files": {
+            "all": {
+              "cellar": ":any_skip_relocation",
+              "url": "https://ghcr.io/v2/homebrew/core/antigen/blobs/sha256:a7e25e7e84045a565f89b862af543154fa8564a4b2ca875fa894a641927b099f",
+              "sha256": "a7e25e7e84045a565f89b862af543154fa8564a4b2ca875fa894a641927b099f"
+            }
+          }
+        }
+      },
       "python@3.11": {
         "version": "3.11.9",
         "bottle": {
@@ -972,7 +986,7 @@
         }
       },
       "dropbox": {
-        "version": "196.4.6900",
+        "version": "197.4.7571",
         "options": {
           "full_name": "dropbox"
         }
@@ -993,6 +1007,12 @@
         "version": "1.9.3",
         "options": {
           "full_name": "imageoptim"
+        }
+      },
+      "iterm2": {
+        "version": "3.4.23",
+        "options": {
+          "full_name": "iterm2"
         }
       },
       "kap": {
@@ -1026,9 +1046,21 @@
         }
       },
       "notion": {
-        "version": "3.4.2",
+        "version": "3.5.0",
         "options": {
           "full_name": "notion"
+        }
+      },
+      "rectangle": {
+        "version": "0.76",
+        "options": {
+          "full_name": "rectangle"
+        }
+      },
+      "responsively": {
+        "version": "1.10.0",
+        "options": {
+          "full_name": "responsively"
         }
       },
       "slack": {
@@ -1065,9 +1097,17 @@
         "id": "411643860",
         "version": "4.25"
       },
+      "Data Jar": {
+        "id": "1453273600",
+        "version": "1.1.4"
+      },
       "GarageBand": {
         "id": "682658836",
         "version": "10.4.6"
+      },
+      "Hand Mirror": {
+        "id": "1502839586",
+        "version": "2.8.1"
       },
       "Hidden Bar": {
         "id": "1452453066",

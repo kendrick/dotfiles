@@ -1,0 +1,31 @@
+{
+	"diffEditor.codeLens": true,
+	"editor.codeActionsOnSave": {
+		"source.fixAll.sortJSON": "explicit",
+		"source.fixAll.eslint": "explicit"
+	},
+	"editor.codeLens": true,
+	"editor.colorDecorators": true,
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"editor.fontFamily": "'FantasqueSansM Nerd Font', 'CaskaydiaCove Nerd Font', 'Dank Mono', 'OperatorMono Lig', 'Fira Code', Menlo, Monaco, 'Courier New', monospace",
+	"editor.fontLigatures": true,
+	"editor.formatOnPaste": true,
+	"editor.formatOnSave": true,
+	"editor.formatOnType": true,
+	"editor.guides.bracketPairs": "active",
+	"editor.indentSize": "tabSize",
+	"editor.linkedEditing": true,
+	"editor.minimap.autohide": true,
+	"editor.renderWhitespace": "boundary",
+	"editor.showFoldingControls": "always",
+	"editor.stickyTabStops": true,
+	"editor.suggestSelection": "recentlyUsed",
+	"editor.tabCompletion": "on",
+	"editor.tabSize": 2,
+	"terminal.integrated.enableMultiLinePasteWarning": false,
+	"terminal.integrated.fontSize": 13,
+	"terminal.integrated.hideOnStartup": "whenEmpty",
+	"window.confirmSaveUntitledWorkspace": false,
+	"editor.lineHeight": 0,
+	"editor.fontSize": 13
+}

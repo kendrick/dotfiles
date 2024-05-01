@@ -1,6 +1,11 @@
-#!/usr/local/bin/zsh
+#!/usr/bin/env zsh
 
-exec_with_status "Using a better iTerm icon" \
-  fileicon set \
-    /Applications/iTerm.app \
+if [[ -f $(which fileicon) ]]; then
+  fileicon set /Applications/iTerm.app \
+  $DOTFILES/iterm2/iTerm2.icns
+else
+    echo "Installing \`fileicon\` via homebrew..."
+    brew install fileicon
+    fileicon set /Applications/iTerm.app \
     $DOTFILES/iterm2/iTerm2.icns
+fi

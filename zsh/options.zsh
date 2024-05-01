@@ -1,0 +1,7 @@
+setopt AUTO_MENU
+setopt ALWAYS_TO_END
+setopt ALIASES
+setopt CORRECT
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_REDUCE_BLANKS
+setopt PROMPT_SUBST

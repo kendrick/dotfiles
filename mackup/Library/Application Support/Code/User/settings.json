@@ -31,5 +31,7 @@
 	"window.autoDetectColorScheme": true,
 	"workbench.preferredDarkColorTheme": "SynthWave '84",
 	"workbench.colorTheme": "Default Light Modern",
-	"workbench.preferredLightColorTheme": "Solarized Light"
+	"workbench.preferredLightColorTheme": "Solarized Light",
+	"git.confirmSync": false,
+	"git.autofetch": true
 }

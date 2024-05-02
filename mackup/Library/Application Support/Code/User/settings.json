@@ -27,5 +27,9 @@
 	"terminal.integrated.hideOnStartup": "whenEmpty",
 	"window.confirmSaveUntitledWorkspace": false,
 	"editor.lineHeight": 0,
-	"editor.fontSize": 13
+	"editor.fontSize": 13,
+	"window.autoDetectColorScheme": true,
+	"workbench.preferredDarkColorTheme": "SynthWave '84",
+	"workbench.colorTheme": "Default Light Modern",
+	"workbench.preferredLightColorTheme": "Solarized Light"
 }

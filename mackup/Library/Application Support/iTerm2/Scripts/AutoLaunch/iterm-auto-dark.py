@@ -6,7 +6,7 @@ import iterm2
 async def changeTheme(theme_parts, connection):
     # Themes have space-delimited attributes, one of which will be light or dark.
     if "dark" in theme_parts:
-        preset = await iterm2.ColorPreset.async_get(connection, "Solarized Dark")
+        preset = await iterm2.ColorPreset.async_get(connection, "Synthwave 84")
     else:
         preset = await iterm2.ColorPreset.async_get(connection, "Solarized Light")
 

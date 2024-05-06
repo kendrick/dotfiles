@@ -1,5 +1,9 @@
 export DOTFILES=$HOME/.dotfiles
 export EDITOR=code
+
+# Increase Bash history size. Allow 32³ entries; the default is 500.
+export HISTSIZE='32768';
+export HISTFILESIZE="${HISTSIZE}";
 export HISTCONTROL=ignoredups
 export HOMEBREW_PREFIX=/opt/homebrew
 export NVM_DIR="$HOME/.nvm"

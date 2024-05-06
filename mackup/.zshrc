@@ -11,7 +11,7 @@ source ~/znap-repos/znap/znap.zsh  # Start Znap
 
 export DOTFILES=$HOME/.dotfiles
 
-source $DOTFILES/zsh/variables.zsh && \
+source $DOTFILES/zsh/exports.zsh && \
 # =-=-=- Lazy load these?? -=-=-=
 source $DOTFILES/zsh/plugins.zsh
 
@@ -30,7 +30,7 @@ source $DOTFILES/zsh/aliases.zsh
 source $DOTFILES/zsh/options.zsh
 
 # =-=-=- Lazy load this! -=-=-=
-# NVM_DIR is set in ./variables.zsh
+# NVM_DIR is set in ./exports.zsh
 # [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
 # [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 . "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" # This loads nvm

@@ -36,3 +36,5 @@ source $DOTFILES/zsh/options.zsh
 . "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" # This loads nvm
 . "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" # This loads nvm bash_completion
 znap source Sparragus/zsh-auto-nvm-use
+
+source $DOTFILES/zsh/functions.zsh

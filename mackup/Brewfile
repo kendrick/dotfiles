@@ -1,7 +1,6 @@
 tap "fkhadra/cli"
 tap "homebrew/bundle"
 tap "homebrew/cask-fonts"
-tap "homebrew/cask-versions"
 tap "romkatv/powerlevel10k"
 brew "jq"
 brew "ansiweather"
@@ -10,6 +9,7 @@ brew "ccat"
 brew "chroma"
 brew "cmake"
 brew "coreutils"
+brew "dockutil"
 brew "eza"
 brew "ffmpeg"
 brew "fileicon"
@@ -65,11 +65,11 @@ mas "iMovie", id: 408981434
 mas "Keynote", id: 409183694
 mas "Microsoft PowerPoint", id: 462062816
 mas "Numbers", id: 409203825
-mas "OneDrive", id: 823766827
 mas "Pages", id: 409201541
 mas "Presentify", id: 1507246666
 mas "Pure Paste", id: 1611378436
 vscode "aaron-bond.better-comments"
+vscode "beardedbear.beardedtheme"
 vscode "cschlosser.doxdocgen"
 vscode "dbaeumer.vscode-eslint"
 vscode "dsznajder.es7-react-js-snippets"

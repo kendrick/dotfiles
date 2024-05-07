@@ -1,21 +1,22 @@
-#!/usr/local/bin/zsh
-
-DOCKUTIL=$(which dockutil)
-DOCKUTILADD="$DOCKUTILBIN --add"
+#!/usr/bin/env zsh
 
 killall Dock
 
-# First, remove all items from the Dock
+dockutil --remove all
 
-$DOCKUTIL --remove all
+dockutil --add /Applications/Firefox.app
+dockutil --add "/Applications/Google Chrome.app"
+dockutil --add /Applications/Slack.app
+dockutil --add "/Applications/Visual Studio Code.app"
+dockutil --add /Applications/Notion.app
+dockutil --add /Applications/Figma.app
+dockutil --add /Applications/iTerm.app
 
-# Then, add in the apps that I prefer to have there:
+# Add a li'l spacer
+defaults write com.apple.dock persistent-apps -array-add '{"tile-type"="small-spacer-tile";}' && killall Dock
 
-$DOCKUTILADD /Applications/iTerm.app
-$DOCKUTILADD /Applications/Sketch.app
-$DOCKUTILADD /Applications/Tweetbot.app
-$DOCKUTILADD /Applications/Messages.app
-$DOCKUTILADD /Applications/Slack.app
+dockutil --add /Applications/Spotify.app
+dockutil --add /System/Applications/Messages.app
 
-$DOCKUTILADD '~' --view grid --display stack
-$DOCKUTILADD '~/Downloads' --view fan --display stack
+dockutil --add '~' --view grid --display stack
+dockutil --add '~/Downloads' --view fan --display stack

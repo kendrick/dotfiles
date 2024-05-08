@@ -556,6 +556,13 @@ defaults write com.apple.mail DisableInlineAttachmentViewing -bool true
 # # Disable automatic spell checking
 # defaults write com.apple.mail SpellCheckingBehavior -string "NoSpellCheckingEnabled"
 
+####################
+# Siri
+####################
+defaults write com.apple.Siri StatusMenuVisible -bool false
+defaults write com.apple.Siri UserHasDeclinedEnable -bool true
+defaults write com.apple.assistant.support 'Assistant Enabled' 0
+
 ###############################################################################
 # Spotlight                                                                   #
 ###############################################################################
@@ -793,10 +800,12 @@ defaults write com.google.Chrome.canary PMPrintingExpandedStateForPrint2 -bool t
 # Kill affected applications                                                  #
 ###############################################################################
 
+sudo killall -HUP cfprefsd
+sudo killall SystemUIServer
+
 for app in "Activity Monitor" \
 	"Address Book" \
 	"Calendar" \
-	"cfprefsd" \
 	"Contacts" \
 	"Dock" \
 	"Finder" \
@@ -805,10 +814,8 @@ for app in "Activity Monitor" \
 	"Messages" \
 	"Photos" \
 	"Safari" \
-	"SystemUIServer" \
 	"Terminal" \
-	"Transmission" \
-	"iCal"; do
+	"Transmission"; do
 	killall "${app}" &> /dev/null
 done
 

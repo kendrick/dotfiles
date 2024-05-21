@@ -2,7 +2,8 @@
 	"diffEditor.codeLens": true,
 	"editor.codeActionsOnSave": {
 		"source.fixAll.sortJSON": "explicit",
-		"source.fixAll.eslint": "explicit"
+		"source.fixAll.eslint": "explicit",
+		"source.fixAll.stylelint": "explicit"
 	},
 	"editor.codeLens": true,
 	"editor.colorDecorators": true,
@@ -22,7 +23,7 @@
 	"editor.suggestSelection": "recentlyUsed",
 	"editor.tabCompletion": "on",
 	"editor.tabSize": 2,
-	"terminal.integrated.enableMultiLinePasteWarning": false,
+	"terminal.integrated.enableMultiLinePasteWarning": "auto",
 	"terminal.integrated.fontSize": 13,
 	"terminal.integrated.hideOnStartup": "whenEmpty",
 	"window.confirmSaveUntitledWorkspace": false,
@@ -33,5 +34,7 @@
 	"workbench.colorTheme": "Default Light Modern",
 	"workbench.preferredLightColorTheme": "Solarized Light",
 	"git.confirmSync": false,
-	"git.autofetch": true
+	"git.autofetch": true,
+	"redhat.telemetry.enabled": false,
+	"editor.insertSpaces": false
 }

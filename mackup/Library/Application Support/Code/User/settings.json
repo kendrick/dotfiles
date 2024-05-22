@@ -36,5 +36,7 @@
 	"git.confirmSync": false,
 	"git.autofetch": true,
 	"redhat.telemetry.enabled": false,
-	"editor.insertSpaces": false
+	"editor.insertSpaces": false,
+	"settingsSync.ignoredSettings": [],
+	"synthwave84.brightness": 1
 }

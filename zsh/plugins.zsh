@@ -13,7 +13,7 @@ znap source "raghur/zsh-arduino" # Check https://github.com/raghur/zsh-arduino#n
 znap source "zpm-zsh/colorize"
 znap source "hlissner/zsh-autopair"
 znap source "MohamedElashri/eza-zsh"
-znap source "pndurette/zsh-lux"
+
 # znap source "zshzoo/macos"
 # znap source "Sparragus/zsh-auto-nvm-use" # Maybe keep this, maybe hack my own. https://github.com/Sparragus/zsh-auto-nvm-use
 

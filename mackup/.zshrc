@@ -6,8 +6,8 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
 fi
 
 # Download Znap, if it's not there yet.
-[[ ! -d ~/.znap-repos/znap ]] || git clone --depth 1 -- https://github.com/marlonrichert/zsh-snap.git ~/znap-repos/znap
-source ~/znap-repos/znap/znap.zsh  # Start Znap
+[[ ! -d ~/.znap-repos/znap ]] && git clone --depth 1 -- https://github.com/marlonrichert/zsh-snap.git ~/.znap-repos/znap
+source ~/.znap-repos/znap/znap.zsh  # Start Znap
 
 export DOTFILES=$HOME/.dotfiles
 

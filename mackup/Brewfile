@@ -28,6 +28,7 @@ brew "powerlevel10k"
 brew "pre-commit"
 brew "python@3.11"
 brew "speedtest-cli"
+brew "vsce"
 brew "wifi-password"
 brew "yarn"
 brew "yt-dlp"
@@ -46,7 +47,6 @@ cask "iterm2"
 cask "kap"
 cask "keycastr"
 cask "microsoft-auto-update"
-cask "microsoft-outlook"
 cask "notion"
 cask "notion-enhanced"
 cask "raycast"
@@ -63,7 +63,6 @@ mas "GarageBand", id: 682658836
 mas "Hidden Bar", id: 1452453066
 mas "iMovie", id: 408981434
 mas "Keynote", id: 409183694
-mas "Microsoft PowerPoint", id: 462062816
 mas "Numbers", id: 409203825
 mas "Pages", id: 409201541
 mas "Presentify", id: 1507246666
@@ -72,7 +71,6 @@ vscode "aaron-bond.better-comments"
 vscode "beardedbear.beardedtheme"
 vscode "cschlosser.doxdocgen"
 vscode "dbaeumer.vscode-eslint"
-vscode "dsznajder.es7-react-js-snippets"
 vscode "eamodio.gitlens"
 vscode "esbenp.prettier-vscode"
 vscode "figma.figma-vscode-extension"
@@ -88,9 +86,10 @@ vscode "redhat.vscode-xml"
 vscode "richie5um2.vscode-sort-json"
 vscode "robbowen.synthwave-vscode"
 vscode "shd101wyy.markdown-preview-enhanced"
+vscode "stylelint.vscode-stylelint"
+vscode "tomoki1207.pdf"
 vscode "unifiedjs.vscode-mdx"
 vscode "usernamehw.errorlens"
-vscode "vunguyentuan.vscode-postcss"
 vscode "webhint.vscode-webhint"
 vscode "xyc.vscode-mdx-preview"
 vscode "yoavbls.pretty-ts-errors"

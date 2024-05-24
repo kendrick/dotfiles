@@ -3,12 +3,14 @@
 	"editor.codeActionsOnSave": {
 		"source.fixAll.sortJSON": "explicit",
 		"source.fixAll.eslint": "explicit",
-		"source.fixAll.stylelint": "explicit"
+		"source.fixAll.stylelint": "explicit",
+		"source.organizeImports": "explicit",
+		"source.removeUnusedImports": "explicit"
 	},
 	"editor.codeLens": true,
 	"editor.colorDecorators": true,
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
-	"editor.fontFamily": "'FantasqueSansM Nerd Font', 'CaskaydiaCove Nerd Font', 'Dank Mono', 'OperatorMono Lig', 'Fira Code', Menlo, Monaco, 'Courier New', monospace",
+	"editor.fontFamily": "'Dank Mono', 'GeistMono Nerd Font', 'FantasqueSansM Nerd Font', 'CaskaydiaCove Nerd Font', 'OperatorMono Lig', 'Fira Code', Menlo, Monaco, 'Courier New', monospace",
 	"editor.fontLigatures": true,
 	"editor.formatOnPaste": true,
 	"editor.formatOnSave": true,
@@ -38,5 +40,8 @@
 	"redhat.telemetry.enabled": false,
 	"editor.insertSpaces": false,
 	"settingsSync.ignoredSettings": [],
-	"synthwave84.brightness": 1
+	"synthwave84.brightness": 1,
+	"[xml]": {
+		"editor.defaultFormatter": "redhat.vscode-xml"
+	}
 }

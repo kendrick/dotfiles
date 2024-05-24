@@ -6,12 +6,9 @@ function os_is_dark() {
     local dark_mode=$(osascript -l JavaScript -e \
         "Application('System Events').appearancePreferences.darkMode.get()")
 
-    _lux_log "fct: $funcstack[1]" "dark mode? $dark_mode"
-
     if   [[ "$dark_mode" == "true" ]];  then return 0
     elif [[ "$dark_mode" == "false" ]]; then return 1
     else
-        _lux_log "can't get macOS dark mode status."
         return 2
     fi
 }

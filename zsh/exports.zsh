@@ -7,7 +7,7 @@ export HISTFILESIZE="${HISTSIZE}";
 export HISTCONTROL=ignoredups
 export HOMEBREW_PREFIX=/opt/homebrew
 export NVM_DIR="$HOME/.nvm"
-export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$DOTFILES/bin:$PATH"
+export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$DOTFILES/bin:$HOME/.local/bin:$PATH"
 export WORDCHARS='*_-.[]~;!$%^(){}<>'
 
 autoload -Uz select-word-style

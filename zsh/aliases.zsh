@@ -26,6 +26,8 @@ alias mkdir='mkdir -pv'
 alias o='open .'
 alias oops='TF_CMD=$(TF_ALIAS=oops PYTHONIOENCODING=utf-8 TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1 | tail -n 1)) && eval $TF_CMD && print -s $TF_CMD'
 alias path='realpath'
+alias pip='pip3'
+alias python='python3'
 alias rmdsstore="find . -name '*.DS_Store' -type f -delete"
 alias sshh='ssh $SSH_HOME'
 alias ssid='/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '"'"'/ SSID/ {print substr($0, index($0, $2))}'"'"''

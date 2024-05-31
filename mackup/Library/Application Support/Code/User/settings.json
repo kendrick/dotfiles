@@ -43,5 +43,7 @@
 	"synthwave84.brightness": 1,
 	"[xml]": {
 		"editor.defaultFormatter": "redhat.vscode-xml"
-	}
+	},
+	"svgPreview.autoOpen": false,
+	"javascript.updateImportsOnFileMove.enabled": "always"
 }

@@ -5,12 +5,12 @@
 		"source.fixAll.eslint": "explicit",
 		"source.fixAll.stylelint": "explicit",
 		"source.organizeImports": "explicit",
-		"source.removeUnusedImports": "explicit"
+		"source.removeUnusedImports": "never"
 	},
 	"editor.codeLens": true,
 	"editor.colorDecorators": true,
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
-	"editor.fontFamily": "'Dank Mono', 'GeistMono Nerd Font', 'FantasqueSansM Nerd Font', 'CaskaydiaCove Nerd Font', 'OperatorMono Lig', 'Fira Code', Menlo, Monaco, 'Courier New', monospace",
+	"editor.fontFamily": "'FantasqueSansM Nerd Font', 'Dank Mono',  'Fira Code', Menlo, Monaco, 'Courier New', monospace",
 	"editor.fontLigatures": true,
 	"editor.formatOnPaste": true,
 	"editor.formatOnSave": true,

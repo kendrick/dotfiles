@@ -9,10 +9,11 @@ fi
 [[ ! -d ~/.znap-repos/znap ]] && git clone --depth 1 -- https://github.com/marlonrichert/zsh-snap.git ~/.znap-repos/znap
 source ~/.znap-repos/znap/znap.zsh  # Start Znap
 
-export DOTFILES=$HOME/.dotfiles
+# XDG-style config layout — managed by chezmoi
+export ZSH_CONFIG=$HOME/.config/zsh
 
-source $DOTFILES/zsh/exports.zsh && \
-source $DOTFILES/zsh/plugins.zsh
+source $ZSH_CONFIG/exports.zsh && \
+source $ZSH_CONFIG/plugins.zsh
 
 . $HOMEBREW_PREFIX/etc/profile.d/z.sh
 
@@ -20,16 +21,16 @@ source $DOTFILES/zsh/plugins.zsh
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 source $HOMEBREW_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme
 
-source $DOTFILES/zsh/keybindings.zsh
-source $DOTFILES/zsh/styles.zsh
-source $DOTFILES/zsh/aliases.zsh
-source $DOTFILES/zsh/options.zsh
+source $ZSH_CONFIG/keybindings.zsh
+source $ZSH_CONFIG/styles.zsh
+source $ZSH_CONFIG/aliases.zsh
+source $ZSH_CONFIG/options.zsh
 
-# NVM_DIR is set in ./exports.zsh
+# NVM_DIR is set in exports.zsh
 . "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
 . "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
 
-source $DOTFILES/zsh/functions.zsh
+source $ZSH_CONFIG/functions.zsh
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
 # pnpm

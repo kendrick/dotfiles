@@ -3,8 +3,6 @@
 # Derived from ~/.dotfiles/macos/set-defaults.sh — stripped of deprecated/commented settings.
 # Runs once per machine via chezmoi.
 
-set -e
-
 echo "Configuring macOS defaults..."
 
 # Close System Settings to prevent overrides
@@ -122,17 +120,13 @@ defaults write com.apple.dock show-recents -bool false
 # Safari (for when you use it)                                                #
 ###############################################################################
 
-# Enable the Develop menu and Web Inspector
-defaults write com.apple.Safari IncludeDevelopMenu -bool true
-defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
-defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled -bool true
-defaults write NSGlobalDomain WebKitDeveloperExtras -bool true
-
-# Prevent Safari from opening 'safe' files automatically after downloading
-defaults write com.apple.Safari AutoOpenSafeDownloads -bool false
-
-# Enable "Do Not Track"
-defaults write com.apple.Safari SendDoNotTrackHTTPHeader -bool true
+# Safari defaults may fail on newer macOS due to sandboxing — ignore errors
+defaults write com.apple.Safari IncludeDevelopMenu -bool true 2>/dev/null || true
+defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true 2>/dev/null || true
+defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled -bool true 2>/dev/null || true
+defaults write NSGlobalDomain WebKitDeveloperExtras -bool true 2>/dev/null || true
+defaults write com.apple.Safari AutoOpenSafeDownloads -bool false 2>/dev/null || true
+defaults write com.apple.Safari SendDoNotTrackHTTPHeader -bool true 2>/dev/null || true
 
 ###############################################################################
 # Mail                                                                        #

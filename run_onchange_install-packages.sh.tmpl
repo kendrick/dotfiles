@@ -2,13 +2,12 @@
 # Brewfile hash: {{ include ".chezmoitemplates/Brewfile" | sha256sum }}
 # Re-runs whenever the Brewfile content changes.
 
-set -e
-
 if ! command -v brew &>/dev/null; then
   echo "Homebrew not found — skipping package install."
   exit 0
 fi
 
-brew bundle --file=/dev/stdin <<'BREWEOF'
+# Allow failures (MAS apps may need interactive sudo auth)
+brew bundle --file=/dev/stdin <<'BREWEOF' || echo "Some Brewfile entries failed (MAS apps may need manual install)."
 {{ template "Brewfile" . }}
 BREWEOF

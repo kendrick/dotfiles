@@ -1,6 +1,6 @@
 #!/bin/bash
 # chezmoi:template:left-delimiter="{{" right-delimiter="}}"
-# Raycast extensions hash: {{ include "dot_dotfiles/raycast-extensions.txt" | sha256sum }}
+# Raycast extensions hash: {{ include "dot_config/raycast-extensions.txt" | sha256sum }}
 # Re-runs whenever the extension list changes.
 
 set -e
@@ -18,7 +18,7 @@ while IFS= read -r ext; do
   open "raycast://extensions/install/$ext" 2>/dev/null || true
   sleep 1
 done < <(cat <<'EXTEOF'
-{{ include "dot_dotfiles/raycast-extensions.txt" }}
+{{ include "dot_config/raycast-extensions.txt" }}
 EXTEOF
 )
 

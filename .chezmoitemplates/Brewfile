@@ -1,4 +1,3 @@
-tap "homebrew/bundle"
 tap "romkatv/powerlevel10k"
 tap "fkhadra/cli"
 
@@ -29,20 +28,16 @@ brew "ccat"
 brew "chroma"
 brew "cmake"
 
+brew "specify"
+tap "sbcinnovation/tap"
+brew "sbcinnovation/tap/squoosh"
+
 {{ if eq .machine_role "work" -}}
 # Work machine packages
 tap "databricks/tap"
-tap "sbcinnovation/tap"
 brew "aws-amplify"
 brew "awscli"
 brew "databricks/tap/databricks"
-brew "sbcinnovation/tap/squoosh"
-brew "specify"
-{{ end -}}
-
-{{ if eq .machine_role "personal" -}}
-# Personal only
-brew "codex"
 {{ end -}}
 
 # Cask apps — universal
@@ -51,20 +46,20 @@ cask "1password-cli"
 cask "brave-browser"
 cask "firefox"
 cask "ghostty"
-cask "google-chrome"
+cask "glance-chamburr"
 cask "grammarly-desktop"
-cask "notion"
+cask "microsoft-edge"
 cask "obsidian"
 cask "raycast"
+cask "screen-studio"
 cask "slack"
 cask "spotify"
 cask "ticktick"
+cask "superwhisper"
 cask "visual-studio-code"
-cask "zoom"
 
 {{ if ne .machine_role "client" -}}
 # Not on client machines
-cask "chatgpt"
 cask "claude"
 cask "claude-code"
 {{ end -}}
@@ -72,22 +67,10 @@ cask "claude-code"
 {{ if eq .machine_role "work" -}}
 cask "conductor"
 cask "deskflow"
-cask "glance-chamburr"
-cask "microsoft-edge"
 cask "zappy"
-{{ end -}}
-
-{{ if eq .machine_role "personal" -}}
-cask "screen-studio"
-cask "superwhisper"
 {{ end -}}
 
 # Mac App Store
 mas "ColorSlurp", id: 1287239339
 mas "Hidden Bar", id: 1452453066
 mas "Presentify", id: 1507246666
-mas "GarageBand", id: 682658836
-mas "iMovie", id: 408981434
-mas "Keynote", id: 409183694
-mas "Numbers", id: 409203825
-mas "Pages", id: 409201541

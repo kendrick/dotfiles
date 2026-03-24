@@ -1,0 +1,15 @@
+{{- $machineRole := promptStringOnce . "machine_role" "Machine role (work/client/personal)" -}}
+
+{{- $email := "" -}}
+{{- if eq $machineRole "work" -}}
+{{-   $email = promptStringOnce . "email" "Work email address" -}}
+{{- else if eq $machineRole "client" -}}
+{{-   $email = promptStringOnce . "email" "Client email address" -}}
+{{- else -}}
+{{-   $email = "kmarnett@gmail.com" -}}
+{{- end -}}
+
+[data]
+  machine_role = {{ $machineRole | quote }}
+  email = {{ $email | quote }}
+  name = "Kendrick Arnett"

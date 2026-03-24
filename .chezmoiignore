@@ -1,0 +1,11 @@
+README.md
+
+# Claude Desktop — not on client machines
+{{ if eq .machine_role "client" }}
+private_Library/private_Application Support/Claude/claude_desktop_config.json
+{{ end }}
+
+# awssso — work machine only
+{{ if ne .machine_role "work" }}
+dot_dotfiles/bin/executable_awssso
+{{ end }}

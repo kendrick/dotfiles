@@ -1,0 +1,22 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# VS Code extensions hash: {{ include "dot_dotfiles/vscode-extensions.txt" | sha256sum }}
+# Re-runs whenever the extension list changes.
+
+set -e
+
+if ! command -v code &>/dev/null; then
+  echo "VS Code CLI not found — skipping extension install."
+  exit 0
+fi
+
+echo "Installing VS Code extensions..."
+
+while IFS= read -r ext; do
+  [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
+  code --install-extension "$ext" --force 2>/dev/null || true
+done <<'EXTEOF'
+{{ include "dot_dotfiles/vscode-extensions.txt" }}
+EXTEOF
+
+echo "VS Code extensions installed."

@@ -1,0 +1,29 @@
+# Raycast extensions to install
+# Edit this list and run `chezmoi apply` to sync.
+1password
+battery-health
+brew
+browser-bookmarks
+color-picker
+colorslurp
+figma-files-raycast-extension
+fotmob
+gif-search
+github-copilot
+kill-process
+menubar-weather
+music
+notion
+obsidian
+pomodoro
+ray-so
+remove-paywall
+shell
+shottr
+sip
+spotify-player
+raycast-system-monitor
+tailwindcss
+ticktick
+visual-studio-code
+zoom

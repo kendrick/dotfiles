@@ -1,0 +1,28 @@
+dist/
+node_modules/
+*.bak
+logs/*
+*.log
+npm-debug.log
+!.gitkeep
+tmp
+.sass-cache/
+.npm
+.grunt
+Gemfile.lock
+
+# Mac desktop service store files
+.DS_Store
+
+# Jetbrains project files
+**/.idea/workspace.xml
+**/.idea/tasks.xml
+
+# Windows
+[Tt]humbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Claude Code
+**/.claude/settings.local.json

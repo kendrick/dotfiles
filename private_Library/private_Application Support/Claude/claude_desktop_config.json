@@ -1,0 +1,10 @@
+{
+  "mcpServers": {},
+  "preferences": {
+    "quickEntryDictationShortcut": "capslock",
+    "coworkScheduledTasksEnabled": true,
+    "sidebarMode": "chat",
+    "coworkWebSearchEnabled": true,
+    "ccdScheduledTasksEnabled": true
+  }
+}

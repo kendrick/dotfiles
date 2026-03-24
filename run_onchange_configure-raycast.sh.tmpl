@@ -1,0 +1,28 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# Raycast extensions hash: {{ include "dot_dotfiles/raycast-extensions.txt" | sha256sum }}
+# Re-runs whenever the extension list changes.
+
+set -e
+
+if ! command -v open &>/dev/null; then
+  exit 0
+fi
+
+echo "Installing Raycast extensions..."
+
+while IFS= read -r ext; do
+  # Skip comments and empty lines
+  [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
+  echo "  → $ext"
+  open "raycast://extensions/install/$ext" 2>/dev/null || true
+  sleep 1
+done < <(cat <<'EXTEOF'
+{{ include "dot_dotfiles/raycast-extensions.txt" }}
+EXTEOF
+)
+
+# Raycast preferences
+defaults write com.raycast.macos raycastGlobalHotkey -string "Command-49"
+
+echo "Raycast configuration complete."

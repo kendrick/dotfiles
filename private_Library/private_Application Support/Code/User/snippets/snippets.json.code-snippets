@@ -1,0 +1,7 @@
+{
+	"Media Query": {
+    "prefix": "mq",
+		"scope": "css,scss,tailwindcss",
+    "body": "@media screen and (${1:max-width: 300px}) {\n  $0\n}"
+  }
+}

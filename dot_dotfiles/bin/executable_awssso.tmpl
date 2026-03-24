@@ -1,0 +1,6 @@
+#!/usr/bin/env zsh
+
+{{ if eq .machine_role "work" -}}
+export BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+aws sso login --profile AppModPoc-DevOps-BR-211125389085
+{{ end -}}

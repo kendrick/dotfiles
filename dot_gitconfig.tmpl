@@ -1,0 +1,43 @@
+[user]
+  name = {{ .name }}
+  email = {{ .email }}
+[core]
+  editor = "code --wait"
+  pager = delta --diff-so-fancy | less --tabs=2 -RFX
+[delta]
+  features = decorations
+[decorations]
+  commit-decoration-style = blue ol
+[interactive]
+  diffFilter = delta --color-only --features=interactive
+[push]
+  default = simple
+  followTags = true
+  autoSetupRemote = true
+[url "https://"]
+  insteadOf = git://
+[alias]
+  ac = !git add . && git commit -am
+  un = "!git reset --soft HEAD^"
+  ls = log --pretty='format:"%C(yellow)%h%Cred%d %Creset%s%Cblue [%cn]"' --decorate
+  lg = log --color --graph
+  ll = log --pretty='format:"%C(yellow)%h%Cred%d %Creset%s%Cblue [%cn]"' --decorate --numstat
+  dl = "!git ll -1"
+  dlc = diff --cached HEAD^
+  fall = fetch --all -p
+  f = "!git ls-files | grep -i"
+  gr = grep -Ii
+  ours = "!fn() { git checkout --ours $@ && git add $@; }; fn"
+  theirs = "!fn() { git checkout --theirs $@ && git add $@; }; fn"
+  unstash = stash pop
+[help]
+  autocorrect = 1
+[filter "lfs"]
+  clean = git-lfs clean -- %f
+  smudge = git-lfs smudge -- %f
+  process = git-lfs filter-process
+  required = true
+[credential]
+  helper = osxkeychain
+[init]
+  defaultBranch = main

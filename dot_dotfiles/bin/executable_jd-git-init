@@ -1,0 +1,125 @@
+#!/usr/bin/env zsh
+# ─────────────────────────────────────────────────────────────────────
+# jd-git-init.sh
+#
+# Run from any JD Area or Client/Category folder inside an Obsidian
+# vault to initialize it as a git repo with the right .gitignore.
+#
+# Usage:
+#   jd-git-init              # run from inside the target folder
+#   jd-git-init <path>       # or pass a path
+#
+# Recommended: symlink or copy to somewhere on your $PATH:
+#   ln -s ~/scripts/jd-git-init.sh /usr/local/bin/jd-git-init
+#
+# What it does:
+#   1. Validates you're in a JD-shaped folder (NN-NN-* or NN-*)
+#   2. Checks you're not accidentally initing at the vault root
+#   3. Drops a .gitignore tuned for Obsidian + iCloud
+#   4. git init + initial commit
+#   5. Optionally wires up a remote
+# ─────────────────────────────────────────────────────────────────────
+
+set -euo pipefail
+
+TARGET="${1:-.}"
+TARGET="$(cd "$TARGET" && pwd)"
+BASENAME="$(basename "$TARGET")"
+
+# ── Guards ───────────────────────────────────────────────────────────
+
+# Already a repo?
+if [[ -d "$TARGET/.git" ]]; then
+  echo "⏭  Already a git repo: $BASENAME"
+  echo "   $TARGET"
+  exit 0
+fi
+
+# Vault root check — look for .obsidian/ as the signal
+if [[ -d "$TARGET/.obsidian" ]]; then
+  echo "🚫 This looks like your vault root (found .obsidian/)."
+  echo "   Init repos at the Area or Client level, not the whole vault."
+  exit 1
+fi
+
+# Sanity check: does the folder name look JD-ish?
+# Matches: "10-19-admin", "21-nextera", "42-reference-material", etc.
+if [[ ! "$BASENAME" =~ ^[0-9]{2}(-[0-9]{2})?- ]]; then
+  echo "⚠️  Folder name '$BASENAME' doesn't look like a JD Area (NN-NN-*)"
+  echo "   or Category (NN-*). Continuing anyway — just double-check"
+  echo "   you're in the right place."
+  echo ""
+  read -q "REPLY?Proceed? [y/N] " || { echo "\nAborted."; exit 1; }
+  echo ""
+fi
+
+# ── .gitignore ───────────────────────────────────────────────────────
+
+cat > "$TARGET/.gitignore" << 'EOF'
+# ── Obsidian ────────────────────────────────────────────────────────
+.obsidian/
+.trash/
+
+# ── OS ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── iCloud sync artifacts ───────────────────────────────────────────
+*.icloud
+.icloud
+
+# ── Scratch / temp ──────────────────────────────────────────────────
+*.tmp
+*.bak
+*~
+
+# ── Binaries (uncomment to exclude, or use git-lfs) ────────────────
+# *.pdf
+# *.png
+# *.jpg
+# *.jpeg
+# *.gif
+# *.mp4
+# *.mov
+# *.zip
+EOF
+
+# ── Init ─────────────────────────────────────────────────────────────
+
+echo "✨ Initializing git repo: $BASENAME"
+echo "   $TARGET"
+echo ""
+
+git -C "$TARGET" init --quiet
+git -C "$TARGET" add .gitignore
+git -C "$TARGET" commit --quiet -m "chore: init with obsidian .gitignore"
+
+# ── Snapshot existing content ────────────────────────────────────────
+
+echo "📸 Staging existing notes..."
+git -C "$TARGET" add -A
+
+if ! git -C "$TARGET" diff --cached --quiet; then
+  git -C "$TARGET" commit --quiet -m "chore: initial snapshot of existing notes"
+  FILE_COUNT=$(git -C "$TARGET" log --oneline --diff-filter=A --name-only HEAD | grep -c '' || true)
+  echo "   Committed $FILE_COUNT files"
+else
+  echo "   No existing files to commit (empty folder)"
+fi
+
+# ── Optional remote ──────────────────────────────────────────────────
+
+echo ""
+read -q "REPLY?Add a remote origin? [y/N] " || { echo "\n\n🎉 Done. Happy noting."; exit 0; }
+echo ""
+read "REMOTE?Remote URL (SSH or HTTPS): "
+
+if [[ -n "$REMOTE" ]]; then
+  git -C "$TARGET" remote add origin "$REMOTE"
+  echo "   Remote added. Push with: cd $TARGET && git push -u origin main"
+fi
+
+echo ""
+echo "🎉 Done. Happy noting."
+echo ""

@@ -14,6 +14,18 @@
 <!-- The last line is the agent-targeted lever. Be specific. "Don't suggest    -->
 <!-- moving X to Y" beats "don't suggest big refactors."                       -->
 
+## 2026-06-07 — Don't symlink VS Code settings.json into the repo
+**Tried:** Managing `settings.json` as a chezmoi symlink so UI edits write straight to the source.
+**What broke:** VS Code writes settings atomically (temp file + rename), which replaces the symlink with a regular file and silently breaks the link.
+**Why we backed out:** Kept it a managed copy; `dotfiles-sync` captures it via `chezmoi re-add` instead.
+**Don't suggest:** Converting `settings.json` (or other apps that rewrite files atomically) to `symlink_` chezmoi entries.
+
+## 2026-06-07 — Don't auto-dump the Brewfile with `brew bundle dump`
+**Tried:** Having `dotfiles-sync` run `brew bundle dump --force` to capture installed packages automatically.
+**What broke:** The Brewfile is a chezmoi template with `{{ if eq .machine_role }}` guards and tap sections; a flat dump overwrites and destroys all of that.
+**Why we backed out:** `dotfiles-sync`/`dotfiles-doctor` only *report* Brewfile drift; new packages get added to the right section by hand.
+**Don't suggest:** Auto-writing or dumping the Brewfile, or flattening its machine-role conditionals.
+
 ## 2026-03-24 — Don't re-add deprecated macOS defaults
 **Tried:** Carrying the full Mathias Bynens `set-defaults.sh` forward.
 **What broke:** Many `defaults write` keys are no-ops or error on Sequoia+ Apple Silicon.

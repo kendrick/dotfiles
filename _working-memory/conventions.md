@@ -15,3 +15,6 @@
 
 ## Error Handling
 - Setup scripts use `set -e` for fail-fast, with two deliberate exceptions: the macOS-defaults script omits it (non-fatal `defaults write` errors), and external-tool installers (`brew bundle`, `code --install-extension`, `open raycast://`) guard each call with `|| true` and skip cleanly if the CLI is absent. _(run_onchange_install-vscode-extensions.sh.tmpl, run_once_after_configure-macos.sh)_
+
+## Cross-machine sync
+- Capture local changes with `dotfiles-sync` (regenerates VS Code ext list, `chezmoi re-add`, commit + push); pull elsewhere with `chezmoi update`; spot drift with `dotfiles-doctor`. Brewfile and Raycast extensions are captured by hand. _(dot_local/bin/executable_dotfiles-sync)_

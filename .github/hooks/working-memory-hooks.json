@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "./scripts/working-memory-session-start.sh",
+        "windows": "powershell -NoProfile -File ./scripts/working-memory-session-start.ps1",
+        "timeout": 10
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "./scripts/working-memory-session-end.sh",
+        "windows": "powershell -NoProfile -File ./scripts/working-memory-session-end.ps1",
+        "timeout": 10
+      }
+    ]
+  }
+}

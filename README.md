@@ -46,7 +46,9 @@ Raycast extensions are also managed via a text file list.
 
 ### Scripts
 
-Custom scripts in `~/.local/bin/` (which is on `$PATH`): `awssso`, `cless`, `cscreen`, `draw`, `e`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`.
+Custom scripts in `~/.local/bin/` (which is on `$PATH`): `awssso`, `cless`, `cscreen`, `dotfiles-doctor`, `dotfiles-sync`, `draw`, `e`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`.
+
+`dotfiles-sync` and `dotfiles-doctor` handle syncing changes between machines (see [Keeping machines in sync](#keeping-machines-in-sync)).
 
 ### macOS defaults
 
@@ -96,6 +98,28 @@ chezmoi cd
 git add -A && git commit -m "whatever"
 git push
 ```
+
+## Keeping machines in sync
+
+The repo is the source of truth. Make a change on one machine, push it up, pull it down on the others.
+
+```bash
+# on the machine where you changed something
+dotfiles-sync
+
+# on every other machine
+chezmoi update
+```
+
+`dotfiles-sync` regenerates the VS Code extension list from what's installed, re-adds every changed managed file in one pass (settings, zsh, git config, and the rest), flags any Homebrew packages that aren't in the Brewfile yet, then commits and pushes. It won't touch the Brewfile itself, on purpose: the Brewfile is a template with machine-role conditionals, and dumping a flat list over it would wipe those out. Raycast extensions stay manual for a similar reason, since there's no CLI to list what's installed.
+
+One catch: `chezmoi update` only adds. If you remove an extension or uninstall a package on one machine, the others keep it, because the extension and package lists are additive. That's what `dotfiles-doctor` is for:
+
+```bash
+dotfiles-doctor    # read-only; run it after chezmoi update
+```
+
+It lists anything installed locally that isn't in your dotfiles (either something you installed ad-hoc and want to keep, or something you removed elsewhere and should uninstall here), plus anything in your lists that isn't installed yet. It changes nothing. You decide what to act on.
 
 ## Layout
 

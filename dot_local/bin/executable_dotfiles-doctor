@@ -1,0 +1,37 @@
+#!/bin/bash
+# dotfiles-doctor — report config drift between this machine and the dotfiles repo.
+# Read-only: it changes nothing, it just shows you what's out of sync so you can
+# decide what to do. Worth running after `chezmoi update`, because update only ADDS
+# — it never removes an extension or package you dropped on another machine.
+set -euo pipefail
+
+SRC="$(chezmoi source-path)"
+
+echo "== VS Code extensions =="
+if command -v code &>/dev/null; then
+  list="$SRC/dot_config/vscode-extensions.txt"
+  installed="$(code --list-extensions | sort)"
+  listed="$(grep -vE '^[[:space:]]*#|^[[:space:]]*$' "$list" | sort)"
+  echo "-- here but not in your dotfiles (uninstall, or capture with dotfiles-sync):"
+  comm -23 <(echo "$installed") <(echo "$listed") | sed 's/^/    /'
+  echo "-- in your dotfiles but not installed (next apply installs these):"
+  comm -13 <(echo "$installed") <(echo "$listed") | sed 's/^/    /'
+else
+  echo "    code CLI not found — skipping"
+fi
+
+echo
+echo "== Homebrew =="
+if command -v brew &>/dev/null; then
+  brewfile="$SRC/.chezmoitemplates/Brewfile"
+  echo "-- here but not in the Brewfile (uninstall, or add to the template):"
+  while IFS= read -r formula; do
+    name="${formula##*/}"
+    grep -qiE "(^|/)\"?${name}\"?" "$brewfile" || echo "    brew  $formula"
+  done < <(brew leaves)
+  while IFS= read -r cask; do
+    grep -qiE "\"${cask}\"" "$brewfile" || echo "    cask  $cask"
+  done < <(brew list --cask 2>/dev/null)
+else
+  echo "    brew not found — skipping"
+fi

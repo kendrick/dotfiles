@@ -1,0 +1,60 @@
+#!/bin/bash
+# dotfiles-sync — capture local config changes back into the chezmoi source repo,
+# then commit and push. Run this on the machine where you made the changes, then
+# run `chezmoi update` on your other machines to pull them down.
+#
+# What it does (and deliberately does NOT do):
+#   - Regenerates the VS Code extension list from what's actually installed.
+#   - Re-adds every changed managed file at once (settings.json, zsh, git, etc.).
+#   - Reports Brewfile drift but does NOT auto-edit it — the Brewfile is a chezmoi
+#     template with machine-role guards, so dumping a flat list would destroy them.
+#     Add new packages to the right section of .chezmoitemplates/Brewfile by hand.
+#   - Raycast has no reliable "list installed" CLI, so that list stays manual too.
+#   - Commits and pushes with a Conventional Commits message.
+set -euo pipefail
+
+SRC="$(chezmoi source-path)"
+HOST="$(hostname -s)"
+
+echo "==> Regenerating VS Code extension list"
+if command -v code &>/dev/null; then
+  list="$SRC/dot_config/vscode-extensions.txt"
+  {
+    echo "# VS Code extensions to install"
+    echo "# Edit this list and run \`chezmoi apply\` to sync."
+    code --list-extensions | sort -f
+  } >"$list"
+  echo "    updated dot_config/vscode-extensions.txt"
+else
+  echo "    code CLI not found — skipping"
+fi
+
+echo "==> Re-adding all changed managed files"
+chezmoi re-add
+
+echo "==> Brewfile drift (installed but not in the template — add by hand if wanted)"
+if command -v brew &>/dev/null; then
+  brewfile="$SRC/.chezmoitemplates/Brewfile"
+  drift=0
+  while IFS= read -r formula; do
+    name="${formula##*/}"
+    grep -qiE "(^|/)\"?${name}\"?" "$brewfile" || { echo "    + brew  $formula"; drift=1; }
+  done < <(brew leaves)
+  while IFS= read -r cask; do
+    grep -qiE "\"${cask}\"" "$brewfile" || { echo "    + cask  $cask"; drift=1; }
+  done < <(brew list --cask 2>/dev/null)
+  [[ "$drift" -eq 0 ]] && echo "    none — Brewfile is in sync"
+else
+  echo "    brew not found — skipping"
+fi
+
+echo "==> Committing & pushing"
+cd "$SRC"
+if [[ -z "$(git status --porcelain)" ]]; then
+  echo "    nothing changed — already in sync"
+  exit 0
+fi
+git add -A
+git commit -m "chore(sync): capture config from ${HOST}"
+git push
+echo "Synced. Run \`chezmoi update\` on your other machines."

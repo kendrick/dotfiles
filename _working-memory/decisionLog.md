@@ -7,6 +7,11 @@
 <!-- **Decision:** What was decided -->
 <!-- **Alternatives considered:** What was rejected and why -->
 
+## 2026-06-07 — Add dotfiles-sync / dotfiles-doctor for cross-machine sync
+**Context:** Repo is the source of truth, but capturing edits back was manual and easy to forget, and `chezmoi update` only adds — it never removes extensions/packages dropped on another machine.
+**Decision:** Added `dot_local/bin/executable_dotfiles-{sync,doctor}`. `dotfiles-sync` regenerates the VS Code extension list, bare `chezmoi re-add`s all changed files, reports Brewfile drift, then commits + pushes. `dotfiles-doctor` is a read-only drift report for the receiving end (installed-but-not-listed = removal/capture candidates).
+**Alternatives considered:** chezmoi `autoCommit`/`autoPush` — rejected (generic off-convention commit messages, no review gate); settings.json symlink and `brew bundle dump` — rejected (see antipatterns). _(commit 383e75e)_
+
 ## 2026-03-24 — Remove `set -e` from macOS-defaults script
 **Context:** Some `defaults write` calls (Safari sandbox) error on Sequoia.
 **Decision:** Drop `set -e` so a single failing default doesn't abort the whole run.

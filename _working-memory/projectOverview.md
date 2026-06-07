@@ -24,3 +24,4 @@ _(README.md "Layout"; git ls-files)_
 - chezmoi prompts once for `machine_role` (work / client / personal); the role drives conditional installs and git email and lives only in the local `chezmoi.toml`. _(.chezmoi.toml.tmpl, README.md "Machine roles")_
 - Bootstrap a new machine: `sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply kendrick`; update existing: `chezmoi update`. _(README.md)_
 - Edit managed files via `chezmoi edit` / `chezmoi re-add` + `chezmoi apply`; never edit deployed copies without pulling them back. _(README.md "Making changes")_
+- Cross-machine sync: capture with `dotfiles-sync`, pull with `chezmoi update`. Extension/package lists are additive — `chezmoi update` never uninstalls; run `dotfiles-doctor` to catch removals. _(dot_local/bin/)_

@@ -147,6 +147,17 @@
     "miro"
   ],
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'chezmoi re-add ~/.claude/settings.json >/dev/null 2>&1 &'"
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "matcher": ".*",

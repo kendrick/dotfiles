@@ -1,0 +1,238 @@
+{
+  "version": 3,
+  "skills": {
+    "pptx": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "skillPath": "skills/pptx/SKILL.md",
+      "skillFolderHash": "10b3d70962e489867ddfee7da92f7da6b0eccc4f",
+      "pluginName": "document-skills",
+      "installedAt": "2026-05-12T19:52:48.145Z",
+      "updatedAt": "2026-05-27T23:08:46.495Z"
+    },
+    "skill-creator": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "skillPath": "skills/skill-creator/SKILL.md",
+      "skillFolderHash": "3cf9a8db32597ba3e24b584a3d696f4e11c7d7b6",
+      "pluginName": "example-skills",
+      "installedAt": "2026-05-26T17:31:55.710Z",
+      "updatedAt": "2026-05-27T23:08:46.514Z"
+    },
+    "humanizer": {
+      "source": "blader/humanizer",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/blader/humanizer.git",
+      "skillPath": "SKILL.md",
+      "skillFolderHash": "9600f2b7241cb4eed6ad803abee5ea01d67fe8e4",
+      "installedAt": "2026-05-27T13:07:25.759Z",
+      "updatedAt": "2026-06-08T14:24:11.388Z"
+    },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/obra/superpowers.git",
+      "skillPath": "skills/systematic-debugging/SKILL.md",
+      "skillFolderHash": "e96f5f2620c17069d668be1880d5492e34c84ceb",
+      "installedAt": "2026-05-27T13:10:06.834Z",
+      "updatedAt": "2026-05-27T13:10:06.834Z"
+    },
+    "docx": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "skillPath": "skills/docx/SKILL.md",
+      "skillFolderHash": "a0d216202f9793a78da44cf96aabe48f42e627ac",
+      "pluginName": "document-skills",
+      "installedAt": "2026-05-27T23:08:46.480Z",
+      "updatedAt": "2026-05-27T23:08:46.480Z"
+    },
+    "pdf": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "skillPath": "skills/pdf/SKILL.md",
+      "skillFolderHash": "6369f4649de69bd6857c9bc3b058a77206009238",
+      "pluginName": "document-skills",
+      "installedAt": "2026-05-27T23:08:46.490Z",
+      "updatedAt": "2026-05-27T23:08:46.490Z"
+    },
+    "xlsx": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "skillPath": "skills/xlsx/SKILL.md",
+      "skillFolderHash": "f5fb1cdb7993b2feee8367e983e9d4d58d2eedd4",
+      "pluginName": "document-skills",
+      "installedAt": "2026-05-27T23:08:46.499Z",
+      "updatedAt": "2026-05-27T23:08:46.499Z"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "skillFolderHash": "928950704df8a8b885c03de5da626331e6f29cf8",
+      "pluginName": "example-skills",
+      "installedAt": "2026-05-27T23:08:46.504Z",
+      "updatedAt": "2026-05-27T23:08:46.504Z"
+    },
+    "mcp-builder": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "skillPath": "skills/mcp-builder/SKILL.md",
+      "skillFolderHash": "b866bcfb57b780c10b587c7b543e871a91661ce0",
+      "pluginName": "example-skills",
+      "installedAt": "2026-05-27T23:08:46.509Z",
+      "updatedAt": "2026-05-27T23:08:46.509Z"
+    },
+    "algorithmic-art": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "ref": "main",
+      "skillPath": "skills/algorithmic-art/SKILL.md",
+      "skillFolderHash": "4aef6bcad51d058ec32b1acb9da436851863e56e",
+      "installedAt": "2026-05-28T03:06:42.489Z",
+      "updatedAt": "2026-05-28T03:06:42.489Z"
+    },
+    "web-artifacts-builder": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "ref": "main",
+      "skillPath": "skills/web-artifacts-builder/SKILL.md",
+      "skillFolderHash": "821b94f16c123d5f12e4e72eda9f7a162e2698f6",
+      "installedAt": "2026-05-28T03:08:19.179Z",
+      "updatedAt": "2026-05-28T03:08:19.179Z"
+    },
+    "playwright-skill": {
+      "source": "lackeyjb/playwright-skill",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/lackeyjb/playwright-skill.git",
+      "ref": "main",
+      "skillPath": "skills/playwright-skill/SKILL.md",
+      "skillFolderHash": "b2d559b68b4c3004840124862f30c6d371270646",
+      "installedAt": "2026-05-28T03:09:27.290Z",
+      "updatedAt": "2026-05-28T03:09:27.290Z"
+    },
+    "d3-viz": {
+      "source": "chrisvoncsefalvay/claude-d3js-skill",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/chrisvoncsefalvay/claude-d3js-skill.git",
+      "skillPath": "SKILL.md",
+      "skillFolderHash": "e198c87d03f1c9811acbff681886fac24baee53d",
+      "installedAt": "2026-05-28T03:10:15.922Z",
+      "updatedAt": "2026-05-28T03:10:15.922Z"
+    },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/obra/superpowers.git",
+      "ref": "main",
+      "skillPath": "skills/verification-before-completion/SKILL.md",
+      "skillFolderHash": "ceb2f1f67f4cadb29b32a06e54d3d0be832071f5",
+      "installedAt": "2026-05-28T03:13:13.919Z",
+      "updatedAt": "2026-05-28T03:13:13.919Z"
+    },
+    "subagent-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/obra/superpowers.git",
+      "ref": "main",
+      "skillPath": "skills/subagent-driven-development/SKILL.md",
+      "skillFolderHash": "73b43347c1bdc10f6ab81a5cdb036dd1c8098cc0",
+      "installedAt": "2026-05-28T03:15:48.151Z",
+      "updatedAt": "2026-05-28T03:15:48.151Z"
+    },
+    "dispatching-parallel-agents": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/obra/superpowers.git",
+      "ref": "main",
+      "skillPath": "skills/dispatching-parallel-agents/SKILL.md",
+      "skillFolderHash": "ebd0490e6b0bccfdb9f9c0cc9dd6a066036c8d89",
+      "installedAt": "2026-05-28T03:23:25.420Z",
+      "updatedAt": "2026-05-28T03:23:25.420Z"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/obra/superpowers.git",
+      "ref": "main",
+      "skillPath": "skills/test-driven-development/SKILL.md",
+      "skillFolderHash": "98904a7d8e0e04b9bd46220b9b17298f45fe0b72",
+      "installedAt": "2026-05-28T03:23:52.355Z",
+      "updatedAt": "2026-05-28T03:23:52.355Z"
+    },
+    "frontend-slides": {
+      "source": "zarazhangrui/frontend-slides",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/zarazhangrui/frontend-slides.git",
+      "skillPath": "SKILL.md",
+      "skillFolderHash": "24e420e4acef9850505142c449415ac867e43633",
+      "installedAt": "2026-05-28T03:28:47.590Z",
+      "updatedAt": "2026-05-28T03:28:47.590Z"
+    },
+    "inbox-to-memory": {
+      "source": "kendrick/inbox-to-memory",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/inbox-to-memory.git",
+      "skillPath": "SKILL.md",
+      "skillFolderHash": "f9c80933679dd932632902f5acd624a50fd16dd5",
+      "installedAt": "2026-05-28T22:39:32.641Z",
+      "updatedAt": "2026-05-28T22:39:32.641Z"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/pbakaus/impeccable.git",
+      "ref": "main",
+      "skillPath": ".claude/skills/impeccable/SKILL.md",
+      "skillFolderHash": "b3b7955652bb18240ab69071c270591a793cf0cf",
+      "installedAt": "2026-05-28T22:41:05.138Z",
+      "updatedAt": "2026-06-08T14:24:16.636Z"
+    },
+    "doc-coauthoring": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "skillPath": "skills/doc-coauthoring/SKILL.md",
+      "skillFolderHash": "d9df960e61fe2bafe9183e37de6f9f6b73b74087",
+      "pluginName": "example-skills",
+      "installedAt": "2026-06-08T19:52:34.486Z",
+      "updatedAt": "2026-06-08T19:52:34.486Z"
+    },
+    "databricks-api": {
+      "source": "kendrick/databricks-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/databricks-skills.git",
+      "skillPath": "SKILL.md",
+      "skillFolderHash": "3d0afd885a693cde3ae8c11a9404d024ff0214a5",
+      "installedAt": "2026-06-08T20:53:01.812Z",
+      "updatedAt": "2026-06-08T20:53:01.812Z"
+    }
+  },
+  "dismissed": {
+    "findSkillsPrompt": true
+  },
+  "lastSelectedAgents": [
+    "amp",
+    "antigravity",
+    "antigravity-cli",
+    "cline",
+    "codex",
+    "cursor",
+    "deepagents",
+    "gemini-cli",
+    "github-copilot",
+    "kimi-code-cli",
+    "opencode",
+    "warp",
+    "zed",
+    "claude-code"
+  ]
+}

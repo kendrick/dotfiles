@@ -1,50 +1,153 @@
 {
+  "permissions": {
+    "allow": [
+      "Read(//tmp/**)",
+      "Read(//private/tmp/**)",
+      "Read(//Users/k.arnett/.claude/**)",
+      "Read(//Users/k.arnett/repos/**)",
+      "Bash(ls:*)",
+      "Bash(/bin/ls *)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(tree:*)",
+      "Bash(cat:*)",
+      "Bash(/bin/cat *)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(awk:*)",
+      "Bash(test:*)",
+      "Bash(echo:*)",
+      "Bash(printf:*)",
+      "Bash(xargs:*)",
+      "Bash(wait)",
+      "Bash(yes:*)",
+      "Bash(command -v *)",
+      "Bash(which *)",
+      "Bash(unzip -l *)",
+      "Bash(mkdir:*)",
+      "Bash(pkill:*)",
+      "Bash(kill:*)",
+      "Bash(curl -s *)",
+      "Bash(curl -sL *)",
+      "Bash(curl -sI *)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(git ls-remote *)",
+      "Bash(git check-ignore *)",
+      "Bash(git -C * status)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git stash)",
+      "Bash(git stash pop)",
+      "Bash(git worktree *)",
+      "Bash(git commit:*)",
+      "Bash(git init:*)",
+      "Bash(npm view *)",
+      "Bash(npm list:*)",
+      "Bash(npm pack *)",
+      "Bash(npm run *)",
+      "Bash(npm test:*)",
+      "Bash(npm install:*)",
+      "Bash(npm create:*)",
+      "Bash(pnpm --version)",
+      "Bash(pnpm view:*)",
+      "Bash(pnpm ls:*)",
+      "Bash(pnpm list *)",
+      "Bash(pnpm install)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm lint *)",
+      "Bash(pnpm lint:fix)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm dev:*)",
+      "Bash(pnpm dev *)",
+      "Bash(pnpm exec *)",
+      "Bash(pnpm format:*)",
+      "Bash(pnpm format *)",
+      "Bash(pnpm format:fix)",
+      "Bash(pnpm dlx *)",
+      "Bash(pnpm up *)",
+      "Bash(pnpm --filter *)",
+      "Bash(pnpm -C * *)",
+      "Bash(pnpm eslint *)",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm search:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx shadcn@latest *)",
+      "Bash(npx speckit:*)",
+      "Bash(npx create-vite@latest:*)",
+      "Bash(readlink *)",
+      "Bash(tsc:*)",
+      "Bash(timeout * npm *)",
+      "Bash(timeout * pnpm *)",
+      "Bash(gh issue:*)",
+      "Bash(gh run *)",
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh label:*)",
+      "Bash(gh release *)",
+      "Bash(gh extension:*)",
+      "Bash(gh api *)",
+      "Bash(.specify/scripts/bash/*)",
+      "mcp__context7",
+      "mcp__chrome-devtools",
+      "mcp__shadcn",
+      "Skill(humanizer)",
+      "Skill(humanizer:*)",
+      "Skill(superpowers:*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.github.com)",
+      "WebFetch(domain:code.visualstudio.com)",
+      "WebFetch(domain:web.archive.org)",
+      "WebFetch(domain:developers.miro.com)",
+      "WebFetch(domain:mcp.miro.com)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "WebFetch(domain:storybook.js.org)",
+      "WebFetch(domain:www.chromatic.com)",
+      "WebFetch(domain:visx-viz.github.io)",
+      "WebFetch(domain:pubs.opengroup.org)",
+      "WebFetch(domain:www.opengroup.org)",
+      "WebFetch(domain:localhost)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Edit(~/.claude/skills/inbox-to-memory/**)",
+      "Bash(find \"/Users/k.arnett\" -name \"def-arch-ready.prompt.md\" -o -name \"dependency-scout.agent.md\" 2>/dev/null)",
+      "Read(//Users/k.arnett/**)",
+      "Bash(pnpm info *)",
+      "Bash(pnpm tokens:build)",
+      "Bash(node --test scripts/verify-docs-build.test.mjs)",
+      "Bash(pnpm *:build)",
+      "Bash(pnpm lint:css)",
+      "Bash(pnpm validate *)",
+      "Bash(pnpm docs:verify)",
+      "Bash(git ls-tree *)",
+      "Bash(pnpm run *)",
+      "Bash(pnpm sync:reference)",
+      "Bash(chezmoi status *)",
+      "Bash(chezmoi diff *)",
+      "Bash(npm ls *)",
+      "Bash(op --version)",
+      "Bash(op account *)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "miro"
+  ],
   "hooks": {
     "Notification": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{ .chezmoi.homeDir }}/.go/bin/claudio"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{ .chezmoi.homeDir }}/.go/bin/claudio"
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{ .chezmoi.homeDir }}/.go/bin/claudio"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{ .chezmoi.homeDir }}/.go/bin/claudio"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
       {
         "matcher": ".*",
         "hooks": [
@@ -66,18 +169,7 @@
         ]
       }
     ],
-    "SubagentStop": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{ .chezmoi.homeDir }}/.go/bin/claudio"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
+    "PreCompact": [
       {
         "matcher": ".*",
         "hooks": [
@@ -91,7 +183,17 @@
   },
   "enabledPlugins": {
     "superpowers@superpowers-marketplace": true,
-    "chrome-devtools-mcp@chrome-devtools-plugins": true
+    "chrome-devtools-mcp@chrome-devtools-plugins": true,
+    "slalom-pptx@slalom-agent-kit": true,
+    "miro@claude-plugins-official": true
   },
-  "effortLevel": "medium"
+  "extraKnownMarketplaces": {
+    "slalom-agent-kit": {
+      "source": {
+        "source": "github",
+        "repo": "Slalom/slalom-agent-kit"
+      }
+    }
+  },
+  "effortLevel": "xhigh"
 }

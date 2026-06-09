@@ -1,4 +1,18 @@
+Host github_personal
+	HostName github.com
+	IdentityFile ~/.ssh/personal_1p.pub
+	IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+	UseKeychain no
+	AddKeysToAgent no
+
+Host github.com
+	IdentityFile ~/.ssh/slalom_1p.pub
+	IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+	UseKeychain no
+	AddKeysToAgent no
+
 Host *
 	IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 	UseKeychain no
 	AddKeysToAgent no
+

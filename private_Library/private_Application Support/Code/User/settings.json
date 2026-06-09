@@ -5,7 +5,7 @@
 		"source.fixAll.eslint": "explicit",
 		"source.fixAll.stylelint": "explicit",
 		"source.organizeImports": "explicit",
-		"source.removeUnusedImports": "never"
+		"source.removeUnusedImports": "never",
 	},
 	"editor.codeLens": true,
 	"editor.colorDecorators": true,
@@ -18,7 +18,7 @@
 	"editor.guides.bracketPairs": "active",
 	"editor.indentSize": "tabSize",
 	"editor.linkedEditing": true,
-	"editor.minimap.autohide": true,
+	"editor.minimap.autohide": "mouseover",
 	"editor.renderWhitespace": "boundary",
 	"editor.showFoldingControls": "always",
 	"editor.stickyTabStops": true,
@@ -26,7 +26,6 @@
 	"editor.tabCompletion": "on",
 	"editor.tabSize": 2,
 	"terminal.integrated.enableMultiLinePasteWarning": "auto",
-	"terminal.integrated.fontSize": 14,
 	"terminal.integrated.hideOnStartup": "whenEmpty",
 	"window.confirmSaveUntitledWorkspace": false,
 	"window.autoDetectColorScheme": true,
@@ -39,11 +38,18 @@
 	"editor.insertSpaces": false,
 	"settingsSync.ignoredSettings": [],
 	"[xml]": {
-		"editor.defaultFormatter": "redhat.vscode-xml"
+		"editor.defaultFormatter": "redhat.vscode-xml",
 	},
 	"svgPreview.autoOpen": false,
 	"javascript.updateImportsOnFileMove.enabled": "always",
 	"debug.disassemblyView.showSourceCode": false,
+	"claudeCode.selectedModel": "default",
+	"claudeCode.preferredLocation": "panel",
+	"editor.minimap.enabled": false,
+	"git.openRepositoryInParentFolders": "never",
 	"editor.lineHeight": 0,
-	"editor.fontSize": 14
+	"editor.fontSize": 15,
+	"extensions.ignoreRecommendations": true,
+	"terminal.integrated.fontSize": 14,
+	"chat.viewSessions.orientation": "stacked",
 }

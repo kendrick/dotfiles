@@ -1,21 +1,40 @@
 #!/bin/bash
-# dotfiles-sync — capture local config changes back into the chezmoi source repo,
-# then commit and push. Run this on the machine where you made the changes, then
-# run `chezmoi update` on your other machines to pull them down.
+# dotfiles-sync — auto-sync this machine's $HOME → chezmoi source → remote.
 #
-# What it does (and deliberately does NOT do):
-#   - Regenerates the VS Code extension list from what's actually installed.
-#   - Re-adds every changed managed file at once (settings.json, zsh, git, etc.).
-#   - Reports Brewfile drift but does NOT auto-edit it — the Brewfile is a chezmoi
-#     template with machine-role guards, so dumping a flat list would destroy them.
-#     Add new packages to the right section of .chezmoitemplates/Brewfile by hand.
-#   - Raycast has no reliable "list installed" CLI, so that list stays manual too.
-#   - Commits and pushes with a Conventional Commits message.
+# Runs daily via launchd (see ~/Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist).
+# Also runnable by hand. Each phase is wrapped to catch known failure modes and
+# fire a macOS notification with a concrete next step. Full output goes to
+# ~/.local/state/dotfiles/last-sync.log for forensic poking.
+#
+# Deliberately NOT doing:
+#   - Auto-editing the Brewfile. It's a chezmoi template with machine-role guards
+#     that a flat `brew bundle dump` would erase. Drift gets noted in the log.
+#   - Capturing Raycast extensions. No CLI for listing them.
+#   - Touching anything in ~/.config/gh. Auth tokens stay in $HOME only.
+
 set -euo pipefail
 
 SRC="$(chezmoi source-path)"
 HOST="$(hostname -s)"
+LOGDIR="$HOME/.local/state/dotfiles"
+LOG="$LOGDIR/last-sync.log"
+mkdir -p "$LOGDIR"
+: >"$LOG"  # truncate log each run
 
+# Mirror stdout/stderr to the log without losing terminal output for interactive runs.
+exec > >(tee -a "$LOG") 2>&1
+
+notify() {
+  # Args: title, body
+  osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1 || true
+}
+
+notify_fail() {
+  # Args: short message for notification body
+  notify "Dotfiles sync failed" "$1"
+}
+
+# ---- Phase: regenerate VS Code extension list ----
 echo "==> Regenerating VS Code extension list"
 if command -v code &>/dev/null; then
   list="$SRC/dot_config/vscode-extensions.txt"
@@ -26,13 +45,18 @@ if command -v code &>/dev/null; then
   } >"$list"
   echo "    updated dot_config/vscode-extensions.txt"
 else
-  echo "    code CLI not found — skipping"
+  echo "    code CLI not found, skipping"
 fi
 
-echo "==> Re-adding all changed managed files"
-chezmoi re-add
+# ---- Phase: chezmoi re-add ----
+echo "==> Capturing live \$HOME changes back into source"
+if ! chezmoi re-add 2>&1; then
+  notify_fail "chezmoi re-add hit an error. Check $LOG for what broke."
+  exit 1
+fi
 
-echo "==> Brewfile drift (installed but not in the template — add by hand if wanted)"
+# ---- Phase: Brewfile drift report (read-only; never edits) ----
+echo "==> Brewfile drift (installed but not in template; edit by hand if you want it tracked)"
 if command -v brew &>/dev/null; then
   brewfile="$SRC/.chezmoitemplates/Brewfile"
   drift=0
@@ -43,18 +67,52 @@ if command -v brew &>/dev/null; then
   while IFS= read -r cask; do
     grep -qiE "\"${cask}\"" "$brewfile" || { echo "    + cask  $cask"; drift=1; }
   done < <(brew list --cask 2>/dev/null)
-  [[ "$drift" -eq 0 ]] && echo "    none — Brewfile is in sync"
+  [[ "$drift" -eq 0 ]] && echo "    none, Brewfile is in sync"
 else
-  echo "    brew not found — skipping"
+  echo "    brew not found, skipping"
 fi
 
-echo "==> Committing & pushing"
+# ---- Phase: commit + push ----
 cd "$SRC"
+
 if [[ -z "$(git status --porcelain)" ]]; then
-  echo "    nothing changed — already in sync"
+  echo "==> Nothing to commit. Already in sync."
   exit 0
 fi
+
+file_count="$(git status --porcelain | wc -l | tr -d ' ')"
+files_word="file"
+[[ "$file_count" != "1" ]] && files_word="files"
+
+echo "==> Committing $file_count $files_word"
 git add -A
-git commit -m "chore(sync): capture config from ${HOST}"
-git push
-echo "Synced. Run \`chezmoi update\` on your other machines."
+
+commit_msg="[auto-sync from ${HOST}] $(date -u +%Y-%m-%d) - ${file_count} ${files_word}"
+if ! git commit -m "$commit_msg" 2>&1; then
+  # The commit hook stuff lives in $LOG via the exec redirect above.
+  if grep -qi "pre-commit\|husky" "$LOG"; then
+    notify_fail "Pre-commit hook blocked the auto-sync. See $LOG for the hook's complaint."
+  else
+    notify_fail "git commit failed. See $LOG."
+  fi
+  exit 1
+fi
+
+echo "==> Pushing to origin"
+if ! git push 2>&1; then
+  # Classify push failure from the tail of the log.
+  err="$(tail -20 "$LOG")"
+  if echo "$err" | grep -qiE "could not resolve host|network is unreachable|operation timed out|getaddrinfo|temporary failure"; then
+    notify_fail "Push failed: network is down. Run dotfiles-sync once you're back online."
+  elif echo "$err" | grep -qiE "permission denied \(publickey\)|authentication failed|invalid credentials|key.*denied"; then
+    notify_fail "Push refused: SSH auth failed. 1Password agent might be locked. Unlock it and re-run dotfiles-sync."
+  elif echo "$err" | grep -qiE "rejected.*non-fast-forward|fetch first|tip of your current branch is behind"; then
+    notify_fail "Push rejected: remote has commits you don't. Run 'chezmoi update', then dotfiles-sync."
+  else
+    notify_fail "Push failed. See $LOG for the git error."
+  fi
+  exit 1
+fi
+
+notify "Dotfiles synced" "Captured ${file_count} ${files_word} from ${HOST}."
+echo "==> Done. Other machines can pull with \`chezmoi update\`."

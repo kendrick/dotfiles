@@ -1,0 +1,49 @@
+#!/bin/bash
+# dotfiles-undo — panic button. Reverts the most recent `[auto-sync ...]` commit
+# and pushes the revert. Use this when the daily auto-sync captured something
+# you didn't want (transient state, half-written config, etc.).
+#
+# Will NOT revert manual commits. Will NOT touch anything older than the most
+# recent auto-sync. If you need to undo further back, do it by hand.
+
+set -euo pipefail
+
+SRC="$(chezmoi source-path)"
+cd "$SRC"
+
+# Find the most recent commit whose subject begins with `[auto-sync`.
+target="$(git log --format='%H %s' -50 | awk '/^\S+ \[auto-sync/{print $1; exit}')"
+
+if [[ -z "$target" ]]; then
+  echo "Couldn't find a recent [auto-sync ...] commit in the last 50. Nothing to undo."
+  exit 0
+fi
+
+# If the target is already the tip and the tip's tree is already what's at HEAD~1's
+# tree, a revert is redundant. (Cheap check: skip if the target was already reverted.)
+if git log --format='%s' "${target}..HEAD" | grep -q "Revert \"\[auto-sync"; then
+  echo "Looks like that auto-sync commit was already reverted. Nothing to do."
+  exit 0
+fi
+
+echo "==> Reverting $target"
+git --no-pager log -1 --format='    %s' "$target"
+
+if ! git revert --no-edit "$target"; then
+  echo
+  echo "Revert hit a conflict. Resolve by hand:"
+  echo "  cd $SRC"
+  echo "  git status        # see what's conflicted"
+  echo "  # edit, then:"
+  echo "  git add -A && git revert --continue && git push"
+  exit 1
+fi
+
+echo "==> Pushing revert"
+if ! git push; then
+  echo
+  echo "The revert committed locally but the push failed. Run \`git -C $SRC push\` when ready."
+  exit 1
+fi
+
+echo "==> Done. Other machines can pull with \`chezmoi update\`."

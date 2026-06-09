@@ -1,0 +1,4 @@
+# Global pnpm packages to install
+# Edit this list (or use `pnpm add -g <pkg>`) and run `chezmoi apply` to sync.
+commitizen
+cz-conventional-changelog

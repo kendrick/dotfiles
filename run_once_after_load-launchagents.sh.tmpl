@@ -1,0 +1,23 @@
+#!/bin/bash
+# Load the dotfiles auto-sync LaunchAgent. Idempotent: silently re-uses an
+# already-loaded agent. Runs once on first chezmoi apply that includes this script.
+set -e
+
+PLIST="{{ .chezmoi.homeDir }}/Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist"
+LABEL="com.k-arnett.dotfiles-auto-sync"
+TARGET="gui/$(id -u)"
+
+if ! [[ -f "$PLIST" ]]; then
+  echo "LaunchAgent plist not found at $PLIST, skipping load."
+  exit 0
+fi
+
+# Bootstrap only if not already loaded for this user session.
+if launchctl print "${TARGET}/${LABEL}" >/dev/null 2>&1; then
+  echo "LaunchAgent ${LABEL} already loaded."
+  exit 0
+fi
+
+echo "Loading LaunchAgent ${LABEL}..."
+launchctl bootstrap "$TARGET" "$PLIST"
+echo "Loaded. Auto-sync will run daily at 10:00 local time."

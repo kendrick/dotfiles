@@ -58,6 +58,14 @@ Custom scripts in `~/.local/bin/` (which is on `$PATH`): `awssso`, `cless`, `csc
 
 SSH config (1Password agent), Claude Code hooks, Claude Desktop config (excluded on client machines), GitHub CLI config, and the usual linting/formatting files (.editorconfig, .prettierrc, .stylelintrc, .eslintrc, .npmrc).
 
+### Agent skills
+
+Skills for Claude Code and other agents are managed with [`skills`](https://github.com/vercel-labs/skills) (`npx skills`). `npx skills add <repo>` pulls a skill from a GitHub repo, drops it in `~/.agents/skills/`, and symlinks it into each agent's directory (`~/.claude/skills/` and the rest).
+
+The repo tracks the lockfile, not the skill bodies. The skills themselves live in their source repos and re-fetch on demand; `~/.local/state/skills/.skill-lock.json` records which ones, each pinned to a content hash. A `skills` shell function in `functions.zsh` wraps the CLI so any `add`, `remove`, or `update` re-adds that lockfile into chezmoi right then, so the manifest stays current on its own.
+
+Restore isn't wired up yet. The CLI's `experimental_install` only restores project-level lockfiles, not the global one, so there's no single command that reinstalls everything from `.skill-lock.json`. On a new machine, re-add the skills you want by hand with `npx skills add <repo>` until the CLI grows a global restore. The lockfile also only captures what went through the shell function, so a skill installed some other way won't show up in it, and it's worth a reconcile pass now and then.
+
 ## Machine roles
 
 chezmoi prompts for a role on first init:
@@ -135,6 +143,9 @@ It lists anything installed locally that isn't in your dotfiles (either somethin
 └── vscode-extensions.txt
 
 ~/.local/bin/                 # custom scripts
+
+~/.agents/skills/             # agent skills, installed by the `skills` CLI
+~/.local/state/skills/        # .skill-lock.json, the tracked skills manifest
 
 ~/.local/share/chezmoi/       # source of truth (this repo)
 ```

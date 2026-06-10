@@ -181,9 +181,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/inbox-to-memory.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "92584adc34ea745ef0b3a3d6bfbf7688a8a8844a",
+      "skillFolderHash": "8ec5656931cea8afa155982dbd036ccf3a3c5b02",
       "installedAt": "2026-05-28T22:39:32.641Z",
-      "updatedAt": "2026-06-10T00:18:16.405Z"
+      "updatedAt": "2026-06-10T04:51:54.934Z"
     },
     "impeccable": {
       "source": "pbakaus/impeccable",
@@ -258,6 +258,96 @@
       "skillFolderHash": "4723197c6dc59abc29819da87863b1ac20b96095",
       "installedAt": "2026-06-10T02:25:18.006Z",
       "updatedAt": "2026-06-10T02:25:18.006Z"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/composition-patterns/SKILL.md",
+      "skillFolderHash": "bf90d0a4b83ea054653350f9c67f6de235d3a368",
+      "installedAt": "2026-06-10T04:45:25.776Z",
+      "updatedAt": "2026-06-10T04:45:25.776Z"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "skillFolderHash": "343db72180d05814949fef7d46be96b5c6ee86b3",
+      "installedAt": "2026-06-10T04:45:25.783Z",
+      "updatedAt": "2026-06-10T04:45:25.783Z"
+    },
+    "vercel-react-view-transitions": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/react-view-transitions/SKILL.md",
+      "skillFolderHash": "4d46c637057aae90b9ec5280190c25dc0d90ec28",
+      "installedAt": "2026-06-10T04:45:25.788Z",
+      "updatedAt": "2026-06-10T04:45:25.788Z"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "skillFolderHash": "3116f3e62dbd02b44a598b1aa690d2a8938e8f89",
+      "installedAt": "2026-06-10T04:45:25.794Z",
+      "updatedAt": "2026-06-10T04:45:25.794Z"
+    },
+    "accessibility": {
+      "source": "addyosmani/web-quality-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
+      "skillPath": "skills/accessibility/SKILL.md",
+      "skillFolderHash": "abdb452337317f5840e4298e46ad07663342dbe8",
+      "installedAt": "2026-06-10T04:46:33.484Z",
+      "updatedAt": "2026-06-10T04:46:33.484Z"
+    },
+    "best-practices": {
+      "source": "addyosmani/web-quality-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
+      "skillPath": "skills/best-practices/SKILL.md",
+      "skillFolderHash": "31953d33750e2be4444cf4f0bb8b2fd386116d50",
+      "installedAt": "2026-06-10T04:46:33.526Z",
+      "updatedAt": "2026-06-10T04:46:33.526Z"
+    },
+    "core-web-vitals": {
+      "source": "addyosmani/web-quality-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
+      "skillPath": "skills/core-web-vitals/SKILL.md",
+      "skillFolderHash": "041da568684b2b15ccb8789253dd2df29c8de433",
+      "installedAt": "2026-06-10T04:46:33.540Z",
+      "updatedAt": "2026-06-10T04:46:33.540Z"
+    },
+    "performance": {
+      "source": "addyosmani/web-quality-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
+      "skillPath": "skills/performance/SKILL.md",
+      "skillFolderHash": "62de2e9d8439998bd386f06a1c8acb96877f48fe",
+      "installedAt": "2026-06-10T04:46:33.552Z",
+      "updatedAt": "2026-06-10T04:46:33.552Z"
+    },
+    "web-quality-audit": {
+      "source": "addyosmani/web-quality-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
+      "skillPath": "skills/web-quality-audit/SKILL.md",
+      "skillFolderHash": "a927159d150e7681018cfb1eebefa8a2c951c5fb",
+      "installedAt": "2026-06-10T04:46:33.562Z",
+      "updatedAt": "2026-06-10T04:46:33.562Z"
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/skills.git",
+      "skillPath": "skills/find-skills/SKILL.md",
+      "skillFolderHash": "3013fdeb8a11b10b1eb795ec3ae8bfca38f7c26d",
+      "installedAt": "2026-06-10T04:47:26.526Z",
+      "updatedAt": "2026-06-10T04:47:26.526Z"
     }
   },
   "dismissed": {

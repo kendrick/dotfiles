@@ -27,3 +27,5 @@ Comment proactively, but only when the comment carries weight. Every comment sho
 Comments that explain WHAT the code does are worthless when the code is well-named. Comments that explain HOW the code works shouldn't be necessary if the code is written cleanly. The only comment worth writing is the one that explains something the code itself can't.
 
 Write comments in the voice and tone of a helpful technical writer who is also in a hurry; commonly-recognized abbreviations and acronyms are acceptable.
+
+@RTK.md

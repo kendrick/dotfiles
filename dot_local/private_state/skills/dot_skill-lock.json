@@ -74,10 +74,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/anthropics/skills.git",
       "skillPath": "skills/frontend-design/SKILL.md",
-      "skillFolderHash": "928950704df8a8b885c03de5da626331e6f29cf8",
-      "pluginName": "example-skills",
+      "skillFolderHash": "0d5b74a14bdf3ebcd64f352d06376a2ef05ed296",
       "installedAt": "2026-05-27T23:08:46.504Z",
-      "updatedAt": "2026-05-27T23:08:46.504Z"
+      "updatedAt": "2026-06-10T00:18:14.948Z"
     },
     "mcp-builder": {
       "source": "anthropics/skills",
@@ -182,9 +181,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/inbox-to-memory.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "f9c80933679dd932632902f5acd624a50fd16dd5",
+      "skillFolderHash": "92584adc34ea745ef0b3a3d6bfbf7688a8a8844a",
       "installedAt": "2026-05-28T22:39:32.641Z",
-      "updatedAt": "2026-05-28T22:39:32.641Z"
+      "updatedAt": "2026-06-10T00:18:16.405Z"
     },
     "impeccable": {
       "source": "pbakaus/impeccable",
@@ -192,9 +191,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "b3b7955652bb18240ab69071c270591a793cf0cf",
+      "skillFolderHash": "d401eb3773078f6cd2198bdba72448aeb761cc0c",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-06-08T14:24:16.636Z"
+      "updatedAt": "2026-06-10T00:18:24.474Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -211,9 +210,54 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/databricks-skills.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "3d0afd885a693cde3ae8c11a9404d024ff0214a5",
+      "skillFolderHash": "ca18d5543fa01fee515cd84c7cd0f1d760271d72",
       "installedAt": "2026-06-08T20:53:01.812Z",
-      "updatedAt": "2026-06-08T20:53:01.812Z"
+      "updatedAt": "2026-06-10T00:18:33.604Z"
+    },
+    "defuddle": {
+      "source": "kepano/obsidian-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kepano/obsidian-skills.git",
+      "skillPath": "skills/defuddle/SKILL.md",
+      "skillFolderHash": "db0b775af7e7d603f59fa2b67bdef615baf1a48f",
+      "installedAt": "2026-06-10T02:25:17.940Z",
+      "updatedAt": "2026-06-10T02:25:17.940Z"
+    },
+    "json-canvas": {
+      "source": "kepano/obsidian-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kepano/obsidian-skills.git",
+      "skillPath": "skills/json-canvas/SKILL.md",
+      "skillFolderHash": "9df7971db7ffebf96f2a207840b9f4765aa11b04",
+      "installedAt": "2026-06-10T02:25:17.966Z",
+      "updatedAt": "2026-06-10T02:25:17.966Z"
+    },
+    "obsidian-bases": {
+      "source": "kepano/obsidian-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kepano/obsidian-skills.git",
+      "skillPath": "skills/obsidian-bases/SKILL.md",
+      "skillFolderHash": "f3330f27de4d7907ead57d0f48672f4d3280bb77",
+      "installedAt": "2026-06-10T02:25:17.981Z",
+      "updatedAt": "2026-06-10T02:25:17.981Z"
+    },
+    "obsidian-cli": {
+      "source": "kepano/obsidian-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kepano/obsidian-skills.git",
+      "skillPath": "skills/obsidian-cli/SKILL.md",
+      "skillFolderHash": "96254a554e480359de7b685571876f2e7f9ba57d",
+      "installedAt": "2026-06-10T02:25:17.995Z",
+      "updatedAt": "2026-06-10T02:25:17.995Z"
+    },
+    "obsidian-markdown": {
+      "source": "kepano/obsidian-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kepano/obsidian-skills.git",
+      "skillPath": "skills/obsidian-markdown/SKILL.md",
+      "skillFolderHash": "4723197c6dc59abc29819da87863b1ac20b96095",
+      "installedAt": "2026-06-10T02:25:18.006Z",
+      "updatedAt": "2026-06-10T02:25:18.006Z"
     }
   },
   "dismissed": {

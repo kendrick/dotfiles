@@ -110,14 +110,13 @@
       "updatedAt": "2026-05-28T03:08:19.179Z"
     },
     "playwright-skill": {
-      "source": "lackeyjb/playwright-skill",
+      "source": "testdino-hq/playwright-skill",
       "sourceType": "github",
-      "sourceUrl": "https://github.com/lackeyjb/playwright-skill.git",
-      "ref": "main",
-      "skillPath": "skills/playwright-skill/SKILL.md",
-      "skillFolderHash": "b2d559b68b4c3004840124862f30c6d371270646",
+      "sourceUrl": "https://github.com/testdino-hq/playwright-skill.git",
+      "skillPath": "SKILL.md",
+      "skillFolderHash": "3409463d460fd6b0f0b381c64a309c1245b522d3",
       "installedAt": "2026-05-28T03:09:27.290Z",
-      "updatedAt": "2026-05-28T03:09:27.290Z"
+      "updatedAt": "2026-06-13T05:07:53.473Z"
     },
     "d3-viz": {
       "source": "chrisvoncsefalvay/claude-d3js-skill",
@@ -173,9 +172,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/zarazhangrui/frontend-slides.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "24e420e4acef9850505142c449415ac867e43633",
+      "skillFolderHash": "c28690100a289d979e5e032b44771a7c28a86e40",
       "installedAt": "2026-05-28T03:28:47.590Z",
-      "updatedAt": "2026-05-28T03:28:47.590Z"
+      "updatedAt": "2026-06-13T05:12:54.154Z"
     },
     "inbox-to-memory": {
       "source": "kendrick/inbox-to-memory",

@@ -1,0 +1,55 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# Claude Code plugins — reinstall from intent. The decrypted plugin list is inlined
+# below, so the rendered script changes whenever the plaintext manifests change.
+# That inlined list is the change trigger; hashing the ciphertext would churn on
+# every re-encrypt.
+#
+# The manifests under dot_claude/private_plugins/ are age-encrypted because they
+# hold a work-only marketplace's entries and this repo is public. Personal machines
+# install only the public-marketplace allowlist; work and client machines get the
+# full set. The reinstall is the durable record: live ~/.claude/plugins/*.json is
+# CLI-owned state the daily re-add captures (and re-encrypts) back into source.
+
+set -e
+
+if ! command -v claude &>/dev/null; then
+  echo "claude CLI not found — skipping plugin install."
+  exit 0
+fi
+
+# Public git clones, so no auth needed — only network. Idempotent: skip whatever is
+# already present so re-applies are cheap and a partial first run self-heals.
+add_marketplace() {
+  local name="$1" repo="$2"
+  claude plugin marketplace list 2>/dev/null | grep -q "$name" && return 0
+  echo "Adding marketplace $name ($repo)..."
+  claude plugin marketplace add "$repo" 2>/dev/null || true
+}
+
+install_plugin() {
+  local spec="$1"
+  claude plugin list 2>/dev/null | grep -q "${spec%@*}" && return 0
+  echo "Installing $spec..."
+  claude plugin install "$spec" 2>/dev/null || true
+}
+
+{{ $public := list "superpowers-marketplace" "chrome-devtools-plugins" "claude-plugins-official" -}}
+{{ if stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") -}}
+{{   $marketplaces := include "dot_claude/private_plugins/encrypted_known_marketplaces.json.age" | decrypt | fromJson -}}
+{{   range $name, $info := $marketplaces -}}
+{{     if or (ne $.machine_role "personal") (has $name $public) -}}
+add_marketplace {{ $name }} {{ $info.source.repo }}
+{{     end -}}
+{{   end }}
+{{   $plugins := include "dot_claude/private_plugins/encrypted_installed_plugins.json.age" | decrypt | fromJson -}}
+{{   range $spec, $_ := $plugins.plugins -}}
+{{     $mp := splitList "@" $spec | last -}}
+{{     if or (ne $.machine_role "personal") (has $mp $public) -}}
+install_plugin {{ $spec }}
+{{     end -}}
+{{   end -}}
+{{ else -}}
+echo "No chezmoi decryption key present — skipping plugin reinstall."
+{{ end -}}
+echo "Claude Code plugins ready."

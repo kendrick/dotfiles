@@ -73,6 +73,22 @@ function skills() {
 	return $rc
 }
 
+# `claude plugin ...` (install/uninstall, marketplace add/remove) rewrites
+# ~/.claude/plugins/{installed_plugins,known_marketplaces}.json. Re-add after any
+# plugin subcommand; those manifests are age-encrypted in source, so re-add
+# re-encrypts rather than leaking. The in-app /plugin menu bypasses this shell
+# wrapper, so the daily dotfiles-sync re-add stays the real safety net.
+function claude() {
+	command claude "$@"
+	local rc=$?
+	case "$1" in
+		plugin)
+			chezmoi re-add ~/.claude/plugins/installed_plugins.json ~/.claude/plugins/known_marketplaces.json >/dev/null 2>&1
+			;;
+	esac
+	return $rc
+}
+
 # `code --install-extension` / `--uninstall-extension` changes the installed
 # extension set. Regenerate the tracked list when either flag is used.
 function code() {

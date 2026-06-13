@@ -9,7 +9,13 @@
 {{-   $email = "kmarnett@gmail.com" -}}
 {{- end -}}
 
+encryption = "age"
+
 [data]
   machine_role = {{ $machineRole | quote }}
   email = {{ $email | quote }}
   name = "Kendrick Arnett"
+
+[age]
+  identity = {{ (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") | quote }}
+  recipient = "age1xy04pcarcglpwfafwenw8z7aygv2sknl54jvfrd0c0zlww328fnsrakm7x"

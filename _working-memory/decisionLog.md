@@ -7,6 +7,11 @@
 <!-- **Decision:** What was decided -->
 <!-- **Alternatives considered:** What was rejected and why -->
 
+## 2026-06-13 — Back up Claude Code plugins (encrypted) like skills
+**Context:** Plugin state had no cross-machine backup. A first pass tracked the two manifests as `create_` files, which `chezmoi re-add` skips, so the daily sync never captured new installs. The manifests and settings.json.tmpl also carried a work-only marketplace's repo and plugin names in plaintext, and this repo is public.
+**Decision:** Mirror the skills setup (daily re-add captures the manifests; a manifest-driven run_onchange replays them on a fresh machine), but age-encrypt the manifests so the work-only names stay out of the public repo. The run_onchange decrypts at render time and gates installs by a public-marketplace allowlist, so personal machines get public plugins only and the committed template names no private org. Added a `claude()` wrapper mirroring `skills()`. Forward-only: prior plaintext stays in git history; version reproduction is fuzzy (install grabs latest vs the recorded SHA, self-heals on re-add).
+**Alternatives considered:** Plaintext manifests with a capture-time filter to scrub work-only entries — rejected, fights the blanket re-add. A separate private overlay repo — rejected, second repo to sync and still needs the filter. Accepting the exposure — rejected by preference, though the marketplace repo is SSO-gated.
+
 ## 2026-06-07 — Add dotfiles-sync / dotfiles-doctor for cross-machine sync
 **Context:** Repo is the source of truth, but capturing edits back was manual and easy to forget, and `chezmoi update` only adds — it never removes extensions/packages dropped on another machine.
 **Decision:** Added `dot_local/bin/executable_dotfiles-{sync,doctor}`. `dotfiles-sync` regenerates the VS Code extension list, bare `chezmoi re-add`s all changed files, reports Brewfile drift, then commits + pushes. `dotfiles-doctor` is a read-only drift report for the receiving end (installed-but-not-listed = removal/capture candidates).

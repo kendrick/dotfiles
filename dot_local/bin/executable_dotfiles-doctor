@@ -35,3 +35,20 @@ if command -v brew &>/dev/null; then
 else
   echo "    brew not found — skipping"
 fi
+
+echo
+echo "== Template drift =="
+# re-add won't reverse-render a template, so a templated file an app rewrites in
+# $HOME (Claude's settings.json is the classic) drifts without ever being captured
+# by dotfiles-sync. Flag any managed template whose live copy diverged from source.
+tmpl_drift=0
+while IFS= read -r line; do
+  [[ "${line:1:1}" == "M" || "${line:1:1}" == "D" ]] || continue
+  tgt="${line:3}"
+  src="$(chezmoi source-path "$HOME/$tgt" 2>/dev/null)" || continue
+  if [[ "$src" == *.tmpl ]]; then
+    echo "    $tgt  (edit the source template, or reconcile by hand)"
+    tmpl_drift=1
+  fi
+done < <(chezmoi status)
+[[ "$tmpl_drift" -eq 0 ]] && echo "    none — templated files match their source"

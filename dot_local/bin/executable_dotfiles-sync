@@ -55,6 +55,26 @@ if ! chezmoi re-add 2>&1; then
   exit 1
 fi
 
+# ---- Phase: template drift (what re-add structurally can't capture) ----
+# re-add won't reverse-render a template, so a templated file an app rewrites in
+# $HOME slips past the capture above. Warn so it doesn't rot unnoticed.
+echo "==> Checking for drifted templates re-add couldn't capture"
+tmpl_drift=0
+while IFS= read -r line; do
+  [[ "${line:1:1}" == "M" || "${line:1:1}" == "D" ]] || continue
+  tgt="${line:3}"
+  src="$(chezmoi source-path "$HOME/$tgt" 2>/dev/null)" || continue
+  if [[ "$src" == *.tmpl ]]; then
+    echo "    ! $tgt drifted but is a template — not captured; reconcile by hand"
+    tmpl_drift=1
+  fi
+done < <(chezmoi status)
+if [[ "$tmpl_drift" -eq 1 ]]; then
+  notify "Dotfiles: template drift" "A templated file drifted and wasn't captured. See $LOG."
+else
+  echo "    none"
+fi
+
 # ---- Phase: Brewfile drift report (read-only; never edits) ----
 echo "==> Brewfile drift (installed but not in template; edit by hand if you want it tracked)"
 if command -v brew &>/dev/null; then

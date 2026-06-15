@@ -7,6 +7,11 @@ CLAUDE.md
 _working-memory
 scripts
 
+# VS Code extension list: source-only data the install script reads via include,
+# generated from `code --list-extensions`. Deploying it let the daily re-add clobber
+# each regenerated list with the stale deployed copy, so keep it out of $HOME.
+.config/vscode-extensions.txt
+
 # Claude Desktop — device-specific state, don't sync
 private_Library/private_Application Support/Claude/claude_desktop_config.json
 

@@ -1,7 +1,6 @@
 # VS Code extensions to install
 # Edit this list and run `chezmoi apply` to sync.
 aaron-bond.better-comments
-adamerose.markdown-wysiwyg
 akamud.vscode-theme-onelight
 anthropic.claude-code
 bierner.markdown-mermaid
@@ -16,20 +15,20 @@ eamodio.gitlens
 esbenp.prettier-vscode
 formulahendry.auto-rename-tag
 fosshaas.fontsize-shortcuts
-github.copilot-chat
 github.vscode-github-actions
 jaspernorth.vscode-pigments
 ms-azuretools.vscode-containers
 ms-azuretools.vscode-docker
+ms-vscode.cpptools
 ms-vscode.live-server
 ms-vsliveshare.vsliveshare
 oderwat.indent-rainbow
 orta.vscode-jest
+platformio.platformio-ide
+radhakantaroy.vs-color-preview
 redhat.vscode-xml
 richie5um2.vscode-sort-json
 robbowen.synthwave-vscode
-robole.markdown-snippets
-saoudrizwan.claude-dev
 shd101wyy.markdown-preview-enhanced
 simonsiefke.svg-preview
 stylelint.vscode-stylelint

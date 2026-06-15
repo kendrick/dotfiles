@@ -68,14 +68,19 @@ cask "screen-studio"
 cask "slack"
 cask "spotify"
 cask "ticktick"
+cask "shottr"
 cask "superwhisper"
 cask "visual-studio-code"
+cask "zoom"
 
 {{ if ne .machine_role "client" -}}
 # Not on client machines
 cask "claude"
 cask "claude-code@latest"
+cask "conductor"
+cask "libreoffice"
 cask "macwhisper"
+cask "notion"
 cask "reader"
 {{ end -}}
 

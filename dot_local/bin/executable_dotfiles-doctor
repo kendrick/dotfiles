@@ -27,7 +27,7 @@ if command -v brew &>/dev/null; then
   echo "-- here but not in the Brewfile (uninstall, or add to the template):"
   while IFS= read -r formula; do
     name="${formula##*/}"
-    grep -qiE "(^|/)\"?${name}\"?" "$brewfile" || echo "    brew  $formula"
+    grep -qiE "[\"/]${name}\"" "$brewfile" || echo "    brew  $formula"
   done < <(brew leaves)
   while IFS= read -r cask; do
     grep -qiE "\"${cask}\"" "$brewfile" || echo "    cask  $cask"

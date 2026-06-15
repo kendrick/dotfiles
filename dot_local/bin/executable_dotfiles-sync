@@ -82,7 +82,7 @@ if command -v brew &>/dev/null; then
   drift=0
   while IFS= read -r formula; do
     name="${formula##*/}"
-    grep -qiE "(^|/)\"?${name}\"?" "$brewfile" || { echo "    + brew  $formula"; drift=1; }
+    grep -qiE "[\"/]${name}\"" "$brewfile" || { echo "    + brew  $formula"; drift=1; }
   done < <(brew leaves)
   while IFS= read -r cask; do
     grep -qiE "\"${cask}\"" "$brewfile" || { echo "    + cask  $cask"; drift=1; }

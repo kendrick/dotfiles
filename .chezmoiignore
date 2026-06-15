@@ -12,6 +12,11 @@ scripts
 # each regenerated list with the stale deployed copy, so keep it out of $HOME.
 .config/vscode-extensions.txt
 
+# ~/.config/Brewfile isn't deployed: the package installer renders the Brewfile
+# inline (brew bundle --file=/dev/stdin), so a deployed copy just goes stale and
+# unused. The real data lives in .chezmoitemplates/Brewfile.
+.config/Brewfile
+
 # Claude Desktop — device-specific state, don't sync
 private_Library/private_Application Support/Claude/claude_desktop_config.json
 

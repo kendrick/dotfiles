@@ -4,15 +4,19 @@ These apply to every project I work on, regardless of the repo or stack.
 
 ## Prose
 
-Run all prose through the `humanizer` skill before merge. "Prose" includes documentation, markdown content, code comments, commit messages, PR descriptions, and any other narrative text you produce on my behalf.
+Run human-facing prose through the `humanizer` skill before merge. By "human-facing" I mean anything a person is actually likely to read as writing: code comments, commit messages, PR descriptions, changesets, workshop briefs, and user-facing documentation (READMEs, guides, the docs site). It does NOT mean spec-kit planning artifacts (`spec.md`, `plan.md`, `tasks.md`, requirements checklists) or other internal intermediates that exist to drive a build or planning step rather than to be read for their own sake — those are machine-facing scaffolding, so skip the humanizer on them. When it's genuinely unclear, ask whether a human will read it as writing; if not, don't bother.
 
 "Run through" means formally invoke the skill via the Skill tool and follow its audit-and-revise loop ("draft → what makes this so obviously AI generated? → revise"). Informally applying the principles from memory is not enough — it consistently misses tells. Invoke the skill, edit the prose in place against its audit, then ship.
+
+Do this proactively, as a default step — not something you offer. Never hand me un-humanized prose with a "say the word and I'll run the skill" caveat attached. By the time I see merge-bound prose (commit messages, PR descriptions, changesets, briefs, docs, code comments), it should already have been through the audit. Don't ask permission to humanize; just do it.
 
 Caveat on the humanizer's anti-list stance: I'm fine keeping bulleted and numbered lists. The rule I care about is the tripartite-list tic — try to avoid lists of exactly three items when a fourth fits naturally or one can be dropped without loss. When three is the genuinely correct count (three distinct things, no padding, no omission), keep it three. Don't pad or trim a list just to satisfy the heuristic.
 
 Second caveat, on the same axis: don't dissolve genuinely list-shaped content into prose. If you have N items that share an identical structure — say, four files where every entry reads "filename, then a short description" — keep it as a bulleted list. Humanizer pattern 16 is right that bolded inline headers with colons (`- **Performance:** Speed matters`) are a tell. A plain bullet of the form `- code-thing — description` is not. Don't bury parallel items in a paragraph that scans worse than the list it's hiding.
 
 Third caveat: ignore the humanizer's title-case rule (pattern #17). I prefer title-cased headings. Don't lowercase main words on the way through the audit; leave headings as I'd write them in a doc or blog post.
+
+Fourth caveat: ignore the humanizer's em-dash rule (pattern #14). Em dashes are part of how I write — keep them. Don't strip them or swap them for commas, colons, and periods on the way through the audit. They get flagged as an AI tell because models overuse them, not because they're wrong, and the humanizer itself admits em dashes alone aren't a reliable signal. What the pass is actually for is the other patterns: significance inflation, copula avoidance, -ing padding, the tripartite tic, promotional vocabulary, diff-anchored comments, plausible-but-wrong details. Fix those, leave my punctuation alone.
 
 Never manually wrap lines in prose of any sort with hard returns. Let the terminal or git's own pager handle wrapping at display time. Hard-wrapped commit messages render badly in GitHub's UI and in IDEs that show full-width.
 

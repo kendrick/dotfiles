@@ -16,7 +16,7 @@ Second caveat, on the same axis: don't dissolve genuinely list-shaped content in
 
 Third caveat: ignore the humanizer's title-case rule (pattern #17). I prefer title-cased headings. Don't lowercase main words on the way through the audit; leave headings as I'd write them in a doc or blog post.
 
-Fourth caveat: ignore the humanizer's em-dash rule (pattern #14). Em dashes are part of how I write — keep them. Don't strip them or swap them for commas, colons, and periods on the way through the audit. They get flagged as an AI tell because models overuse them, not because they're wrong, and the humanizer itself admits em dashes alone aren't a reliable signal. What the pass is actually for is the other patterns: significance inflation, copula avoidance, -ing padding, the tripartite tic, promotional vocabulary, diff-anchored comments, plausible-but-wrong details. Fix those, leave my punctuation alone.
+Fourth caveat: loosen the humanizer's em-dash rule (pattern #14). Em dashes are part of how I write from time to time; keep a few of them, but not all of them. Use them when they're the most effective—when parenthesis, new sentences, semicolons, and the like would be less impactful. NEVER wrap em dashes in spaces (`—`) as that is never how I use them. Always chain em dashes directly with text directly on either side—like this—as that's how I typically write.
 
 Never manually wrap lines in prose of any sort with hard returns. Let the terminal or git's own pager handle wrapping at display time. Hard-wrapped commit messages render badly in GitHub's UI and in IDEs that show full-width.
 

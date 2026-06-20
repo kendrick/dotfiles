@@ -143,9 +143,9 @@
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "ref": "main",
       "skillPath": "skills/subagent-driven-development/SKILL.md",
-      "skillFolderHash": "6e15fa713245916b7c6d88c256c955ef8ea09233",
+      "skillFolderHash": "c2c349084c2bd52da9af12e4d65fc94181f284bb",
       "installedAt": "2026-05-28T03:15:48.151Z",
-      "updatedAt": "2026-06-16T21:54:30.354Z"
+      "updatedAt": "2026-06-19T17:48:40.030Z"
     },
     "dispatching-parallel-agents": {
       "source": "obra/superpowers",
@@ -191,9 +191,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "00635b861a568e0b0da4cececa2415da4afa4d54",
+      "skillFolderHash": "5fa5e08f9ec96f3526e33267bb3d3bd54947f854",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-06-16T21:54:42.178Z"
+      "updatedAt": "2026-06-19T17:48:46.080Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -374,20 +374,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
-      "skillFolderHash": "2c3a4e48571bfe42203ed7b49cae85f31ef4b6f2",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "21adba95de7d93065d9fec725ddf37f871e01d05",
       "installedAt": "2026-06-16T18:11:26.632Z",
-      "updatedAt": "2026-06-16T18:11:26.632Z"
+      "updatedAt": "2026-06-19T17:48:47.437Z"
     },
     "handoff": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/productivity/handoff/SKILL.md",
-      "skillFolderHash": "7bbb60d64c911617cee7f71b2ba9e24364faa14e",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "aa82ffd61d7a3bda110060b4e24ec782b983cb8d",
       "installedAt": "2026-06-16T18:14:03.251Z",
-      "updatedAt": "2026-06-16T18:14:03.251Z"
+      "updatedAt": "2026-06-19T17:48:48.603Z"
     },
     "writing-beats": {
       "source": "mattpocock/skills",
@@ -403,10 +401,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/productivity/teach/SKILL.md",
-      "skillFolderHash": "975430f7801bac2258ed18f4d80860024443b4f7",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "3b6a4245e2aaeacb308ba6175ab3e7f2e43b0c47",
       "installedAt": "2026-06-17T00:49:16.331Z",
-      "updatedAt": "2026-06-17T00:49:16.331Z"
+      "updatedAt": "2026-06-19T17:48:49.860Z"
     }
   },
   "dismissed": {

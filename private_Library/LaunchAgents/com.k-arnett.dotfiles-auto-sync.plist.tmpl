@@ -1,3 +1,15 @@
+{{- /* Build the run times from the chosen schedule preset and the configurable clock
+       times. Defaults guard machines that haven't re-run `chezmoi init` for the new keys. */ -}}
+{{- $rd := ternary "workday" (ternary "evening" "off" (eq .machine_role "personal")) (eq .machine_role "work") -}}
+{{- $sched := get . "sync_schedule" | default $rd -}}
+{{- $t := get . "sync_times" | default dict -}}
+{{- $ws := get $t "workday_start" | default "10:00" -}}
+{{- $we := get $t "workday_end" | default "16:00" -}}
+{{- $ee := get $t "evening_end" | default "22:00" -}}
+{{- $times := list -}}
+{{- if eq $sched "workday" -}}{{- $times = list $ws $we -}}
+{{- else if eq $sched "evening" -}}{{- $times = list $we $ee -}}
+{{- else if eq $sched "both" -}}{{- $times = list $ws $we $ee -}}{{- end -}}
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -9,12 +21,16 @@
         <string>{{ .chezmoi.homeDir }}/.local/bin/dotfiles-sync</string>
     </array>
     <key>StartCalendarInterval</key>
-    <dict>
-        <key>Hour</key>
-        <integer>10</integer>
-        <key>Minute</key>
-        <integer>0</integer>
-    </dict>
+    <array>
+{{- range $times }}
+        <dict>
+            <key>Hour</key>
+            <integer>{{ atoi (index (splitList ":" .) 0) }}</integer>
+            <key>Minute</key>
+            <integer>{{ atoi (index (splitList ":" .) 1) }}</integer>
+        </dict>
+{{- end }}
+    </array>
     <key>RunAtLoad</key>
     <false/>
     <key>StandardOutPath</key>

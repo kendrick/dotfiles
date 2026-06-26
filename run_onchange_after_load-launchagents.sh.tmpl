@@ -1,0 +1,31 @@
+{{- $rd := ternary "workday" (ternary "evening" "off" (eq .machine_role "personal")) (eq .machine_role "work") -}}
+{{- $sched := get . "sync_schedule" | default $rd -}}
+#!/bin/bash
+# schedule: {{ $sched }} {{ get . "sync_times" | default dict }}
+# Load or reload the dotfiles auto-sync LaunchAgent. Keyed off the schedule line above,
+# so changing sync_schedule or the clock times and re-applying reloads the agent with the
+# new run times rather than leaving the old schedule live. `off` unloads it and deletes
+# the plist, since launchd would otherwise re-load a stale plist at the next login.
+set -e
+
+SCHEDULE="{{ $sched }}"
+PLIST="{{ .chezmoi.homeDir }}/Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist"
+LABEL="com.k-arnett.dotfiles-auto-sync"
+TARGET="gui/$(id -u)"
+
+# Unload first so a reload actually picks up new times. bootout on an agent that isn't
+# loaded is a harmless error we swallow.
+launchctl bootout "${TARGET}/${LABEL}" 2>/dev/null || true
+
+if [[ "$SCHEDULE" == "off" ]]; then
+  rm -f "$PLIST"
+  echo "Auto-sync off; LaunchAgent unloaded."
+  exit 0
+fi
+
+if [[ -f "$PLIST" ]]; then
+  launchctl bootstrap "$TARGET" "$PLIST"
+  echo "Auto-sync loaded on the '$SCHEDULE' schedule."
+else
+  echo "Schedule is '$SCHEDULE' but no plist at $PLIST; nothing loaded."
+fi

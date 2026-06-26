@@ -8,7 +8,7 @@ My macOS setup, managed by [chezmoi](https://chezmoi.io). One command gets a fre
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply kendrick
 ```
 
-It'll ask whether this is a `work`, `client`, or `personal` machine, set the right git email, then install everything: Homebrew packages, VS Code and Raycast extensions, macOS preferences, shell config, node and its global packages, and your agent skills.
+It'll ask whether this is a `work`, `client`, or `personal` machine, set the right git email, pick an auto-sync schedule, then install everything: Homebrew packages, VS Code and Raycast extensions, macOS preferences, shell config, node and its global packages, and your agent skills.
 
 A handful of Claude config files (`~/.claude/settings.json` and the plugin manifests) are age-encrypted, and the private key isn't in this public repo. The bootstrap fetches it from 1Password: a `run_before` script reads the age identity into `~/.config/chezmoi/key.txt`, as long as the 1Password app is unlocked with CLI integration on (Settings > Developer). chezmoi builds its ignore list before that script runs, so the encrypted files don't decrypt on the first pass; they land on the next apply:
 
@@ -149,6 +149,19 @@ dotfiles-doctor    # read-only; run it after chezmoi update
 ```
 
 It lists anything installed locally that isn't in your dotfiles (either something you installed ad-hoc and want to keep, or something you removed elsewhere and should uninstall here), plus anything in your lists that isn't installed yet. It changes nothing. You decide what to act on.
+
+### Scheduled auto-sync
+
+A launchd agent runs `dotfiles-sync` at set times so a machine's changes get captured without me remembering to. You pick the schedule at init, and each role has a default:
+
+- `workday` — 10:00 and 16:00 (default for `work`)
+- `evening` — 16:00 and 22:00 (default for `personal`)
+- `both` — 10:00, 16:00, and 22:00
+- `off` — no scheduled sync (default for `client`)
+
+The clock times live in `~/.config/chezmoi/chezmoi.toml` under `[data.sync_times]`. Change them there, or switch presets via `sync_schedule`, then run `chezmoi apply`; the agent reloads with the new times. A machine that predates the prompt falls back to its role's default, so it keeps syncing; re-run `chezmoi init` (or set `sync_schedule` in the local config) only when you want to override that.
+
+The scheduled run is push-only and never applies anything on its own. If the remote has moved ahead, `dotfiles-sync` leaves the push alone and fires a macOS notification telling you to run `chezmoi update` first, so nothing lands behind your back.
 
 ## Layout
 

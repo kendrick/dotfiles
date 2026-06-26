@@ -6,7 +6,7 @@
 {{- else if eq $machineRole "client" -}}
 {{-   $email = promptStringOnce . "email" "Client email address" -}}
 {{- else -}}
-{{-   $email = "kmarnett@gmail.com" -}}
+{{-   $email = promptStringOnce . "email" "Personal email address" -}}
 {{- end -}}
 
 encryption = "age"

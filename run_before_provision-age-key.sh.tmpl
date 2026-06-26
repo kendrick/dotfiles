@@ -1,0 +1,46 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# Age key bootstrap. chezmoi decrypts the encrypted Claude config on apply using the
+# identity at ~/.config/chezmoi/key.txt; rather than hand-copy that onto every new
+# machine, pull it from 1Password here.
+#
+# Runs in the "before" phase, after install-prerequisites (which provides brew, so we
+# can install `op` if the package step hasn't run yet). It's a plain run_ (every apply,
+# not run_once): the first pass on a bare machine can't reach 1Password until the app
+# is installed and unlocked, so we retry each apply and no-op the instant the key is in
+# place. No `set -e`: this is best-effort, and bash 3.2's errexit is unreliable with
+# external commands. The op:// below is a reference, not a secret; resolving it needs
+# your unlocked 1Password.
+
+KEY_PATH="{{ joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt" }}"
+OP_REF="op://Personal/chezmoi age key/key.txt"
+
+if [ -s "$KEY_PATH" ] && grep -q 'AGE-SECRET-KEY-1' "$KEY_PATH" 2>/dev/null; then
+  exit 0
+fi
+
+# brew lands on a non-login shell's PATH only once we add it (prerequisites installed it).
+[ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# op ships as the 1password-cli cask; install it now if the package step hasn't run yet.
+if ! command -v op >/dev/null 2>&1; then
+  echo "Installing 1Password CLI to fetch the age key..."
+  brew install --cask 1password-cli >/dev/null 2>&1
+fi
+
+if ! command -v op >/dev/null 2>&1; then
+  echo "1Password CLI unavailable. Seed $KEY_PATH by hand, then re-apply."
+  exit 0
+fi
+
+mkdir -p "$(dirname "$KEY_PATH")"
+if key=$(op read "$OP_REF" 2>/dev/null) && [ -n "$key" ]; then
+  printf '%s\n' "$key" >"$KEY_PATH"
+  chmod 600 "$KEY_PATH"
+  echo "Fetched age key from 1Password into $KEY_PATH."
+  echo "(Encrypted Claude config deploys on the next apply, once chezmoi re-reads the key.)"
+else
+  echo "Couldn't read the age key from 1Password."
+  echo "Unlock 1Password and turn on its CLI integration (Settings > Developer), then:"
+  echo "  op read \"$OP_REF\" > \"$KEY_PATH\" && chmod 600 \"$KEY_PATH\" && chezmoi apply"
+fi

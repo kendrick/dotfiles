@@ -24,3 +24,14 @@ private_Library/private_Application Support/Claude/claude_desktop_config.json
 {{ if ne .machine_role "work" }}
 dot_local/bin/executable_awssso
 {{ end }}
+
+# Age-encrypted Claude config. chezmoi decrypts encrypted_ targets unconditionally
+# on apply, so a fresh machine with no ~/.config/chezmoi/key.txt aborts the whole
+# run on the first one. Skip them while the key is absent and the rest of the
+# bootstrap (brew, vscode, zsh, git, …) still lands; seed the key, re-apply, and
+# these come in on the next pass. The plugin reinstall script guards the same way.
+{{ if not (stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt")) }}
+.claude/settings.json
+.claude/plugins/installed_plugins.json
+.claude/plugins/known_marketplaces.json
+{{ end }}

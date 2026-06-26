@@ -10,6 +10,16 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply kendrick
 
 It'll ask whether this is a `work`, `client`, or `personal` machine, set the right git email, then install everything: Homebrew packages, VS Code extensions, Raycast extensions, macOS preferences, shell config.
 
+A handful of Claude config files (`~/.claude/settings.json` and the plugin manifests) are age-encrypted, and the private key isn't in this public repo. Without it, those files are skipped—everything else still applies cleanly. To pull them in too, seed the key first, then re-apply:
+
+```bash
+mkdir -p ~/.config/chezmoi
+# copy your age identity (the AGE-SECRET-KEY-… from 1Password) to:
+#   ~/.config/chezmoi/key.txt
+chmod 600 ~/.config/chezmoi/key.txt
+chezmoi apply
+```
+
 On a machine that's already set up:
 
 ```bash

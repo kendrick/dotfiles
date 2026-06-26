@@ -1,0 +1,88 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# npm globals hash:  {{ include "dot_config/npm-globals.txt"  | sha256sum }}
+# pnpm globals hash: {{ include "dot_config/pnpm-globals.txt" | sha256sum }}
+# Re-runs whenever either list changes.
+#
+# This is a `run_after_` script on purpose: nvm is installed by the package step
+# (brew), so node only exists once that has run. An earlier-phase script would find
+# no node and skip every global below.
+
+set -e
+
+install_globals() {
+  local manager="$1"
+  local list_content="$2"
+  if ! command -v "$manager" &>/dev/null; then
+    echo "$manager not found, skipping global package install."
+    return 0
+  fi
+  local subcommand
+  case "$manager" in
+    npm)  subcommand="install -g" ;;
+    pnpm) subcommand="add -g" ;;
+  esac
+  # Best-effort: one package that won't install (an engine mismatch on an outdated
+  # node, a yanked version) must never abort the whole `chezmoi apply`. The obvious
+  # `cmd || true` doesn't buy that here—on macOS #!/bin/bash is bash 3.2, whose
+  # errexit fires on a failing *external* command even through `|| true` or an `if !`
+  # guard. Dropping errexit for the loop is the only reliable suppression. We also
+  # let stderr through: when a package fails, the real reason (e.g. "requires Node.js
+  # vX") is exactly what you want to see, not silence.
+  set +e
+  while IFS= read -r pkg; do
+    [[ "$pkg" =~ ^#.*$ || -z "$pkg" ]] && continue
+    echo "  $manager $subcommand $pkg"
+    if ! command "$manager" $subcommand "$pkg"; then
+      echo "    skipped: '$pkg' failed to install (often an outdated node)"
+    fi
+  done <<<"$list_content"
+  set -e
+}
+
+# Ensure a current default node before installing globals. brew installs nvm but no
+# node, so a fresh machine has nvm and nothing else; and an old pinned default (we've
+# seen v22.0.0) is below what current npm and pnpm accept. Floor it at 24. errexit
+# stays off here because nvm is a shell function whose failures shouldn't abort apply,
+# and bash 3.2 wouldn't reliably suppress them inline anyway.
+set +e
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-/opt/homebrew}"
+if [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]; then
+  . "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
+elif [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+fi
+if command -v nvm >/dev/null 2>&1; then
+  nvm use default >/dev/null 2>&1   # activate the existing default, if any, before checking
+  node_floor=24
+  have_major=$(node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/')
+  if [ -z "$have_major" ] || [ "$have_major" -lt "$node_floor" ]; then
+    echo "Installing node $node_floor via nvm (current default: ${have_major:-none})..."
+    nvm install "$node_floor" && nvm alias default "$node_floor" && nvm use default >/dev/null 2>&1
+  fi
+  # pnpm isn't bundled with node, so a fresh machine would skip every pnpm global below.
+  # corepack (which is bundled) provides the shim. Only enable it when pnpm is absent, so
+  # machines that already have pnpm some other way keep their existing binary.
+  if command -v corepack >/dev/null 2>&1 && ! command -v pnpm >/dev/null 2>&1; then
+    echo "Enabling pnpm via corepack..."
+    corepack enable pnpm 2>/dev/null || true
+  fi
+else
+  echo "nvm not found, skipping node setup and global installs."
+fi
+set -e
+
+echo "Installing global npm packages..."
+install_globals npm "$(cat <<'NPMEOF'
+{{ include "dot_config/npm-globals.txt" }}
+NPMEOF
+)"
+
+echo "Installing global pnpm packages..."
+install_globals pnpm "$(cat <<'PNPMEOF'
+{{ include "dot_config/pnpm-globals.txt" }}
+PNPMEOF
+)"
+
+echo "Global node packages installed."

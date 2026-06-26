@@ -35,3 +35,11 @@ dot_local/bin/executable_awssso
 .claude/plugins/installed_plugins.json
 .claude/plugins/known_marketplaces.json
 {{ end }}
+
+# Auto-sync off: don't deploy the LaunchAgent plist. The load script also unloads and
+# removes any copy already on disk, so toggling to off actually stops the scheduled sync.
+# Missing sync_schedule (a machine that predates the prompt) falls back to the role default.
+{{ $rd := ternary "workday" (ternary "evening" "off" (eq .machine_role "personal")) (eq .machine_role "work") }}
+{{ if eq (get . "sync_schedule" | default $rd) "off" }}
+Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist
+{{ end }}

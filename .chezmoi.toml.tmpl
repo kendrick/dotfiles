@@ -9,12 +9,27 @@
 {{-   $email = promptStringOnce . "email" "Personal email address" -}}
 {{- end -}}
 
+{{- /* Auto-sync schedule. Default per role; the prompt lets any machine override.
+       workday = morning + end-of-work, evening = end-of-work + night, both = all three,
+       off = no scheduled sync. The clock times live in [data.sync_times] below so they're
+       editable without touching the plist. */ -}}
+{{- $syncDefault := "off" -}}
+{{- if eq $machineRole "work" -}}{{- $syncDefault = "workday" -}}
+{{- else if eq $machineRole "personal" -}}{{- $syncDefault = "evening" -}}{{- end -}}
+{{- $syncSchedule := promptChoiceOnce . "sync_schedule" "Auto-sync schedule (workday/evening/both/off)" (list "workday" "evening" "both" "off") $syncDefault -}}
+
 encryption = "age"
 
 [data]
   machine_role = {{ $machineRole | quote }}
   email = {{ $email | quote }}
   name = "Kendrick Arnett"
+  sync_schedule = {{ $syncSchedule | quote }}
+  # Clock times the schedule presets draw from. Edit here and re-apply to reschedule.
+  [data.sync_times]
+    workday_start = "10:00"
+    workday_end = "16:00"
+    evening_end = "22:00"
 
 [age]
   identity = {{ (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") | quote }}

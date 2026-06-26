@@ -119,7 +119,11 @@ import json, sys
 data = json.load(sys.stdin)
 # pnpm wraps in a list; npm doesn't
 deps = data[0].get('dependencies', {}) if isinstance(data, list) else data.get('dependencies', {})
-print('\n'.join(sorted(deps.keys())))
+# npm and corepack ship bundled with Node, so 'npm list -g' always reports them.
+# Tracking them means a fresh machine runs 'npm install -g npm', which self-updates
+# in place, exits non-zero, and aborts chezmoi apply. Drop the plumbing; keep intent.
+bundled = {'npm', 'corepack', 'pnpm', 'yarn'}
+print('\n'.join(sorted(k for k in deps if k not in bundled)))
 " 2>/dev/null) || return
 	{
 		echo "# Global ${manager} packages to install"

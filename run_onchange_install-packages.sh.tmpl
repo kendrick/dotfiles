@@ -7,7 +7,19 @@ if ! command -v brew &>/dev/null; then
   exit 0
 fi
 
-# Allow failures (MAS apps may need interactive sudo auth)
-brew bundle --file=/dev/stdin <<'BREWEOF' || echo "Some Brewfile entries failed (MAS apps may need manual install)."
+brewfile=$(cat <<'BREWEOF'
 {{ template "Brewfile" . }}
 BREWEOF
+)
+
+# Homebrew 6 refuses to load formulae/casks from third-party taps unless they're
+# trusted, so one untrusted tap aborts `brew bundle` on its first tapped entry and
+# silently drops everything after it. Trust every tap the Brewfile declares up front;
+# keying off the rendered Brewfile means new taps (and the work-only ones) are covered
+# without editing this script.
+echo "$brewfile" | awk '/^tap /{gsub(/"/,"",$2); print $2}' | while read -r tap; do
+  brew trust --tap "$tap" 2>/dev/null || true
+done
+
+# Allow failures (MAS apps may need interactive sudo auth)
+brew bundle --file=/dev/stdin <<<"$brewfile" || echo "Some Brewfile entries failed (MAS apps may need manual install)."

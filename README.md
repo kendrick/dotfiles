@@ -95,7 +95,7 @@ chezmoi prompts for a role on first init:
 |------|-----------|-----------------|
 | `work` | prompted | AWS CLI tools, work-specific brew packages, Claude Desktop |
 | `client` | prompted | Minimal. No Claude Desktop, no work-specific packages |
-| `personal` | kmarnett@gmail.com | Screen Studio, superwhisper, codex |
+| `personal` | prompted | Screen Studio, superwhisper, codex |
 
 The role and email are stored locally in `~/.config/chezmoi/chezmoi.toml` and never committed to the repo.
 

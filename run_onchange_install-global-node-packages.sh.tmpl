@@ -18,11 +18,22 @@ install_globals() {
     npm)  subcommand="install -g" ;;
     pnpm) subcommand="add -g" ;;
   esac
+  # Best-effort: one package that won't install (an engine mismatch on an outdated
+  # node, a yanked version) must never abort the whole `chezmoi apply`. The obvious
+  # `cmd || true` doesn't buy that here—on macOS #!/bin/bash is bash 3.2, whose
+  # errexit fires on a failing *external* command even through `|| true` or an `if !`
+  # guard. Dropping errexit for the loop is the only reliable suppression. We also
+  # let stderr through: when a package fails, the real reason (e.g. "requires Node.js
+  # vX") is exactly what you want to see, not silence.
+  set +e
   while IFS= read -r pkg; do
     [[ "$pkg" =~ ^#.*$ || -z "$pkg" ]] && continue
     echo "  $manager $subcommand $pkg"
-    command "$manager" $subcommand "$pkg" 2>/dev/null || true
+    if ! command "$manager" $subcommand "$pkg"; then
+      echo "    skipped: '$pkg' failed to install (often an outdated node)"
+    fi
   done <<<"$list_content"
+  set -e
 }
 
 echo "Installing global npm packages..."

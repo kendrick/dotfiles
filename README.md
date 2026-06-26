@@ -8,14 +8,19 @@ My macOS setup, managed by [chezmoi](https://chezmoi.io). One command gets a fre
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply kendrick
 ```
 
-It'll ask whether this is a `work`, `client`, or `personal` machine, set the right git email, then install everything: Homebrew packages, VS Code extensions, Raycast extensions, macOS preferences, shell config.
+It'll ask whether this is a `work`, `client`, or `personal` machine, set the right git email, then install everything: Homebrew packages, VS Code and Raycast extensions, macOS preferences, shell config, node and its global packages, and your agent skills.
 
-A handful of Claude config files (`~/.claude/settings.json` and the plugin manifests) are age-encrypted, and the private key isn't in this public repo. Without it, those files are skipped—everything else still applies cleanly. To pull them in too, seed the key first, then re-apply:
+A handful of Claude config files (`~/.claude/settings.json` and the plugin manifests) are age-encrypted, and the private key isn't in this public repo. The bootstrap fetches it from 1Password: a `run_before` script reads the age identity into `~/.config/chezmoi/key.txt`, as long as the 1Password app is unlocked with CLI integration on (Settings > Developer). chezmoi builds its ignore list before that script runs, so the encrypted files don't decrypt on the first pass; they land on the next apply:
+
+```bash
+chezmoi apply   # second pass deploys the now-decryptable Claude config
+```
+
+If 1Password isn't reachable, the script says so and the rest of the setup still finishes. To seed the key by hand instead:
 
 ```bash
 mkdir -p ~/.config/chezmoi
-# copy your age identity (the AGE-SECRET-KEY-… from 1Password) to:
-#   ~/.config/chezmoi/key.txt
+op read "op://Personal/chezmoi age key/key.txt" > ~/.config/chezmoi/key.txt
 chmod 600 ~/.config/chezmoi/key.txt
 chezmoi apply
 ```
@@ -54,6 +59,10 @@ A Brewfile handles Homebrew formulae, casks, and Mac App Store apps. Some are co
 
 Raycast extensions are also managed via a text file list.
 
+### Node
+
+Node runs through nvm (installed by Homebrew). nvm ships without a node of its own, so the bootstrap installs one and floors the default at 24, which is what current npm and pnpm expect; it also turns on pnpm through corepack. Global packages come from two lists, `~/.config/npm-globals.txt` and `~/.config/pnpm-globals.txt`, which the `npm` and `pnpm` shell wrappers re-add whenever you install or remove a global.
+
 ### Scripts
 
 Custom scripts in `~/.local/bin/` (which is on `$PATH`): `awssso`, `cless`, `cscreen`, `dotfiles-doctor`, `dotfiles-sync`, `draw`, `e`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`.
@@ -76,7 +85,7 @@ The repo tracks the lockfile, not the skill bodies. The skills themselves live i
 
 Not everything under a `.claude/skills/` directory is user-level, though. This repo's own `.claude/skills/` holds the working-memory skills (`hydrate-*`, `update-working-memory`), which are project-scoped and never deploy to `~/.claude` or go through `npx skills`. The npx-managed skills above are the global set; the repo-local `.claude/` toolkit is separate, and loads only when you work in this repo.
 
-Restore isn't wired up yet. The CLI's `experimental_install` only restores project-level lockfiles, not the global one, so there's no single command that reinstalls everything from `.skill-lock.json`. On a new machine, re-add the skills you want by hand with `npx skills add <repo>` until the CLI grows a global restore. The lockfile also only captures what went through the shell function, so a skill installed some other way won't show up in it, and it's worth a reconcile pass now and then.
+Restore runs on its own. A `run_after` script replays the lockfile on a new machine: it diffs `.skill-lock.json` against what's in `~/.agents/skills/` and re-adds anything missing straight from its source repo, so a fresh machine ends up with the same set without any hand-run `npx skills add`. It's keyed off the lockfile, so adding a skill on one machine reinstalls it on the others at the next `chezmoi update`. The private `kendrick/*` repos prompt for `gh` auth rather than skipping. One limit worth knowing: the CLI can't restore to a pinned hash, so each skill comes back at its source's latest, and an upstream change rides along with it. The lockfile also only captures what went through the shell function, so a skill installed some other way won't show up, and it's worth a reconcile pass now and then.
 
 ## Machine roles
 
@@ -168,3 +177,4 @@ chezmoi runs scripts based on naming conventions:
 
 - **`run_once_`** scripts run one time per machine. That's the Homebrew/Xcode install and the macOS defaults.
 - **`run_onchange_`** scripts re-run whenever their content changes. Edit the Brewfile, the VS Code extension list, or the Raycast extension list, run `chezmoi apply`, and chezmoi picks up the diff and re-runs the relevant installer.
+- **`run_before_`** and **`run_after_`** set ordering around the file-copy step. The age-key fetch is a `run_before` so the key is in place before chezmoi decrypts; node setup, Claude plugins, and the skill restore are `run_after`, since they need Homebrew and node from the package step.

@@ -1,0 +1,73 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# skill-lock hash: {{ include "dot_local/private_state/skills/dot_skill-lock.json" | sha256sum }}
+# Re-runs when the skill lockfile changes.
+#
+# Restore agent skills from the lockfile. The repo tracks the manifest, not the skill
+# bodies (they re-fetch from their source repos), and `npx skills` has no global restore,
+# so a fresh machine has the lockfile but no skills until this replays it. It's a
+# run_after_ so node (from the package + node step) is on hand, and it's keyed off the
+# lockfile so adding a skill on one machine reinstalls it on the rest. No `set -e`:
+# best-effort, and bash 3.2's errexit is unreliable with external commands.
+
+LOCKFILE="{{ joinPath .chezmoi.homeDir ".local" "state" "skills" ".skill-lock.json" }}"
+SKILLS_DIR="{{ joinPath .chezmoi.homeDir ".agents" "skills" }}"
+
+[ -f "$LOCKFILE" ] || { echo "No skill lockfile at $LOCKFILE; nothing to restore."; exit 0; }
+
+# node/npx live under nvm, which every run_ script must re-source (PATH doesn't carry over).
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-/opt/homebrew}"
+if [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]; then
+  . "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
+elif [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+fi
+command -v nvm >/dev/null 2>&1 && nvm use default >/dev/null 2>&1
+
+for tool in npx jq; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "$tool not found; skipping skill restore."
+    exit 0
+  fi
+done
+
+# A skill is installed when it has a folder under ~/.agents/skills. Collect the lockfile
+# entries that don't, as "source<TAB>skill" lines.
+needed=$(jq -r '.skills | to_entries[] | "\(.value.source)\t\(.key)"' "$LOCKFILE" \
+  | while IFS=$'\t' read -r src name; do
+      [ -e "$SKILLS_DIR/$name" ] || printf '%s\t%s\n' "$src" "$name"
+    done)
+
+if [ -z "$needed" ]; then
+  echo "All lockfile skills already installed."
+  exit 0
+fi
+
+echo "Restoring $(printf '%s\n' "$needed" | wc -l | tr -d ' ') missing agent skill(s)."
+
+# The kendrick/* skill repos are private and need GitHub auth to clone. Prompt rather than
+# skip, so the restore comes back complete instead of quietly partial.
+if command -v gh >/dev/null 2>&1; then
+  if ! gh auth status >/dev/null 2>&1; then
+    echo "GitHub auth needed to clone private skill repos. Launching gh auth login..."
+    gh auth login
+  fi
+  gh auth setup-git >/dev/null 2>&1 || true   # route git clones through gh credentials
+else
+  echo "gh not found; private skill repos may fail to clone."
+fi
+
+# Add each source's missing skills in a single clone. `skills add` matches one name per
+# -s flag; joining names into one -s (comma or space) matches nothing, so pass a repeated
+# -s list instead.
+for src in $(printf '%s\n' "$needed" | cut -f1 | sort -u); do
+  s_args=()
+  while IFS= read -r name; do
+    s_args+=(-s "$name")
+  done < <(printf '%s\n' "$needed" | awk -F'\t' -v s="$src" '$1==s{print $2}')
+  echo "  skills add $src ${s_args[*]}"
+  npx --yes skills add "$src" -g -y -a '*' "${s_args[@]}" || echo "    some skills from $src failed (a name may have changed upstream)"
+done
+
+echo "Skill restore done. If you signed into GitHub mid-run, re-run 'chezmoi apply' to pick up any private skills it skipped."

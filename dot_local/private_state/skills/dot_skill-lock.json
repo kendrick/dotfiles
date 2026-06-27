@@ -172,9 +172,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/zarazhangrui/frontend-slides.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "c28690100a289d979e5e032b44771a7c28a86e40",
+      "skillFolderHash": "9906a34d640d2111f724544cbc50f7f130569ae1",
       "installedAt": "2026-05-28T03:28:47.590Z",
-      "updatedAt": "2026-06-13T05:12:54.154Z"
+      "updatedAt": "2026-06-26T17:47:07.291Z"
     },
     "inbox-to-memory": {
       "source": "kendrick/inbox-to-memory",
@@ -191,9 +191,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "5fa5e08f9ec96f3526e33267bb3d3bd54947f854",
+      "skillFolderHash": "92dc0fa212575f6bcfa381b632d72533a2366340",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-06-19T17:48:46.080Z"
+      "updatedAt": "2026-06-26T17:47:11.774Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -345,9 +345,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel-labs/skills.git",
       "skillPath": "skills/find-skills/SKILL.md",
-      "skillFolderHash": "3013fdeb8a11b10b1eb795ec3ae8bfca38f7c26d",
+      "skillFolderHash": "eb6a23305aea6e340d14b9de3766e721f9f4861b",
       "installedAt": "2026-06-10T04:47:26.526Z",
-      "updatedAt": "2026-06-10T04:47:26.526Z"
+      "updatedAt": "2026-06-26T17:47:12.927Z"
     },
     "canvas-design": {
       "source": "anthropics/skills",
@@ -392,9 +392,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/in-progress/writing-beats/SKILL.md",
-      "skillFolderHash": "5e947c333ec8502246992f3e7ad340545796ac67",
+      "skillFolderHash": "28c4a84a44e1e44b28ce0c45e01892fa3691ace6",
       "installedAt": "2026-06-16T20:20:44.505Z",
-      "updatedAt": "2026-06-16T20:20:44.505Z"
+      "updatedAt": "2026-06-26T17:47:14.688Z"
     },
     "teach": {
       "source": "mattpocock/skills",

@@ -13,7 +13,7 @@ Personal macOS dotfiles managed by [chezmoi](https://chezmoi.io) — one command
 
 ## Repository Structure
 Source of truth is this repo at `~/.local/share/chezmoi`. Deployed targets:
-- `~/.config/` — zsh, git, ghostty, gh, Brewfile, extension lists (XDG layout)
+- `~/.config/` — zsh, git, ghostty, gh (XDG layout). Brewfile + VS Code ext list are source-only data, not deployed.
 - `~/.local/bin/` — custom scripts, on `$PATH`
 - `~/Library/Application Support/` — VS Code, Claude Desktop
 - `~/.config/chezmoi/chezmoi.toml` — local-only machine role + email, never committed

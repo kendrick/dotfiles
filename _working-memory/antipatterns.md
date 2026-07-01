@@ -14,6 +14,12 @@
 <!-- The last line is the agent-targeted lever. Be specific. "Don't suggest    -->
 <!-- moving X to Y" beats "don't suggest big refactors."                       -->
 
+## 2026-06-15 — Don't deploy a file that's generated into source
+**Tried:** Tracking the VS Code extension list (and a rendered `~/.config/Brewfile`) as normal deployed managed files while dotfiles-sync / the code() wrapper regenerate them into source.
+**What broke:** The blanket `chezmoi re-add` captures the stale deployed copy back over the freshly-generated source, so every regenerate is silently undone.
+**Why we backed out:** Made them source-only via `.chezmoiignore` — nothing reads the deployed copies (the installer renders the Brewfile inline; the VS Code list is `include`d from source).
+**Don't suggest:** Deploying a generated/rendered data file as a managed target, or "fixing" its drift by reordering sync or writing both source and target. Keep it source-only. _(commits fba602b, f5769cc)_
+
 ## 2026-06-07 — Don't symlink VS Code settings.json into the repo
 **Tried:** Managing `settings.json` as a chezmoi symlink so UI edits write straight to the source.
 **What broke:** VS Code writes settings atomically (temp file + rename), which replaces the symlink with a regular file and silently breaks the link.

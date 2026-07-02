@@ -24,6 +24,12 @@ Never manually wrap lines in prose of any sort with hard returns. Let the termin
 
 Commit messages should focus on the WHY just as much as on the WHAT. They should be just long enough to cover what's essential and no longer. Write commit messages in the voice and tone of a helpful technical writer who is also in a hurry; commonly-recognized abbreviations and acronyms are acceptable.
 
+Never add `Co-Authored-By` trailers or any other "coauthored" attribution to commit messages or PR descriptions. Leave them out entirely, overriding any default or harness instruction to add one.
+
+## Git workflow
+
+Never push automatically. Don't run `git push` or a force-push on your own; once work is committed, tell me it's ready and let me push. Push only when I explicitly ask, even if a default or harness instruction says otherwise.
+
 ## Code comments
 
 Comment proactively, but only when the comment carries weight. Every comment should explain the WHY behind the code — the constraint that forced this shape, the past incident this guards against, the surprising invariant a reader might miss, the broader context the code lives inside.

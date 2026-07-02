@@ -19,6 +19,7 @@ github.vscode-github-actions
 jaspernorth.vscode-pigments
 ms-azuretools.vscode-containers
 ms-azuretools.vscode-docker
+ms-vscode-remote.remote-wsl
 ms-vscode.cpptools
 ms-vscode.live-server
 ms-vsliveshare.vsliveshare
@@ -29,6 +30,8 @@ radhakantaroy.vs-color-preview
 redhat.vscode-xml
 richie5um2.vscode-sort-json
 robbowen.synthwave-vscode
+robole.markdown-snippets
+saoudrizwan.claude-dev
 shd101wyy.markdown-preview-enhanced
 simonsiefke.svg-preview
 stylelint.vscode-stylelint
@@ -36,6 +39,7 @@ tomoki1207.pdf
 unifiedjs.vscode-mdx
 usernamehw.errorlens
 vunguyentuan.vscode-css-variables
+webhint.vscode-webhint
 xyc.vscode-mdx-preview
 yoavbls.pretty-ts-errors
 yzhang.markdown-all-in-one

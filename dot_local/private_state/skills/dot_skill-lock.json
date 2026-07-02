@@ -103,11 +103,11 @@
       "source": "anthropics/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/anthropics/skills.git",
-      "ref": "main",
       "skillPath": "skills/web-artifacts-builder/SKILL.md",
       "skillFolderHash": "821b94f16c123d5f12e4e72eda9f7a162e2698f6",
+      "pluginName": "example-skills",
       "installedAt": "2026-05-28T03:08:19.179Z",
-      "updatedAt": "2026-05-28T03:08:19.179Z"
+      "updatedAt": "2026-07-01T23:21:27.693Z"
     },
     "playwright-skill": {
       "source": "testdino-hq/playwright-skill",
@@ -125,17 +125,16 @@
       "skillPath": "SKILL.md",
       "skillFolderHash": "e198c87d03f1c9811acbff681886fac24baee53d",
       "installedAt": "2026-05-28T03:10:15.922Z",
-      "updatedAt": "2026-05-28T03:10:15.922Z"
+      "updatedAt": "2026-07-01T23:21:29.819Z"
     },
     "verification-before-completion": {
       "source": "obra/superpowers",
       "sourceType": "github",
       "sourceUrl": "https://github.com/obra/superpowers.git",
-      "ref": "main",
       "skillPath": "skills/verification-before-completion/SKILL.md",
       "skillFolderHash": "ceb2f1f67f4cadb29b32a06e54d3d0be832071f5",
       "installedAt": "2026-05-28T03:13:13.919Z",
-      "updatedAt": "2026-05-28T03:13:13.919Z"
+      "updatedAt": "2026-07-01T23:21:32.422Z"
     },
     "subagent-driven-development": {
       "source": "obra/superpowers",

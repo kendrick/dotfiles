@@ -43,3 +43,10 @@ dot_local/bin/executable_awssso
 {{ if eq (get . "sync_schedule" | default $rd) "off" }}
 Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist
 {{ end }}
+
+# Per-machine deploy key for the quantified-claude events repo. The github-qc-events
+# ssh stanza (in private_dot_ssh/config) IS synced, but the key itself stays local:
+# each machine generates its own and registers its own read-write deploy key, so one
+# machine can be revoked without touching the others. Never let this into the repo.
+.ssh/quantified_claude_events_deploy
+.ssh/quantified_claude_events_deploy.pub

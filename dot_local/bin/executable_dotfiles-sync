@@ -118,6 +118,18 @@ if ! git commit -m "$commit_msg" 2>&1; then
   exit 1
 fi
 
+# Push is opt-in. Under launchd the 1Password SSH agent isn't reachable, so an
+# unattended push just fails and buries the error in the log — and for dotfiles
+# you want a push-protection block to be seen, not hidden (an npm token got caught
+# exactly this way). So commit locally and push by hand. Set DOTFILES_AUTO_PUSH=1
+# (e.g. in the plist's EnvironmentVariables) on a machine with non-agent auth
+# wired up to turn automatic pushes back on.
+if [[ "${DOTFILES_AUTO_PUSH:-0}" != "1" ]]; then
+  notify "Dotfiles committed" "Captured ${file_count} ${files_word} from ${HOST}. Push by hand when ready."
+  echo "==> Committed locally. Auto-push is off; push manually:  git -C \"$SRC\" push"
+  exit 0
+fi
+
 echo "==> Pushing to origin"
 if ! git push 2>&1; then
   # Classify push failure from the tail of the log.

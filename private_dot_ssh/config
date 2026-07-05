@@ -11,6 +11,15 @@ Host github.com
 	UseKeychain no
 	AddKeysToAgent no
 
+# Deploy key for the quantified-claude events repo. Uses the key file directly
+# with no agent, so the unattended launchd render/collect job can push — the
+# 1Password agent below isn't reachable from launchd's context.
+Host github-qc-events
+	HostName github.com
+	IdentityFile ~/.ssh/quantified_claude_events_deploy
+	IdentitiesOnly yes
+	IdentityAgent none
+
 Host *
 	IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 	UseKeychain no

@@ -41,3 +41,13 @@
   helper = osxkeychain
 [init]
   defaultBranch = main
+# Written by `gh auth login`. Tracked here so it stops drifting out of the
+# template every sync. The empty `helper =` resets git's helper list for the host
+# before gh's is set. Path is literal, not lookPath: under launchd the auto-sync's
+# PATH may not include Homebrew, and an empty render would re-create the drift.
+[credential "https://github.com"]
+  helper =
+  helper = !/opt/homebrew/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+  helper =
+  helper = !/opt/homebrew/bin/gh auth git-credential

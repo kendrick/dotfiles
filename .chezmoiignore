@@ -7,10 +7,17 @@ CLAUDE.md
 _working-memory
 scripts
 
-# VS Code extension list: source-only data the install script reads via include,
-# generated from `code --list-extensions`. Deploying it let the daily re-add clobber
-# each regenerated list with the stale deployed copy, so keep it out of $HOME.
+# Install-manifest lists: source-only data the run_onchange installers read via
+# `include`, deliberately not deployed to $HOME. The wrappers in
+# dot_config/zsh/functions.zsh rewrite the vscode/npm/pnpm lists straight into
+# source on `code --install-extension` / `npm -g` / `pnpm -g`, so a deployed copy
+# just lets the daily re-add clobber each fresh list with the stale deployed one.
+# raycast-extensions.txt is hand-edited, but nothing reads its deployed copy
+# either, so it follows the same rule.
 .config/vscode-extensions.txt
+.config/npm-globals.txt
+.config/pnpm-globals.txt
+.config/raycast-extensions.txt
 
 # ~/.config/Brewfile isn't deployed: the package installer renders the Brewfile
 # inline (brew bundle --file=/dev/stdin), so a deployed copy just goes stale and

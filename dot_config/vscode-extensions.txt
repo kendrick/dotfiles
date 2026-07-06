@@ -31,7 +31,6 @@ redhat.vscode-xml
 richie5um2.vscode-sort-json
 robbowen.synthwave-vscode
 robole.markdown-snippets
-saoudrizwan.claude-dev
 shd101wyy.markdown-preview-enhanced
 simonsiefke.svg-preview
 stylelint.vscode-stylelint

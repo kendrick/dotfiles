@@ -26,9 +26,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/blader/humanizer.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "9600f2b7241cb4eed6ad803abee5ea01d67fe8e4",
+      "skillFolderHash": "1b48564898e999219882660237fde01bf4843a0f",
       "installedAt": "2026-05-27T13:07:25.759Z",
-      "updatedAt": "2026-06-08T14:24:11.388Z"
+      "updatedAt": "2026-07-06T02:10:19.740Z"
     },
     "systematic-debugging": {
       "source": "obra/superpowers",
@@ -114,9 +114,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/testdino-hq/playwright-skill.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "3409463d460fd6b0f0b381c64a309c1245b522d3",
+      "skillFolderHash": "d3be9ca4d7303e2aee3eba4842963abf573117b0",
       "installedAt": "2026-05-28T03:09:27.290Z",
-      "updatedAt": "2026-06-13T05:07:53.473Z"
+      "updatedAt": "2026-07-06T02:10:21.033Z"
     },
     "d3-viz": {
       "source": "chrisvoncsefalvay/claude-d3js-skill",
@@ -190,9 +190,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "19d6bdef1a7c4213630c2fc50eb721b0f8ef96a1",
+      "skillFolderHash": "e3846aaa8e89cdf3514fbb2d2dd4e7ac5b34dac4",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-06-29T19:21:22.309Z"
+      "updatedAt": "2026-07-06T02:10:28.306Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",

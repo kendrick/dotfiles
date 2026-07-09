@@ -52,4 +52,5 @@
 	"extensions.ignoreRecommendations": true,
 	"terminal.integrated.fontSize": 14,
 	"chat.viewSessions.orientation": "stacked",
+	"chat.disableAIFeatures": true,
 }

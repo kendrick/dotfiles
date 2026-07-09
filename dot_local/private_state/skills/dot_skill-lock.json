@@ -190,9 +190,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "e3846aaa8e89cdf3514fbb2d2dd4e7ac5b34dac4",
+      "skillFolderHash": "acc3f6815351568d16b1b3562500bf0378a13e68",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-07-06T02:10:28.306Z"
+      "updatedAt": "2026-07-09T03:20:50.006Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -382,9 +382,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/productivity/handoff/SKILL.md",
-      "skillFolderHash": "aa82ffd61d7a3bda110060b4e24ec782b983cb8d",
+      "skillFolderHash": "3f7df8e717e41dfd6eacd03d47319a2e01248ffb",
       "installedAt": "2026-06-16T18:14:03.251Z",
-      "updatedAt": "2026-06-19T17:48:48.603Z"
+      "updatedAt": "2026-07-09T03:20:52.048Z"
     },
     "writing-beats": {
       "source": "mattpocock/skills",

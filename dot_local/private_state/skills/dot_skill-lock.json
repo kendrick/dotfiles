@@ -180,9 +180,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/inbox-to-memory.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "8ec5656931cea8afa155982dbd036ccf3a3c5b02",
+      "skillFolderHash": "8b6e26effaa5527fa004f4e068daedac41a9c435",
       "installedAt": "2026-05-28T22:39:32.641Z",
-      "updatedAt": "2026-06-10T04:51:54.934Z"
+      "updatedAt": "2026-07-10T14:53:51.903Z"
     },
     "impeccable": {
       "source": "pbakaus/impeccable",
@@ -190,9 +190,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "3db8b7774d633fbb86bc9f529fd653f64c0153da",
+      "skillFolderHash": "137796482b0a0bf63515be4ed8779d6f122e40e8",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-07-09T17:32:11.233Z"
+      "updatedAt": "2026-07-10T14:53:59.646Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -209,9 +209,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/databricks-skills.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "ca18d5543fa01fee515cd84c7cd0f1d760271d72",
+      "skillFolderHash": "7474528745710b34bd3f16449fdabd216bae9baf",
       "installedAt": "2026-06-08T20:53:01.812Z",
-      "updatedAt": "2026-06-10T00:18:33.604Z"
+      "updatedAt": "2026-07-10T14:54:04.315Z"
     },
     "defuddle": {
       "source": "kepano/obsidian-skills",
@@ -452,10 +452,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/prototype/SKILL.md",
-      "skillFolderHash": "046ef7c3aae3ec1934b075b26dba1cf87c9b1d5a",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "e50d76191bf197e3d947eb8c780c7009269ba589",
       "installedAt": "2026-07-09T17:31:36.168Z",
-      "updatedAt": "2026-07-09T17:31:36.168Z"
+      "updatedAt": "2026-07-10T14:54:08.866Z"
     },
     "research": {
       "source": "mattpocock/skills",
@@ -492,10 +491,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/to-tickets/SKILL.md",
-      "skillFolderHash": "b62245172caa8bcc75b490c665566e9ec999cda8",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "c0bc0e58663eec76e769c1496fe124be4545a2ff",
       "installedAt": "2026-07-09T17:31:36.207Z",
-      "updatedAt": "2026-07-09T17:31:36.207Z"
+      "updatedAt": "2026-07-10T14:54:10.868Z"
     },
     "wayfinder": {
       "source": "mattpocock/skills",

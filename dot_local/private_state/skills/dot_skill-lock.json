@@ -175,15 +175,6 @@
       "installedAt": "2026-05-28T03:28:47.590Z",
       "updatedAt": "2026-06-26T17:47:07.291Z"
     },
-    "inbox-to-memory": {
-      "source": "kendrick/inbox-to-memory",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/kendrick/inbox-to-memory.git",
-      "skillPath": "SKILL.md",
-      "skillFolderHash": "8b6e26effaa5527fa004f4e068daedac41a9c435",
-      "installedAt": "2026-05-28T22:39:32.641Z",
-      "updatedAt": "2026-07-10T14:53:51.903Z"
-    },
     "impeccable": {
       "source": "pbakaus/impeccable",
       "sourceType": "github",
@@ -203,15 +194,6 @@
       "pluginName": "example-skills",
       "installedAt": "2026-06-08T19:52:34.486Z",
       "updatedAt": "2026-06-10T19:41:23.529Z"
-    },
-    "databricks-api": {
-      "source": "kendrick/databricks-skills",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/kendrick/databricks-skills.git",
-      "skillPath": "SKILL.md",
-      "skillFolderHash": "7474528745710b34bd3f16449fdabd216bae9baf",
-      "installedAt": "2026-06-08T20:53:01.812Z",
-      "updatedAt": "2026-07-10T14:54:04.315Z"
     },
     "defuddle": {
       "source": "kepano/obsidian-skills",
@@ -586,6 +568,33 @@
       "skillFolderHash": "2ca73419c5762c668a30ae0c160165b9baf5b133",
       "installedAt": "2026-07-09T17:31:36.286Z",
       "updatedAt": "2026-07-09T17:31:36.286Z"
+    },
+    "databricks-api": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "databricks-api/SKILL.md",
+      "skillFolderHash": "b2958dc029f1da0df0c1d1f02b2dc539110fe90e",
+      "installedAt": "2026-07-10T21:06:31.538Z",
+      "updatedAt": "2026-07-10T21:06:31.538Z"
+    },
+    "inbox-to-memory": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "inbox-to-memory/SKILL.md",
+      "skillFolderHash": "2d35fdb80e8e258801cdc5fa2c9db39ceed9f002",
+      "installedAt": "2026-07-10T21:06:31.566Z",
+      "updatedAt": "2026-07-10T21:06:31.566Z"
+    },
+    "readme-coauthorship": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "readme-coauthorship/SKILL.md",
+      "skillFolderHash": "9e615741ac8a9d33135eb5eb88d06b870431f4d9",
+      "installedAt": "2026-07-10T21:06:31.581Z",
+      "updatedAt": "2026-07-10T21:06:31.581Z"
     }
   },
   "dismissed": {

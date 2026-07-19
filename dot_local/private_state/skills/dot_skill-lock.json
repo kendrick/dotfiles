@@ -173,13 +173,13 @@
       "updatedAt": "2026-06-26T02:16:49.238Z"
     },
     "inbox-to-memory": {
-      "source": "kendrick/inbox-to-memory",
+      "source": "kendrick/skills",
       "sourceType": "github",
-      "sourceUrl": "https://github.com/kendrick/inbox-to-memory.git",
-      "skillPath": "SKILL.md",
-      "skillFolderHash": "8ec5656931cea8afa155982dbd036ccf3a3c5b02",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "inbox-to-memory/SKILL.md",
+      "skillFolderHash": "2d35fdb80e8e258801cdc5fa2c9db39ceed9f002",
       "installedAt": "2026-05-28T22:39:32.641Z",
-      "updatedAt": "2026-06-26T02:16:32.938Z"
+      "updatedAt": "2026-07-19T00:31:21.066Z"
     },
     "impeccable": {
       "source": "pbakaus/impeccable",
@@ -379,10 +379,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/productivity/handoff/SKILL.md",
-      "skillFolderHash": "aa82ffd61d7a3bda110060b4e24ec782b983cb8d",
+      "skillFolderHash": "184d485ae68a2132893a94239b2b85d253e6152b",
       "pluginName": "mattpocock-skills",
       "installedAt": "2026-06-16T18:14:03.251Z",
-      "updatedAt": "2026-06-26T02:22:21.946Z"
+      "updatedAt": "2026-07-18T22:09:04.155Z"
     },
     "writing-beats": {
       "source": "mattpocock/skills",
@@ -402,6 +402,43 @@
       "pluginName": "mattpocock-skills",
       "installedAt": "2026-06-17T00:49:16.331Z",
       "updatedAt": "2026-06-26T02:22:21.947Z"
+    },
+    "obsidian-vault": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/mattpocock/skills.git",
+      "skillPath": "skills/personal/obsidian-vault/SKILL.md",
+      "skillFolderHash": "5fdd257588fefa400e8a0d505aac555a0b52311a",
+      "installedAt": "2026-07-18T22:09:04.171Z",
+      "updatedAt": "2026-07-18T22:09:04.171Z"
+    },
+    "wizard": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/mattpocock/skills.git",
+      "skillPath": "skills/in-progress/wizard/SKILL.md",
+      "skillFolderHash": "e4dc85309aebecd9759f6c4cb3fdcb7c4f69544c",
+      "installedAt": "2026-07-18T22:09:04.173Z",
+      "updatedAt": "2026-07-18T22:09:04.173Z"
+    },
+    "writing-great-skills": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/mattpocock/skills.git",
+      "skillPath": "skills/productivity/writing-great-skills/SKILL.md",
+      "skillFolderHash": "81d36946d48842f90358d8af54e3cdcc141f8e01",
+      "pluginName": "mattpocock-skills",
+      "installedAt": "2026-07-18T22:09:04.174Z",
+      "updatedAt": "2026-07-18T22:09:04.174Z"
+    },
+    "readme-coauthorship": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "readme-coauthorship/SKILL.md",
+      "skillFolderHash": "9e615741ac8a9d33135eb5eb88d06b870431f4d9",
+      "installedAt": "2026-07-19T00:31:21.070Z",
+      "updatedAt": "2026-07-19T00:31:21.070Z"
     }
   },
   "dismissed": {

@@ -25,18 +25,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/blader/humanizer.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "1b48564898e999219882660237fde01bf4843a0f",
+      "skillFolderHash": "523374dee72d67c7b2b5f858ea0094ffda49c3ac",
       "installedAt": "2026-05-27T13:07:25.759Z",
-      "updatedAt": "2026-07-06T02:10:19.740Z"
+      "updatedAt": "2026-07-27T17:29:14.050Z"
     },
     "systematic-debugging": {
       "source": "obra/superpowers",
       "sourceType": "github",
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "skillPath": "skills/systematic-debugging/SKILL.md",
-      "skillFolderHash": "5702624a1f0e5ad478234442ce5cde038a525465",
+      "skillFolderHash": "ab83fc82f82582e047d96fc516bac9bc03095ee0",
       "installedAt": "2026-05-27T13:10:06.834Z",
-      "updatedAt": "2026-06-16T21:54:27.788Z"
+      "updatedAt": "2026-07-27T17:29:16.931Z"
     },
     "docx": {
       "source": "anthropics/skills",
@@ -129,9 +129,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "skillPath": "skills/verification-before-completion/SKILL.md",
-      "skillFolderHash": "ceb2f1f67f4cadb29b32a06e54d3d0be832071f5",
+      "skillFolderHash": "a4cb0b69aaefeab540947a7f1642bdaad810e37a",
       "installedAt": "2026-05-28T03:13:13.919Z",
-      "updatedAt": "2026-07-01T23:21:32.422Z"
+      "updatedAt": "2026-07-27T17:29:18.407Z"
     },
     "subagent-driven-development": {
       "source": "obra/superpowers",
@@ -139,9 +139,9 @@
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "ref": "main",
       "skillPath": "skills/subagent-driven-development/SKILL.md",
-      "skillFolderHash": "c2c349084c2bd52da9af12e4d65fc94181f284bb",
+      "skillFolderHash": "b54e8179ba48b0d96f4639d387f90a0a885eb8c6",
       "installedAt": "2026-05-28T03:15:48.151Z",
-      "updatedAt": "2026-06-19T17:48:40.030Z"
+      "updatedAt": "2026-07-27T17:29:19.902Z"
     },
     "dispatching-parallel-agents": {
       "source": "obra/superpowers",
@@ -149,9 +149,9 @@
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "ref": "main",
       "skillPath": "skills/dispatching-parallel-agents/SKILL.md",
-      "skillFolderHash": "adc9175fe3545914d5a07e5475bc0e82d5aaed6f",
+      "skillFolderHash": "15697cb0726c26a66bff737494e8b5266667ba0c",
       "installedAt": "2026-05-28T03:23:25.420Z",
-      "updatedAt": "2026-06-16T21:54:33.270Z"
+      "updatedAt": "2026-07-27T17:29:21.459Z"
     },
     "test-driven-development": {
       "source": "obra/superpowers",
@@ -159,9 +159,9 @@
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "ref": "main",
       "skillPath": "skills/test-driven-development/SKILL.md",
-      "skillFolderHash": "61939b456845d75979423c855829d05cbf2c304d",
+      "skillFolderHash": "a82cf8b413600c6bd7c4b482272d7990e9588cf1",
       "installedAt": "2026-05-28T03:23:52.355Z",
-      "updatedAt": "2026-06-16T21:54:35.327Z"
+      "updatedAt": "2026-07-27T17:29:22.751Z"
     },
     "frontend-slides": {
       "source": "zarazhangrui/frontend-slides",
@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "649f30bd011a78a74d14bbf77908e945d3a2bdcd",
+      "skillFolderHash": "b595eeacc443a3cc2cae246f1d071fb41183db3f",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-07-20T21:14:56.166Z"
+      "updatedAt": "2026-07-27T17:29:28.866Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -260,9 +260,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
       "skillPath": "skills/react-view-transitions/SKILL.md",
-      "skillFolderHash": "4d46c637057aae90b9ec5280190c25dc0d90ec28",
+      "skillFolderHash": "56b5533b9503fc1dbdb727e5fcabd4abab3fe19c",
       "installedAt": "2026-06-10T04:45:25.788Z",
-      "updatedAt": "2026-06-10T04:45:25.788Z"
+      "updatedAt": "2026-07-27T17:29:30.760Z"
     },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
@@ -355,15 +355,6 @@
       "skillFolderHash": "5fdcdeedf2d0c73b3ecb1da0a464dd885590f8d6",
       "installedAt": "2026-06-16T18:11:26.632Z",
       "updatedAt": "2026-07-20T21:14:58.747Z"
-    },
-    "handoff": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/mattpocock/skills.git",
-      "skillPath": "skills/productivity/handoff/SKILL.md",
-      "skillFolderHash": "184d485ae68a2132893a94239b2b85d253e6152b",
-      "installedAt": "2026-06-16T18:14:03.251Z",
-      "updatedAt": "2026-07-20T21:15:00.314Z"
     },
     "writing-beats": {
       "source": "mattpocock/skills",
@@ -460,9 +451,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/to-tickets/SKILL.md",
-      "skillFolderHash": "5467d7a37ef365ed43ebe6eb466d6e952be881b8",
+      "skillFolderHash": "80c1bedbdaa72a4abd524055013accb4fe0ea8c4",
       "installedAt": "2026-07-09T17:31:36.207Z",
-      "updatedAt": "2026-07-20T21:15:23.830Z"
+      "updatedAt": "2026-07-27T17:29:34.548Z"
     },
     "wayfinder": {
       "source": "mattpocock/skills",
@@ -580,6 +571,15 @@
       "skillFolderHash": "9e615741ac8a9d33135eb5eb88d06b870431f4d9",
       "installedAt": "2026-07-10T21:06:31.581Z",
       "updatedAt": "2026-07-10T21:06:31.581Z"
+    },
+    "handoff": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "handoff/SKILL.md",
+      "skillFolderHash": "967758a56d023a231947e29e1c73c005a441fb49",
+      "installedAt": "2026-07-27T17:29:02.387Z",
+      "updatedAt": "2026-07-27T17:29:02.387Z"
     }
   },
   "dismissed": {

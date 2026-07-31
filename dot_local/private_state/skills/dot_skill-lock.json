@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "b595eeacc443a3cc2cae246f1d071fb41183db3f",
+      "skillFolderHash": "0ab9406017344756c23da2462d2ac46372693e30",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-07-27T17:29:28.866Z"
+      "updatedAt": "2026-07-30T21:28:09.869Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -577,9 +577,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "handoff/SKILL.md",
-      "skillFolderHash": "967758a56d023a231947e29e1c73c005a441fb49",
+      "skillFolderHash": "23661758001e47eb7b67e14268da922fed221f0a",
       "installedAt": "2026-07-27T17:29:02.387Z",
-      "updatedAt": "2026-07-27T17:29:02.387Z"
+      "updatedAt": "2026-07-30T21:28:12.985Z"
     }
   },
   "dismissed": {

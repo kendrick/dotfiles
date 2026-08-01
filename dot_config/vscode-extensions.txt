@@ -34,3 +34,8 @@ simonsiefke.svg-preview
 stylelint.vscode-stylelint
 tomoki1207.pdf
 unifiedjs.vscode-mdx
+usernamehw.errorlens
+vunguyentuan.vscode-css-variables
+xyc.vscode-mdx-preview
+yoavbls.pretty-ts-errors
+yzhang.markdown-all-in-one

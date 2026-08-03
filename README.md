@@ -18,8 +18,10 @@ One command takes a fresh Mac from zero to fully configured, managed with [chezm
 ### New Machine
 
 ```bash
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply kendrick
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply --use-builtin-git=on kendrick
 ```
+
+Don't drop the `--use-builtin-git=on`. A factory Mac needs it, for the reason under [Gotchas](#gotchas).
 
 It prompts for the machine role (`work` / `client` / `personal`) and an auto-sync schedule, sets the git email to match, then installs the lot: Homebrew packages, VS Code and Raycast extensions, macOS preferences, shell config, node and its globals, and the agent skills.
 
@@ -120,6 +122,7 @@ The scheduled run is push-only and never applies anything on its own. If the rem
 
 The things I'll have forgotten by next quarter:
 
+- **A factory Mac has a fake git, and it takes the bootstrap down with it.** `/usr/bin/git` on a machine with no Command Line Tools is a stub that fires the CLT installer and exits 1. chezmoi's `useBuiltinGit` defaults to `auto`, which only checks whether `git` is on `$PATH`. The stub is, so chezmoi reaches for it and the clone dies before a single script has run. That's what `--use-builtin-git=on` is for: it routes the first clone through chezmoi's own Go git. Only that first clone needs it, since by the time you're running `chezmoi update` there's a real git.
 - **The encrypted Claude config takes two applies.** First pass can't decrypt it; the second one can. See the setup note above.
 - **The extension and package lists are additive.** `chezmoi update` only adds, so removing a package on one machine leaves the others untouched. `dotfiles-doctor` is what surfaces the drift.
 - **The Brewfile is a template, not a flat list.** It carries role conditionals, so `dotfiles-sync` won't touch it on purpose; a `brew bundle dump` over it would wipe them out. Edit `.chezmoitemplates/Brewfile` by hand.

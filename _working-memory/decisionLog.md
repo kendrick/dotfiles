@@ -7,6 +7,11 @@
 <!-- **Decision:** What was decided -->
 <!-- **Alternatives considered:** What was rejected and why -->
 
+## 2026-08-03 — Clone with chezmoi's builtin git; install Xcode CLT interactively
+**Context:** The documented one-liner died on a factory Mac. `chezmoi init` shells out to `/usr/bin/git`, which on a machine with no Command Line Tools is a stub that fires the CLT installer and exits 1, so the clone failed before any `run_` script existed. `useBuiltinGit` defaults to `auto`, and auto only checks whether `git` is on `$PATH` — the stub is. The prerequisites script had handled CLT all along but never got the chance to run.
+**Decision:** Add `--use-builtin-git=on` to the README bootstrap command so the first clone goes through chezmoi's Go git. Rewrite `run_once_before_install-prerequisites.sh` to detect CLT by probing for real binaries under `xcode-select -p` (the path alone lies on a bare machine), ask before installing when stdin is a TTY, install headless via `softwareupdate` with an in-terminal progress bar, and fall back to `xcode-select --install` plus `open -a` on the installer app so the dialog can't hide behind the terminal. All terminal chrome is gated on `[ -t 1 ]` so the auto-sync log stays plain.
+**Alternatives considered:** A separate curl-able `scripts/bootstrap.sh` ahead of chezmoi — rejected, a second hosted entry point to remember for a problem one flag solves. GUI-only install — rejected, the download progress stays trapped in Apple's window. Headless-only — rejected, `softwareupdate -l` wording has changed across releases and there'd be no recovery when the label doesn't parse.
+
 ## 2026-06-25 — Provision the age key from 1Password at init; skip encrypted config until it lands
 **Context:** The age-encrypted Claude config (settings.json + plugin manifests) needs `~/.config/chezmoi/key.txt` before chezmoi can decrypt it, and chezmoi decrypts `encrypted_` targets unconditionally on apply — so a fresh machine with no key aborted the whole run on the first one.
 **Decision:** A `run_before_` script fetches the age key from 1Password at init, before apply. As a backstop, `.chezmoiignore` skips the three encrypted Claude targets while the key is absent, so the rest of the bootstrap still lands; seed the key, re-apply, and they come in next pass. Closes the earlier "fresh machine needs the key first" risk.

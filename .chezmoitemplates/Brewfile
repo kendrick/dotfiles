@@ -53,6 +53,13 @@ brew "awscli"
 brew "databricks/tap/databricks"
 {{ end -}}
 
+# Fonts
+# Ghostty and VS Code both name "FantasqueSansM Nerd Font" in their configs. Without the
+# cask a fresh machine renders the p10k prompt as replacement boxes, since the glyphs the
+# prompt draws only exist in the Nerd Font patch. Fonts live in homebrew/cask now; the old
+# homebrew/cask-fonts tap was folded in, so no tap line is needed.
+cask "font-fantasque-sans-mono-nerd-font"
+
 # Cask apps — universal
 cask "1password"
 cask "1password-cli"

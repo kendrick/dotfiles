@@ -34,6 +34,18 @@ die() {
 	exit 1
 }
 
+# Both configs are rewritten by building a temp file and moving it into place,
+# which is what keeps a failed run from leaving a half-written config. The catch
+# is that mktemp creates 0600, so a bare `mv` quietly tightens the target's mode.
+# chezmoi notices, re-adds the file as a `private_` source entry, and one edit
+# turns into a delete plus an add that renames the file in the source tree.
+replace_preserving_mode() {
+	local tmp=$1 target=$2 mode
+	mode=$(stat -f '%Lp' "$target" 2>/dev/null || echo 644)
+	mv "$tmp" "$target"
+	chmod "$mode" "$target"
+}
+
 require_deps() {
 	command -v jq >/dev/null 2>&1 || die "jq is not installed; it is declared in the Brewfile"
 	[ -f "$REGISTRY" ] || die "registry not found at $REGISTRY"
@@ -98,7 +110,7 @@ write_ghostty() {
 		done <<<"${features//,/$'\n'}"
 		tail -n "+$end_line" "$GHOSTTY"
 	} >"$tmp"
-	mv "$tmp" "$GHOSTTY"
+	replace_preserving_mode "$tmp" "$GHOSTTY"
 }
 
 # Rewrites one key's value in place, leaving every other byte alone. The whole
@@ -125,7 +137,7 @@ write_vscode_key() {
 		}
 		{ print }
 	' "$VSCODE" >"$tmp"
-	mv "$tmp" "$VSCODE"
+	replace_preserving_mode "$tmp" "$VSCODE"
 }
 
 cmd_switch() {

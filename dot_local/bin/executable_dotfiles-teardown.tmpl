@@ -33,7 +33,10 @@ for arg in "$@"; do
     --full) FULL=1 ;;
     --yes | -y) COMMIT=1 ;;
     -h | --help)
-      sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+      # Print the header block: line 2 through the first blank line. Keyed off the file's
+      # shape rather than a line number, so editing the header can't silently truncate
+      # help or leak the teardown declaration into it.
+      sed -n '2,/^$/p' "$0" | grep -v '^# teardown:' | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -138,7 +141,11 @@ fi
 if [ "$FULL" -eq 1 ]; then
   printf '\n'
   say "  plus, at --full:"
-  for p in "${data[@]}"; do printf '    %s\n' "$p"; done
+  # /bin/bash on macOS is 3.2, where "${arr[@]}" on an empty array aborts under set -u.
+  # An empty list is the normal state of a second run, so every expansion is count-guarded.
+  if [ "${#data[@]}" -gt 0 ]; then
+    for p in "${data[@]}"; do printf '    %s\n' "$p"; done
+  fi
   [ -e "$PLIST" ] && printf '    %s\n' "$PLIST"
   printf '    %s\n' "every file in \`chezmoi managed\` (via chezmoi destroy)"
   [ -n "$SRC" ] && printf '    %s\n' "$SRC (via chezmoi purge)"
@@ -188,7 +195,9 @@ remove_path() {
   fi
 }
 
-for p in "${secrets[@]}"; do remove_path "$p"; done
+if [ "${#secrets[@]}" -gt 0 ]; then
+  for p in "${secrets[@]}"; do remove_path "$p"; done
+fi
 
 if command -v gh >/dev/null 2>&1; then
   if gh auth logout --hostname github.com >/dev/null 2>&1; then
@@ -206,7 +215,9 @@ if command -v op >/dev/null 2>&1; then
 fi
 
 if [ "$FULL" -eq 1 ]; then
-  for p in "${data[@]}"; do remove_path "$p"; done
+  if [ "${#data[@]}" -gt 0 ]; then
+    for p in "${data[@]}"; do remove_path "$p"; done
+  fi
   if [ -e "$PLIST" ]; then
     remove_path "$PLIST"
   fi

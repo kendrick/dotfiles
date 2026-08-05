@@ -17,6 +17,10 @@
 - Helpers used by more than one script live in `.chezmoitemplates/` and come in through a Go template include, which is what turns a plain `.sh` script into a `.sh.tmpl`. Never write the include call inside the partial itself: chezmoi parses partials as templates too, so it recurses. _(.chezmoitemplates/sh-ui.sh)_
 - Interactive waits gate on `[ -t 0 ]` and escape codes gate on `[ -t 1 ]`, checked separately. Output is captured into the auto-sync log and has to stay greppable, and an unattended apply must never block on a prompt or a spinner. _(run_once_before_install-prerequisites.sh.tmpl, run_before_provision-age-key.sh.tmpl)_
 
+## Teardown declarations
+- Any script that leaves state on the machine declares it as `# teardown:<class> <path>` in its header, using a literal `~`. Classes: `secret` (removed by default), `data` (`--full` only), `none` (leaves nothing). Required on every `run_*` script and enforced by `dotfiles-doctor`; optional but read on `dot_local/bin/*`. _(dot_local/bin/executable_dotfiles-teardown.tmpl)_
+- Don't add paths to a central list in the teardown script. Anything chezmoi can enumerate should be queried from chezmoi; anything it can't should be declared where it's created. _(decisionLog 2026-08-05)_
+
 ## Config-to-package coupling
 - When a managed config names an external resource by string (a font family, a binary, a theme), the Brewfile needs a matching entry. Nothing checks this today, so it fails only on a fresh machine where the resource was never hand-installed. _(dot_config/ghostty/config font-family; GitHub #7)_
 

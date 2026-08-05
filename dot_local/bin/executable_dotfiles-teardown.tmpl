@@ -1,0 +1,244 @@
+#!/bin/bash
+# dotfiles-teardown — strip this setup off a machine you're handing back.
+#
+# Dry run by default. Nothing is removed until you pass --yes, and the dry run prints the
+# exact resolved paths, so what you approve is what runs.
+#
+# Two levels. The default takes secrets only: the encrypted targets, the age key, the
+# credentials the run_ scripts create, and the local machine config. --full also takes the
+# managed dotfiles, the auto-sync agent, and the source repo. Neither touches apps.
+#
+# The sensitive set is derived, not remembered. Encrypted targets come from `chezmoi
+# managed --include=encrypted`, so an encrypted file added to the repo next year is
+# covered here with no edit. What chezmoi can't see (the gh token, the SSO cache) is
+# declared by the script that creates it, as `# teardown:<class> <path>`. dotfiles-doctor
+# flags any run_ script that declares nothing, which is what keeps this honest.
+#
+# teardown:none
+
+set -uo pipefail
+
+{{ template "sh-ui.sh" . }}
+
+trap show_cursor EXIT
+
+LABEL="com.k-arnett.dotfiles-auto-sync"
+PLIST="{{ .chezmoi.homeDir }}/Library/LaunchAgents/${LABEL}.plist"
+DEPLOY_KEY="{{ .chezmoi.homeDir }}/.ssh/quantified_claude_events_deploy"
+
+FULL=0
+COMMIT=0
+for arg in "$@"; do
+  case "$arg" in
+    --full) FULL=1 ;;
+    --yes | -y) COMMIT=1 ;;
+    -h | --help)
+      sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      warn "Unknown option: $arg"
+      say "Usage: dotfiles-teardown [--full] [--yes]"
+      exit 2
+      ;;
+  esac
+done
+
+# This script is itself a managed file that --full deletes. bash reads a script
+# incrementally, so deleting it out from under a running shell truncates whatever hasn't
+# been parsed yet. Re-exec from a copy the teardown will never touch.
+if [ -z "${DOTFILES_TEARDOWN_REEXEC:-}" ]; then
+  tmp=$(mktemp "${TMPDIR:-/tmp}/dotfiles-teardown.XXXXXX") || exit 1
+  cat "$0" >"$tmp" && chmod +x "$tmp" || exit 1
+  DOTFILES_TEARDOWN_REEXEC=1 "$tmp" "$@"
+  rc=$?
+  rm -f "$tmp"
+  exit $rc
+fi
+
+# --- discovery -------------------------------------------------------------------
+# Everything is enumerated up front, while chezmoi and the source tree still exist. The
+# purge at the end destroys the very thing these calls read.
+
+SRC=$(chezmoi source-path 2>/dev/null) || SRC=""
+
+secrets=()
+data=()
+
+# The same path can legitimately arrive twice: the age key is both declared by the script
+# that writes it and part of the fixed chezmoi state below. No associative arrays here,
+# since /bin/bash on macOS is still 3.2.
+already_listed() { # path
+  local p
+  for p in "${secrets[@]:-}" "${data[@]:-}"; do
+    [ "$p" = "$1" ] && return 0
+  done
+  return 1
+}
+
+add_path() { # class, path
+  local expanded=${2/#\~/$HOME}
+  [ -e "$expanded" ] || return 0
+  already_listed "$expanded" && return 0
+  case "$1" in
+    secret) secrets+=("$expanded") ;;
+    data) data+=("$expanded") ;;
+  esac
+}
+
+# Encrypted managed targets, straight from chezmoi. This is the part that stays correct
+# as the repo grows.
+if command -v chezmoi >/dev/null 2>&1; then
+  while IFS= read -r rel; do
+    [ -n "$rel" ] && add_path secret "$HOME/$rel"
+  done < <(chezmoi managed --include=encrypted 2>/dev/null)
+fi
+
+# Declared side effects. -I skips the binaries that live in dot_local/bin.
+if [ -n "$SRC" ]; then
+  while read -r class path; do
+    case "$class" in
+      secret | data) add_path "$class" "$path" ;;
+      none) ;;
+      *)
+        warn "Unknown teardown class '$class' (path: ${path:-none}). Fix the declaration."
+        exit 1
+        ;;
+    esac
+  done < <(grep -hI '^# teardown:' "$SRC"/run_* "$SRC"/dot_local/bin/* 2>/dev/null |
+    sed 's/^# teardown://' | awk '{print $1, $2}')
+fi
+
+# Machine-local chezmoi state, plus the per-machine deploy key. Fixed infrastructure: not
+# derivable, but it doesn't move. The deploy key belongs in the enumerated list rather
+# than being deleted quietly at the end, so the dry run shows everything that will go.
+for p in "$HOME/.config/chezmoi/key.txt" \
+  "$HOME/.config/chezmoi/chezmoi.toml" \
+  "$HOME/.config/chezmoi/chezmoistate.boltdb" \
+  "$DEPLOY_KEY" "${DEPLOY_KEY}.pub"; do
+  add_path secret "$p"
+done
+
+# --- plan ------------------------------------------------------------------------
+
+printf '\n'
+if [ "$COMMIT" -eq 1 ]; then
+  say "Teardown, level $([ "$FULL" -eq 1 ] && echo full || echo secrets). This will remove:"
+else
+  say "Dry run, level $([ "$FULL" -eq 1 ] && echo full || echo secrets). Would remove:"
+fi
+printf '\n'
+
+if [ "${#secrets[@]}" -eq 0 ]; then
+  say "  (no secrets found on this machine)"
+else
+  for p in "${secrets[@]}"; do printf '    %s\n' "$p"; done
+fi
+
+if [ "$FULL" -eq 1 ]; then
+  printf '\n'
+  say "  plus, at --full:"
+  for p in "${data[@]}"; do printf '    %s\n' "$p"; done
+  [ -e "$PLIST" ] && printf '    %s\n' "$PLIST"
+  printf '    %s\n' "every file in \`chezmoi managed\` (via chezmoi destroy)"
+  [ -n "$SRC" ] && printf '    %s\n' "$SRC (via chezmoi purge)"
+fi
+
+printf '\n'
+say "  and will sign out of: gh, 1Password CLI"
+printf '\n'
+
+if [ "$COMMIT" -ne 1 ]; then
+  say "Nothing removed. Re-run with --yes to do it."
+  [ "$FULL" -ne 1 ] && say "Add --full to also take the dotfiles, the sync agent, and the repo."
+  exit 0
+fi
+
+# Anything still running can put files back. The auto-sync agent runs dotfiles-sync, which
+# re-adds and commits; the settings.json SessionStart hook and the zsh skills()/claude()/
+# code() wrappers re-add into the source tree on ordinary use.
+warn "Close other terminals and Claude sessions first: their hooks re-add files into the"
+warn "source tree, and an auto-sync run mid-teardown can commit what you're removing."
+printf '  Continue? [y/N] '
+read -r reply || reply=""
+case "$reply" in
+  [yY] | [yY][eE][sS]) ;;
+  *)
+    say "Aborted. Nothing removed."
+    exit 0
+    ;;
+esac
+printf '\n'
+
+# --- execution -------------------------------------------------------------------
+# Order matters. The sync agent goes first so it can't race the removals, and the purge
+# goes last because it destroys the source tree everything else reads.
+
+if launchctl bootout "gui/$(id -u)/${LABEL}" 2>/dev/null; then
+  ok "Stopped the auto-sync agent."
+else
+  say "Auto-sync agent wasn't loaded."
+fi
+
+remove_path() {
+  if rm -rf "$1"; then
+    ok "Removed $1"
+  else
+    warn "Couldn't remove $1"
+  fi
+}
+
+for p in "${secrets[@]}"; do remove_path "$p"; done
+
+if command -v gh >/dev/null 2>&1; then
+  if gh auth logout --hostname github.com >/dev/null 2>&1; then
+    ok "Signed out of gh."
+  else
+    say "gh wasn't signed in."
+  fi
+fi
+if command -v op >/dev/null 2>&1; then
+  if op signout --all >/dev/null 2>&1; then
+    ok "Signed out of the 1Password CLI."
+  else
+    say "1Password CLI wasn't signed in."
+  fi
+fi
+
+if [ "$FULL" -eq 1 ]; then
+  for p in "${data[@]}"; do remove_path "$p"; done
+  if [ -e "$PLIST" ]; then
+    remove_path "$PLIST"
+  fi
+
+  # Take the deployed dotfiles before the source tree goes; destroy needs both.
+  destroy_failed=0
+  while IFS= read -r abs; do
+    [ -n "$abs" ] || continue
+    chezmoi destroy --force "$abs" >/dev/null 2>&1 || destroy_failed=1
+  done < <(chezmoi managed --include=files --path-style=absolute 2>/dev/null)
+
+  if [ "$destroy_failed" -eq 1 ]; then
+    warn "Some managed files wouldn't delete, so the source repo is being left in place."
+    warn "Look at what's left with 'chezmoi managed', then run 'chezmoi purge --force'."
+  else
+    ok "Removed the managed dotfiles."
+    if chezmoi purge --force >/dev/null 2>&1; then
+      ok "Purged the source repo and chezmoi config."
+    else
+      warn "Purge failed. Remove $SRC and ~/.config/chezmoi by hand."
+    fi
+  fi
+fi
+
+# --- what this can't do ----------------------------------------------------------
+
+printf '\n'
+warn "The quantified-claude deploy key is gone from disk but still live on GitHub."
+warn "Deleting the local copy revokes nothing:"
+say "    gh repo deploy-key list <owner/repo>"
+say "    gh repo deploy-key delete <owner/repo> <id>"
+printf '\n'
+say "Still on this machine, deliberately: Homebrew and every app it installed, the macOS"
+say "defaults, ~/.nvm and the global node packages, and anything in the login keychain."
+printf '\n'

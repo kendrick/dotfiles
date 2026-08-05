@@ -1,4 +1,8 @@
 #!/usr/bin/env zsh
+# A successful login writes short-lived role credentials into the SSO cache. They expire
+# on their own, but not fast enough to leave on a machine you're handing back.
+#
+# teardown:secret ~/.aws/sso/cache
 
 {{ if eq .machine_role "work" -}}
 export BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"

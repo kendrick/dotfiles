@@ -1,6 +1,11 @@
 #!/bin/bash
 # Curated macOS defaults for Sequoia+ (Apple Silicon).
 # Derived from ~/.dotfiles/macos/set-defaults.sh — stripped of deprecated/commented settings.
+#
+# Preference writes, not files. Reverting them means restoring Apple's defaults, which is
+# a different job from a teardown and isn't what makes a machine sensitive.
+#
+# teardown:none
 # Runs once per machine via chezmoi.
 
 echo "Configuring macOS defaults..."

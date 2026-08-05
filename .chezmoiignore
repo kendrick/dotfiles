@@ -6,6 +6,7 @@ CLAUDE.md
 .github
 _working-memory
 scripts
+tests
 
 # Install-manifest lists: source-only data the run_onchange installers read via
 # `include`, deliberately not deployed to $HOME. The wrappers in

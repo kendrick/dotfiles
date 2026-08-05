@@ -4,16 +4,20 @@
 # identity at ~/.config/chezmoi/key.txt; rather than hand-copy that onto every new
 # machine, pull it from 1Password here.
 #
-# Runs in the "before" phase, after install-prerequisites (which provides brew, so we
-# can install `op` if the package step hasn't run yet). It's a plain run_ (every apply,
-# not run_once): the first pass on a bare machine can't reach 1Password until the app
-# is installed and unlocked, so we retry each apply and no-op the instant the key is in
-# place. No `set -e`: this is best-effort, and bash 3.2's errexit is unreliable with
-# external commands. The op:// below is a reference, not a secret; resolving it needs
-# your unlocked 1Password.
+# Runs in the "before" phase, after install-prerequisites (alphabetical within the phase,
+# and it's what installs brew). It's a plain run_ (every apply, not run_once):
+# reaching 1Password depends on you signing in, so we retry each apply and no-op the
+# instant the key is in place. No `set -e`: this is best-effort, and bash 3.2's errexit is
+# unreliable with external commands. The op:// below is a reference, not a secret;
+# resolving it needs your unlocked 1Password.
+
+{{ template "sh-ui.sh" . }}
+
+trap show_cursor EXIT
 
 KEY_PATH="{{ joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt" }}"
 OP_REF="op://Personal/chezmoi age key/key.txt"
+WAIT_TIMEOUT=600
 
 if [ -s "$KEY_PATH" ] && grep -q 'AGE-SECRET-KEY-1' "$KEY_PATH" 2>/dev/null; then
   exit 0
@@ -22,25 +26,52 @@ fi
 # brew lands on a non-login shell's PATH only once we add it (prerequisites installed it).
 [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# op ships as the 1password-cli cask; install it now if the package step hasn't run yet.
+# Both casks, not just the CLI. `op` authenticates through the desktop app, so the CLI on
+# its own is a binary whose only trick is telling you to go install the app. The Brewfile
+# covers both, but it runs a phase later, which is too late for the read below.
+# --adopt takes over an app someone dragged in by hand instead of failing on the conflict.
+if [ ! -d /Applications/1Password.app ]; then
+  say "Installing 1Password to fetch the age key..."
+  brew install --cask --adopt 1password >/dev/null 2>&1
+fi
+
 if ! command -v op >/dev/null 2>&1; then
-  echo "Installing 1Password CLI to fetch the age key..."
+  say "Installing the 1Password CLI..."
   brew install --cask 1password-cli >/dev/null 2>&1
 fi
 
 if ! command -v op >/dev/null 2>&1; then
-  echo "1Password CLI unavailable. Seed $KEY_PATH by hand, then re-apply."
+  warn "1Password CLI unavailable. Seed $KEY_PATH by hand, then re-apply."
   exit 0
+fi
+
+# Readiness probe. `op read` pops a Touch ID prompt on every call, so polling it directly
+# would put one in your face every couple of seconds for as long as we wait. Listing
+# accounts asks for none of that: it returns what the desktop app is exposing, which stays
+# empty until the CLI integration is switched on.
+op_ready() { op account list --format=json 2>/dev/null | grep -q '"url"'; }
+
+# Only wait when someone's there to act on it. Under a non-interactive apply this falls
+# straight through to the guidance below rather than stalling the run for ten minutes.
+if ! op_ready && [ -t 0 ]; then
+  # `open -a` on a running app just activates it, so no relaunch and no permission modal.
+  open -a /Applications/1Password.app >/dev/null 2>&1 || true
+  printf '\n'
+  say "→ 1Password is open. Sign in, then turn on:"
+  say "  Settings > Developer > Integrate with 1Password CLI"
+  say "  (check behind this window if you don't see it)"
+  printf '\n'
+  spin_until "Waiting for the CLI integration" "$WAIT_TIMEOUT" op_ready || true
 fi
 
 mkdir -p "$(dirname "$KEY_PATH")"
 if key=$(op read "$OP_REF" 2>/dev/null) && [ -n "$key" ]; then
   printf '%s\n' "$key" >"$KEY_PATH"
   chmod 600 "$KEY_PATH"
-  echo "Fetched age key from 1Password into $KEY_PATH."
-  echo "(Encrypted Claude config deploys on the next apply, once chezmoi re-reads the key.)"
+  ok "Fetched age key from 1Password into $KEY_PATH."
+  say "(Encrypted Claude config deploys on the next apply, once chezmoi re-reads the key.)"
 else
-  echo "Couldn't read the age key from 1Password."
-  echo "Unlock 1Password and turn on its CLI integration (Settings > Developer), then:"
-  echo "  op read \"$OP_REF\" > \"$KEY_PATH\" && chmod 600 \"$KEY_PATH\" && chezmoi apply"
+  warn "Couldn't read the age key from 1Password."
+  say "Unlock 1Password and turn on its CLI integration (Settings > Developer), then:"
+  say "  op read \"$OP_REF\" > \"$KEY_PATH\" && chmod 600 \"$KEY_PATH\" && chezmoi apply"
 fi

@@ -108,6 +108,18 @@ font() {
 	[ "$(grep -c ',$' "$VSCODE")" -eq "$before" ]
 }
 
+# mktemp creates 0600, so replacing a file by moving a temp over it silently
+# tightens its mode. chezmoi then re-adds it as a `private_` source file, which
+# renames the source entry and shows up as a delete plus an add. Caught only by
+# running against a real chezmoi; the stub can't see it.
+@test "preserves file modes so chezmoi does not re-add them as private" {
+	chmod 644 "$GHOSTTY" "$VSCODE"
+	run font victor
+	[ "$status" -eq 0 ]
+	[ "$(stat -f '%Lp' "$GHOSTTY")" = "644" ]
+	[ "$(stat -f '%Lp' "$VSCODE")" = "644" ]
+}
+
 @test "an unknown key exits non-zero with neither file modified" {
 	cp "$GHOSTTY" "$BATS_TEST_TMPDIR/ghostty.before"
 	cp "$VSCODE" "$BATS_TEST_TMPDIR/vscode.before"

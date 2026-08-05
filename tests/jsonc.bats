@@ -68,10 +68,14 @@ read_jsonc() {
 	[[ "$output" == *"while parsing"* ]]
 }
 
+# Asserts the key parses out, not what it holds. `font` owns fontLigatures now
+# and flips it between a boolean and a feature string, so pinning the value here
+# would break this filter's tests every time the font changes.
 @test "reads this machine's real VS Code settings" {
 	run read_jsonc "$SETTINGS"
 	[ "$status" -eq 0 ]
-	[ "$(echo "$output" | jq -r '.["editor.fontLigatures"]')" = "true" ]
+	[ "$(echo "$output" | jq -r 'has("editor.fontLigatures")')" = "true" ]
+	[ "$(echo "$output" | jq -r 'keys | length > 20')" = "true" ]
 }
 
 # Byte-identical, not merely parseable: the fallback chain carries the double

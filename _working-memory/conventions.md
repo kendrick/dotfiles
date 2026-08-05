@@ -17,6 +17,9 @@
 - Helpers used by more than one script live in `.chezmoitemplates/` and come in through a Go template include, which is what turns a plain `.sh` script into a `.sh.tmpl`. Never write the include call inside the partial itself: chezmoi parses partials as templates too, so it recurses. _(.chezmoitemplates/sh-ui.sh)_
 - Interactive waits gate on `[ -t 0 ]` and escape codes gate on `[ -t 1 ]`, checked separately. Output is captured into the auto-sync log and has to stay greppable, and an unattended apply must never block on a prompt or a spinner. _(run_once_before_install-prerequisites.sh.tmpl, run_before_provision-age-key.sh.tmpl)_
 
+## bash 3.2
+- Scripts here run under `/bin/bash`, which is 3.2 on macOS, so no associative arrays and no `${var^^}`. Expanding an empty array under `set -u` (`"${arr[@]}"`) aborts rather than yielding nothing, so guard every expansion with `[ "${#arr[@]}" -gt 0 ]`. The count form is safe on empty; the expansion isn't. _(dot_local/bin/executable_dotfiles-teardown.tmpl, .chezmoitemplates/sh-ui.sh)_
+
 ## Teardown declarations
 - Any script that leaves state on the machine declares it as `# teardown:<class> <path>` in its header, using a literal `~`. Classes: `secret` (removed by default), `data` (`--full` only), `none` (leaves nothing). Required on every `run_*` script and enforced by `dotfiles-doctor`; optional but read on `dot_local/bin/*`. _(dot_local/bin/executable_dotfiles-teardown.tmpl)_
 - Don't add paths to a central list in the teardown script. Anything chezmoi can enumerate should be queried from chezmoi; anything it can't should be declared where it's created. _(decisionLog 2026-08-05)_

@@ -308,7 +308,6 @@ keys_in_order() {
 	[[ "$output" == *"editor.fontLigatures"* ]]
 }
 
-<<<<<<< HEAD
 @test "builds the family cache when it is missing" {
 	rm -rf "$HOME/.cache/font"
 	run font

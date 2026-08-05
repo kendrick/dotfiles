@@ -13,6 +13,13 @@
 ## Templating / Machine Conditionals
 - Machine-specific content uses Go-template guards on `.machine_role` (e.g. `{{ if eq .machine_role "work" }}`) inside a single file, not branched files. _(.chezmoitemplates/Brewfile, dot_gitconfig.tmpl, .chezmoi.toml.tmpl)_
 
+## Shared shell code
+- Helpers used by more than one script live in `.chezmoitemplates/` and come in through a Go template include, which is what turns a plain `.sh` script into a `.sh.tmpl`. Never write the include call inside the partial itself: chezmoi parses partials as templates too, so it recurses. _(.chezmoitemplates/sh-ui.sh)_
+- Interactive waits gate on `[ -t 0 ]` and escape codes gate on `[ -t 1 ]`, checked separately. Output is captured into the auto-sync log and has to stay greppable, and an unattended apply must never block on a prompt or a spinner. _(run_once_before_install-prerequisites.sh.tmpl, run_before_provision-age-key.sh.tmpl)_
+
+## Config-to-package coupling
+- When a managed config names an external resource by string (a font family, a binary, a theme), the Brewfile needs a matching entry. Nothing checks this today, so it fails only on a fresh machine where the resource was never hand-installed. _(dot_config/ghostty/config font-family; GitHub #7)_
+
 ## Error Handling
 - Setup scripts use `set -e` for fail-fast, with two deliberate exceptions: the macOS-defaults script omits it (non-fatal `defaults write` errors), and external-tool installers (`brew bundle`, `code --install-extension`, `open raycast://`) guard each call with `|| true` and skip cleanly if the CLI is absent. _(run_onchange_install-vscode-extensions.sh.tmpl, run_once_after_configure-macos.sh)_
 

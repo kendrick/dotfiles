@@ -7,6 +7,11 @@
 <!-- **Decision:** What was decided -->
 <!-- **Alternatives considered:** What was rejected and why -->
 
+## 2026-08-04 — Install the Nerd Font instead of assuming it's present
+**Context:** `dot_config/ghostty/config` and the VS Code settings both name `FantasqueSansM Nerd Font`, but the Brewfile carried no font entries at all, so nothing ever installed it. It survived for years because the `.ttf` files had been hand-dropped into `~/Library/Fonts` on the older machines (`brew info` reported the cask as not installed), so the gap only surfaced on a fresh MacBook, as a p10k prompt full of replacement boxes.
+**Decision:** Added `cask "font-fantasque-sans-mono-nerd-font"` in a Fonts section. Fonts live in homebrew/cask now that cask-fonts was folded in, so no tap line is needed. Ghostty resolves fonts at startup, so it needs a full relaunch after the apply, not just a new window.
+**Alternatives considered:** Committing the `.ttf` files to the repo, rejected as roughly 28MB of binary for something Homebrew already packages and versions. _(commit ce40693)_
+
 ## 2026-08-04 — Install 1Password in the before phase and wait for the CLI integration
 **Context:** On a factory Mac the age-key script installed only the `1password-cli` cask, then immediately ran `op read`. The desktop app arrives from the Brewfile a phase later, so `op` had no desktop integration to authenticate against: the read failed and the script printed instructions pointing at a Developer setting inside an app that wasn't installed yet. (GitHub #2)
 **Decision:** The age-key script installs both casks (`--adopt`, so an app someone dragged in by hand doesn't cause a conflict), opens 1Password, and blocks up to 10 minutes while you sign in and switch on Settings > Developer > Integrate with 1Password CLI. Readiness is probed with `op account list --format=json` rather than `op read`, because a read fires Touch ID on every call and polling it would put a biometric prompt on screen every couple of seconds. The wait is gated on `[ -t 0 ]` so a non-interactive apply falls straight through. Terminal chrome moved into `.chezmoitemplates/sh-ui.sh` so both before-phase scripts share one copy, which turned `run_once_before_install-prerequisites.sh` into a `.tmpl` and re-runs it once per machine (harmless: both its branches short-circuit when CLT and brew are present).

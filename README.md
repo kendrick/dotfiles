@@ -78,7 +78,9 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 <details>
 <summary>How agent skills are managed</summary>
 
-`npx skills add <repo>` pulls a skill into `~/.agents/skills/` and symlinks it into each agent's directory (`~/.claude/skills/` and the rest). The repo tracks the lockfile, not the skill bodies. `~/.local/state/skills/.skill-lock.json` records which skills, each pinned to a content hash. A `skills` shell wrapper re-adds that lockfile into chezmoi on every `add`/`remove`/`update`, so the manifest stays current on its own. On a new machine, a `run_after` script replays the lockfile and re-fetches anything missing.
+`npx skills add <repo>` pulls a skill into `~/.agents/skills/` and symlinks it into each agent's directory. The repo tracks the lockfile, not the skill bodies. `~/.local/state/skills/.skill-lock.json` records which skills, each pinned to a content hash. A `skills` shell wrapper re-adds that lockfile into chezmoi on every `add`/`remove`/`update`, so the manifest stays current on its own. On a new machine, a `run_after` script replays the lockfile and re-fetches anything missing.
+
+The restore targets a named list of agents (`claude-code`, `codex`), set as an `AGENTS` array in `run_onchange_after_restore-agent-skills.sh.tmpl`. Add an agent there and the next apply backfills it from the lockfile. Passing `-a '*'` instead would reach every agent the CLI knows about, currently 75, a couple of which don't do global skills and say so once per skill.
 
 This repo's own `.claude/skills/` is separate: it holds the project-scoped working-memory skills (`hydrate-*`, `update-working-memory`), which never deploy to `~/.claude` or go through `npx skills`.
 

@@ -37,6 +37,12 @@ END_MARKER='# END font'
 # the terminal on purpose, and the size argument is about terminal legibility.
 EDITOR_FAMILY_KEY='editor.fontFamily'
 EDITOR_LIGATURES_KEY='editor.fontLigatures'
+EDITOR_VARIATIONS_KEY='editor.fontVariations'
+# VS Code's terminal takes the patched static while the editor keeps the variable
+# build, so this key deliberately disagrees with editor.fontFamily above. The
+# patcher destroys variable axes, which makes that an either/or rather than a
+# preference; decisionLog has the long version.
+TERMINAL_FAMILY_KEY='terminal.integrated.fontFamily'
 TERMINAL_SIZE_KEY='terminal.integrated.fontSize'
 
 die() {
@@ -222,7 +228,7 @@ write_vscode_key() {
 
 cmd_switch() {
 	local key=$1 size_override=$2 force=$3
-	local entry size family features editor_family ligatures
+	local entry size family features editor_family ligatures variations terminal_family
 
 	entry=$(jq -e --arg k "$key" '.[$k] // empty' "$REGISTRY") ||
 		die "unknown font '$key'; run 'font' with no arguments to see the roster"
@@ -240,10 +246,14 @@ cmd_switch() {
 	features=$(jq -r '.terminal.features' <<<"$entry")
 	editor_family=$(jq -r '.editor.family' <<<"$entry")
 	ligatures=$(jq -r '.editor.ligatures' <<<"$entry")
+	variations=$(jq -r '.editor.variations' <<<"$entry")
+	terminal_family=$(jq -r '.editor.terminalFamily' <<<"$entry")
 
 	write_ghostty "$family" "$size" "$features"
 	write_vscode_key "$EDITOR_FAMILY_KEY" "$(jq -n --arg v "$editor_family" '$v')"
 	write_vscode_key "$EDITOR_LIGATURES_KEY" "$(jq -n --arg v "$ligatures" '$v')"
+	write_vscode_key "$EDITOR_VARIATIONS_KEY" "$(jq -n --arg v "$variations" '$v')"
+	write_vscode_key "$TERMINAL_FAMILY_KEY" "$(jq -n --arg v "$terminal_family" '$v')"
 	write_vscode_key "$TERMINAL_SIZE_KEY" "$size"
 
 	# Without the re-add, the next `chezmoi apply` reverts both files.

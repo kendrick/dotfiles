@@ -17,7 +17,7 @@
 	},
 	"maple": {
 		"order": 10,
-		"tier": "a",
+		"tier": "b",
 		"label": "Maple Mono",
 		"size": 14,
 		"terminal": {
@@ -25,14 +25,46 @@
 			"features": "calt"
 		},
 		"editor": {
-			"family": "'Maple Mono NF', Menlo, Monaco, 'Courier New', monospace",
-			"variations": "",
+			"family": "'Maple Mono', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'wght' 400",
 			"ligatures": "'calt'",
 			"terminalFamily": "Maple Mono NF"
 		}
 	},
-	"victor": {
+	"monaspace": {
 		"order": 20,
+		"tier": "b",
+		"label": "Monaspace Neon",
+		"size": 14,
+		"terminal": {
+			"family": "MonaspiceNe Nerd Font",
+			"features": "calt,liga,ss01,ss02,ss03,ss04,ss05,ss06,ss07,ss08,ss09,ss10"
+		},
+		"editor": {
+			"family": "'Monaspace Neon Var', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'wght' 400",
+			"ligatures": "'calt', 'liga', 'rlig', 'ss01', 'ss02', 'ss03', 'ss04', 'ss05', 'ss06', 'ss07', 'ss08', 'ss09', 'ss10'",
+			"terminalFamily": "MonaspiceNe Nerd Font"
+		}
+	},
+	"monaspace-xenon": {
+		"order": 30,
+		"tier": "b",
+		"label": "Monaspace Xenon",
+		"size": 14,
+		"terminal": {
+			"family": "MonaspiceXe Nerd Font",
+			"features": "calt,liga,ss01,ss02,ss03,ss04,ss05,ss06,ss07,ss08,ss09,ss10"
+		},
+		"editor": {
+			"family": "'Monaspace Xenon Var', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'wght' 400",
+			"ligatures": "'calt', 'liga', 'rlig', 'ss01', 'ss02', 'ss03', 'ss04', 'ss05', 'ss06', 'ss07', 'ss08', 'ss09', 'ss10'",
+			"terminalFamily": "MonaspiceXe Nerd Font"
+		}
+	},
+	"victor": {
+		"order": 40,
 		"tier": "a",
 		"label": "Victor Mono",
 		"size": 14,
@@ -45,6 +77,70 @@
 			"variations": "",
 			"ligatures": "'calt'",
 			"terminalFamily": "VictorMono Nerd Font"
+		}
+	},
+	"cascadia": {
+		"order": 50,
+		"tier": "b",
+		"label": "Cascadia Code",
+		"size": 14,
+		"terminal": {
+			"family": "CaskaydiaCove Nerd Font",
+			"features": "calt,rlig"
+		},
+		"editor": {
+			"family": "'Cascadia Code', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'wght' 400",
+			"ligatures": "'calt', 'rlig'",
+			"terminalFamily": "CaskaydiaCove Nerd Font"
+		}
+	},
+	"recursive": {
+		"order": 60,
+		"tier": "b",
+		"label": "Recursive Mono Casual",
+		"size": 14,
+		"terminal": {
+			"family": "RecMonoCasual Nerd Font",
+			"features": "calt"
+		},
+		"editor": {
+			"family": "'Recursive', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'MONO' 1, 'CASL' 1, 'wght' 400",
+			"ligatures": "'liga', 'dlig'",
+			"terminalFamily": "RecMonoCasual Nerd Font"
+		}
+	},
+	"recursive-linear": {
+		"order": 70,
+		"tier": "b",
+		"label": "Recursive Mono Linear",
+		"size": 14,
+		"terminal": {
+			"family": "RecMonoLinear Nerd Font",
+			"features": "calt"
+		},
+		"editor": {
+			"family": "'Recursive', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'MONO' 1, 'CASL' 0, 'wght' 400",
+			"ligatures": "'liga', 'dlig'",
+			"terminalFamily": "RecMonoLinear Nerd Font"
+		}
+	},
+	"lilex": {
+		"order": 80,
+		"tier": "b",
+		"label": "Lilex",
+		"size": 14,
+		"terminal": {
+			"family": "Lilex Nerd Font",
+			"features": "calt"
+		},
+		"editor": {
+			"family": "'Lilex', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'wght' 400",
+			"ligatures": "'calt'",
+			"terminalFamily": "Lilex Nerd Font"
 		}
 	}
 }

@@ -89,15 +89,20 @@ add_absent_entry() {
 	mv "$HOME/registry.tmp" "$HOME/.config/font/registry.json"
 }
 
+keys_in_order() {
+	jq -r 'to_entries | sort_by(.value.order) | .[].key' "$HOME/.config/font/registry.json"
+}
+
 @test "lists the roster in order and marks the active font" {
 	run font
 	[ "$status" -eq 0 ]
-	[ "$(echo "$output" | grep -c '^[* ] ')" -eq 3 ]
+	# Compared against the registry rather than a hardcoded list, so adding a font
+	# extends this test instead of breaking it.
+	expected=$(keys_in_order)
 	# Drop the two-column active marker before reading the key, so the active row
 	# and the inactive ones parse the same way.
-	[ "$(echo "$output" | sed -n '1p' | cut -c3- | awk '{print $1}')" = "fantasque" ]
-	[ "$(echo "$output" | sed -n '2p' | cut -c3- | awk '{print $1}')" = "maple" ]
-	[ "$(echo "$output" | sed -n '3p' | cut -c3- | awk '{print $1}')" = "victor" ]
+	listed=$(echo "$output" | grep '^[* ] ' | cut -c3- | awk '{print $1}')
+	[ "$listed" = "$expected" ]
 	[[ "$output" == *"active terminal family: FantasqueSansM Nerd Font"* ]]
 	echo "$output" | grep -q '^\* fantasque'
 }
@@ -138,17 +143,89 @@ add_absent_entry() {
 
 # The criterion that catches the most: if any write is lossy, cycling the whole
 # roster and coming home won't reproduce the starting bytes.
-@test "round-tripping all three keys restores both files byte for byte" {
+@test "round-tripping the whole roster restores both files byte for byte" {
 	font fantasque
 	cp "$GHOSTTY" "$BATS_TEST_TMPDIR/ghostty.start"
 	cp "$VSCODE" "$BATS_TEST_TMPDIR/vscode.start"
 
-	font maple
-	font victor
+	for key in $(keys_in_order); do
+		run font "$key"
+		[ "$status" -eq 0 ]
+	done
 	font fantasque
 
 	cmp "$GHOSTTY" "$BATS_TEST_TMPDIR/ghostty.start"
 	cmp "$VSCODE" "$BATS_TEST_TMPDIR/vscode.start"
+}
+
+# Ghostty takes one font-feature per line, so a multi-tag family is where a
+# comma would leak through as a literal and the whole string go inert.
+@test "writes one Ghostty font-feature line per tag" {
+	run font monaspace
+	[ "$status" -eq 0 ]
+	expected=$(jq -r '.monaspace.terminal.features | split(",") | length' "$HOME/.config/font/registry.json")
+	[ "$(grep -c '^font-feature = ' "$GHOSTTY")" -eq "$expected" ]
+	! grep -q '^font-feature = .*,' "$GHOSTTY"
+}
+
+@test "switching writes the editor axes and the terminal family too" {
+	run font recursive
+	[ "$status" -eq 0 ]
+	grep -q "\"editor.fontVariations\": \"$(jq -r '.recursive.editor.variations' "$HOME/.config/font/registry.json")\"" "$VSCODE"
+	grep -q "\"terminal.integrated.fontFamily\": \"$(jq -r '.recursive.editor.terminalFamily' "$HOME/.config/font/registry.json")\"" "$VSCODE"
+}
+
+# The asymmetry reads as a bug to anyone seeing it cold, so it gets asserted
+# rather than left to chance. The patcher can't round-trip fvar/gvar, which makes
+# the editor's variable build and the terminal's patched static genuinely
+# different fonts.
+@test "a Tier B key leaves the editor and the terminal on different families" {
+	run font maple
+	[ "$status" -eq 0 ]
+	editor=$(jq -r '.maple.editor.family' "$HOME/.config/font/registry.json")
+	terminal=$(jq -r '.maple.editor.terminalFamily' "$HOME/.config/font/registry.json")
+	[ "$editor" != "$terminal" ]
+	grep -qF "\"editor.fontFamily\": \"$editor\"" "$VSCODE"
+	grep -qF "\"terminal.integrated.fontFamily\": \"$terminal\"" "$VSCODE"
+}
+
+# Losing the variable axes costs glyph coverage, since the patch is where the
+# icons came from. Every Tier B editor entry has to name the symbols family to
+# get them back.
+@test "every Tier B editor entry falls back to the symbols family" {
+	# An entry whose editor chain leads with its own terminal family is Tier A,
+	# one font serving both halves, and needs no fallback.
+	run jq -e '
+		to_entries
+		| map(select(.value.editor as $e | ($e.family | contains($e.terminalFamily)) | not))
+		| all(.value.editor.family | test("Symbols Nerd Font Mono"))
+	' "$HOME/.config/font/registry.json"
+	[ "$status" -eq 0 ]
+}
+
+@test "every entry carries the fields the switcher reads" {
+	run jq -e '
+		to_entries | all(
+			(.value.order | type == "number")
+			and (.value.tier | test("^[abc]$"))
+			and (.value.label | length > 0)
+			and (.value.size | type == "number")
+			and (.value.terminal.family | length > 0)
+			and (.value.terminal.features | length > 0)
+			and (.value.editor.family | length > 0)
+			and (.value.editor.ligatures | length > 0)
+			and (.value.editor | has("variations"))
+			and (.value.editor.terminalFamily | length > 0)
+		)
+	' "$HOME/.config/font/registry.json"
+	[ "$status" -eq 0 ]
+}
+
+# order drives the list, so a collision makes the roster reshuffle depending on
+# whatever order jq happened to hand back.
+@test "no two entries share an order" {
+	run jq -e '[.[].order] | (length == (unique | length))' "$HOME/.config/font/registry.json"
+	[ "$status" -eq 0 ]
 }
 
 @test "preserves the trailing commas the formatter keeps re-adding" {
@@ -231,6 +308,7 @@ add_absent_entry() {
 	[[ "$output" == *"editor.fontLigatures"* ]]
 }
 
+<<<<<<< HEAD
 @test "builds the family cache when it is missing" {
 	rm -rf "$HOME/.cache/font"
 	run font
@@ -317,10 +395,35 @@ add_absent_entry() {
 	[ "$status" -ne 0 ]
 }
 
-# The registry is meant to be the only place a family name appears. This is the
-# test that keeps it that way as the script grows.
+# The registry is meant to be the only place a family name appears. Reading the
+# names out of the registry rather than listing them here means adding a font
+# can't quietly shrink what this test covers.
 @test "no family name appears outside the registry" {
-	! grep -qE 'FantasqueSansM|VictorMono|Maple Mono|Nerd Font' "$SCRIPT"
+	# The editor value is a whole fallback chain, so it gets split into the
+	# individual families before matching. Without the split, only an exact copy
+	# of the entire chain would ever trip this.
+	# Spelled as an if/return rather than `! grep`, because bash exempts a
+	# negated command from errexit and the loop would run to completion
+	# reporting success no matter what it found.
+	while IFS= read -r family; do
+		if grep -qF "$family" "$SCRIPT"; then
+			echo "family name '$family' appears in $SCRIPT" >&2
+			return 1
+		fi
+	done < <(jq -r '.[] | .terminal.family, .editor.terminalFamily, (.editor.family | split(", ")[])' \
+		"$HOME/.config/font/registry.json" | tr -d "\047" | sort -u)
+}
+
+# The switcher writes by anchor, and an anchor matching zero times is a hard
+# error, so a registry field naming a key the settings file doesn't have breaks
+# every invocation rather than degrading. Deleting any of these from the settings
+# file takes the whole switcher down with it.
+@test "the settings file carries every key the switcher writes" {
+	settings="$SRC/private_Library/private_Application Support/Code/User/settings.json"
+	for key in editor.fontFamily editor.fontLigatures editor.fontVariations \
+		terminal.integrated.fontFamily terminal.integrated.fontSize; do
+		[ "$(grep -cE "^[[:space:]]*\"${key//./\\.}\"[[:space:]]*:" "$settings")" -eq 1 ]
+	done
 }
 
 # `chezmoi re-add` skips templates, so turning either config into a .tmpl would

@@ -1,6 +1,9 @@
 theme = dark:Synthwave Everything,light:Light Owl
+# BEGIN font (managed by `font`)
 font-family = "FantasqueSansM Nerd Font"
 font-size = 14
+font-feature = calt
+# END font
 cursor-style = block
 shell-integration-features = no-cursor
 keybind = shift+enter=text:\x1b\r

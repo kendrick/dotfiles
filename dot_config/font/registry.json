@@ -1,0 +1,50 @@
+{
+	"fantasque": {
+		"order": 0,
+		"tier": "a",
+		"label": "Fantasque Sans Mono",
+		"size": 14,
+		"terminal": {
+			"family": "FantasqueSansM Nerd Font",
+			"features": "calt"
+		},
+		"editor": {
+			"family": "'FantasqueSansM Nerd Font', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "",
+			"ligatures": "'calt'",
+			"terminalFamily": "FantasqueSansM Nerd Font"
+		}
+	},
+	"maple": {
+		"order": 10,
+		"tier": "a",
+		"label": "Maple Mono",
+		"size": 14,
+		"terminal": {
+			"family": "Maple Mono NF",
+			"features": "calt"
+		},
+		"editor": {
+			"family": "'Maple Mono NF', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "",
+			"ligatures": "'calt'",
+			"terminalFamily": "Maple Mono NF"
+		}
+	},
+	"victor": {
+		"order": 20,
+		"tier": "a",
+		"label": "Victor Mono",
+		"size": 14,
+		"terminal": {
+			"family": "VictorMono Nerd Font",
+			"features": "calt"
+		},
+		"editor": {
+			"family": "'VictorMono Nerd Font', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "",
+			"ligatures": "'calt'",
+			"terminalFamily": "VictorMono Nerd Font"
+		}
+	}
+}

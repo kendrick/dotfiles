@@ -14,6 +14,12 @@
 <!-- The last line is the agent-targeted lever. Be specific. "Don't suggest    -->
 <!-- moving X to Y" beats "don't suggest big refactors."                       -->
 
+## 2026-08-05 — Don't trust a PATH stub to isolate this repo's scripts
+**Tried:** Testing scripts by putting stub `npx` / `op` / `chezmoi` / `launchctl` binaries first on `PATH`, and testing chezmoi itself by pointing `-S` and `-D` at a scratch tree.
+**What broke:** Twice, the script under test re-prepended a real bin directory partway through and the stubs stopped applying. `nvm use default` did it in the skills restore, `eval "$(brew shellenv)"` in the age-key script. Both times the real binary ran: one cloned repos through the live `gh`, the other called the real `op` against the actual vault. Separately, an isolated `chezmoi purge` looked like it had deleted `$HOME` along with an unrelated file at its top level. It hadn't found a bug in the script: purge removes the config file's *parent directory*, and the harness had put the test config at the root of a tree that also contained the fake home and source.
+**Why we backed out:** Neuter the PATH-mutating lines in the test copy (`sed` the nvm and shellenv lines to `:`), and give a test chezmoi config its own directory the way a real machine does (`$ISO/home/.config/chezmoi/chezmoi.toml`). With those two fixes the isolation actually holds, confirmed by asserting `chezmoi source-path` resolves inside the scratch tree before running anything destructive.
+**Don't suggest:** PATH-stubbing on its own for any script that sources nvm or `brew shellenv`, or placing a test chezmoi config anywhere but its own directory. And don't report a `$HOME` deletion as a script bug before checking where the harness put that config. _(commits 469a2c1, 8b13d0d)_
+
 ## 2026-08-04 — Don't poll `op read` as a readiness check
 **Tried:** Using `op read` itself as the predicate for "is 1Password ready yet," which is the obvious shape since it's the call we actually want to succeed. Rejected at design time rather than shipped, but verified against the real CLI first.
 **What broke:** `op read` resolves a secret, so it triggers a Touch ID prompt on every invocation. `spin_until` re-runs its predicate every couple of seconds, which would have put a biometric prompt on screen continuously for the length of the wait.

@@ -26,13 +26,13 @@ Don't drop the `--use-builtin-git=on`. A factory Mac needs it, for the reason un
 It prompts for the machine role (`work` / `client` / `personal`) and an auto-sync schedule, sets the git email to match, then installs the lot: Homebrew packages, VS Code and Raycast extensions, macOS preferences, shell config, node and its globals, and the agent skills.
 
 > [!NOTE]
-> **The encrypted Claude config needs a second apply.** `~/.claude/settings.json` and the plugin manifests are age-encrypted, and the key isn't in this public repo. A `run_before` script pulls it from 1Password into `~/.config/chezmoi/key.txt` (needs the 1Password app unlocked with CLI integration on). chezmoi builds its ignore list _before_ that script runs, so the encrypted files don't decrypt on the first pass. They land on the next one:
+> **The encrypted Claude config needs a second apply.** `~/.claude/settings.json` and the plugin manifests are age-encrypted, and the key isn't in this public repo. A `run_before` script pulls it from 1Password into `~/.config/chezmoi/key.txt`: it installs the 1Password app and the CLI, opens the app, and waits up to ten minutes while you sign in and switch on Settings > Developer > Integrate with 1Password CLI. That toggle is the one step nothing can automate. chezmoi builds its ignore list _before_ that script runs, so the encrypted files don't decrypt on the first pass regardless. They land on the next one:
 >
 > ```bash
 > chezmoi apply   # second pass deploys the now-decryptable Claude config
 > ```
 >
-> No 1Password on hand? The script says so and the rest of setup still finishes. To seed the key by hand: `op read "op://Personal/chezmoi age key/key.txt" > ~/.config/chezmoi/key.txt && chmod 600 ~/.config/chezmoi/key.txt && chezmoi apply`.
+> No 1Password on hand? Let the wait time out, or run the bootstrap non-interactively and it won't wait at all. Either way the rest of setup still finishes. To seed the key by hand: `op read "op://Personal/chezmoi age key/key.txt" > ~/.config/chezmoi/key.txt && chmod 600 ~/.config/chezmoi/key.txt && chezmoi apply`.
 
 ### Existing Machine
 

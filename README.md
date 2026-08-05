@@ -129,9 +129,14 @@ Handing a machine back:
 dotfiles-teardown              # dry run, shows exactly what would go
 dotfiles-teardown --yes        # secrets only
 dotfiles-teardown --full --yes # plus the dotfiles, the sync agent, and the repo
+dotfiles-teardown --verify RECEIPT   # confirm a previous run actually cleaned up
 ```
 
 Dry run is the default and the list it prints is the list it removes, so read it before adding `--yes`. Neither level touches Homebrew, the apps it installed, the macOS defaults, or `~/.nvm`.
+
+`--full` has two extra gates, because it purges the repo. It refuses to run while the source has uncommitted or unpushed work, since that work is the one thing here you can't get back (`--force-dirty` overrides). And it asks you to type the hostname rather than accepting a `y`.
+
+Every run that removes something writes a receipt listing the paths it took, to `~/dotfiles-teardown-<timestamp>.txt` unless you pass `--receipt`. Feed it back with `--verify` to confirm each path is gone. That's the only way to audit a `--full` run: by then chezmoi and the source tree are gone, so the list can't be rebuilt. The receipt records paths, not contents, but it's still a map of where the secrets were, so move it off the machine if that matters.
 
 What counts as sensitive is derived rather than listed. Encrypted targets come straight from `chezmoi managed --include=encrypted`, so anything you encrypt later is covered without touching the teardown script. What chezmoi can't see, like the gh token or the AWS SSO cache, is declared by whichever script creates it:
 

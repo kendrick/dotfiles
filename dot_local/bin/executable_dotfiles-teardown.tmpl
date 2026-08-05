@@ -8,6 +8,14 @@
 # credentials the run_ scripts create, and the local machine config. --full also takes the
 # managed dotfiles, the auto-sync agent, and the source repo. Neither touches apps.
 #
+# --full refuses to run while the source repo has uncommitted or unpushed work, since it
+# purges the repo and that work would be gone for good (--force-dirty overrides). It also
+# asks you to type the hostname, rather than accepting a reflexive y.
+#
+# Every run that removes something writes a receipt of the paths it took. Check it later
+# with --verify, which is the only way to audit a --full run: by then chezmoi is gone and
+# the list can't be rebuilt.
+#
 # The sensitive set is derived, not remembered. Encrypted targets come from `chezmoi
 # managed --include=encrypted`, so an encrypted file added to the repo next year is
 # covered here with no edit. What chezmoi can't see (the gh token, the SSO cache) is
@@ -28,10 +36,37 @@ DEPLOY_KEY="{{ .chezmoi.homeDir }}/.ssh/quantified_claude_events_deploy"
 
 FULL=0
 COMMIT=0
-for arg in "$@"; do
-  case "$arg" in
+FORCE_DIRTY=0
+VERIFY=""
+RECEIPT=""
+
+# Parsing shifts these away, and the re-exec below needs to hand the child the same flags.
+# Without this the child relaunches bare and silently downgrades --full --yes to a dry run.
+ORIG_ARGC=$#
+ORIG_ARGS=()
+[ "$ORIG_ARGC" -gt 0 ] && ORIG_ARGS=("$@")
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
     --full) FULL=1 ;;
     --yes | -y) COMMIT=1 ;;
+    --force-dirty) FORCE_DIRTY=1 ;;
+    --verify)
+      VERIFY="${2:-}"
+      [ -n "$VERIFY" ] || {
+        warn "--verify needs a receipt file."
+        exit 2
+      }
+      shift
+      ;;
+    --receipt)
+      RECEIPT="${2:-}"
+      [ -n "$RECEIPT" ] || {
+        warn "--receipt needs a path."
+        exit 2
+      }
+      shift
+      ;;
     -h | --help)
       # Print the header block: line 2 through the first blank line. Keyed off the file's
       # shape rather than a line number, so editing the header can't silently truncate
@@ -40,12 +75,39 @@ for arg in "$@"; do
       exit 0
       ;;
     *)
-      warn "Unknown option: $arg"
-      say "Usage: dotfiles-teardown [--full] [--yes]"
+      warn "Unknown option: $1"
+      say "Usage: dotfiles-teardown [--full] [--yes] [--force-dirty] [--receipt PATH]"
+      say "       dotfiles-teardown --verify RECEIPT"
       exit 2
       ;;
   esac
+  shift
 done
+
+# Re-check each path in a receipt. Read-only, so it runs ahead of the re-exec below.
+if [ -n "$VERIFY" ]; then
+  [ -r "$VERIFY" ] || {
+    warn "Can't read receipt: $VERIFY"
+    exit 2
+  }
+  total=0
+  remaining=0
+  while IFS= read -r p; do
+    case "$p" in '' | '#'*) continue ;; esac
+    total=$((total + 1))
+    if [ -e "$p" ]; then
+      warn "still present: $p"
+      remaining=$((remaining + 1))
+    fi
+  done <"$VERIFY"
+  printf '\n'
+  if [ "$remaining" -eq 0 ]; then
+    ok "$total of $total paths confirmed gone."
+    exit 0
+  fi
+  warn "$remaining of $total paths are still on this machine."
+  exit 1
+fi
 
 # This script is itself a managed file that --full deletes. bash reads a script
 # incrementally, so deleting it out from under a running shell truncates whatever hasn't
@@ -53,7 +115,11 @@ done
 if [ -z "${DOTFILES_TEARDOWN_REEXEC:-}" ]; then
   tmp=$(mktemp "${TMPDIR:-/tmp}/dotfiles-teardown.XXXXXX") || exit 1
   cat "$0" >"$tmp" && chmod +x "$tmp" || exit 1
-  DOTFILES_TEARDOWN_REEXEC=1 "$tmp" "$@"
+  if [ "$ORIG_ARGC" -gt 0 ]; then
+    DOTFILES_TEARDOWN_REEXEC=1 "$tmp" "${ORIG_ARGS[@]}"
+  else
+    DOTFILES_TEARDOWN_REEXEC=1 "$tmp"
+  fi
   rc=$?
   rm -f "$tmp"
   exit $rc
@@ -161,20 +227,72 @@ if [ "$COMMIT" -ne 1 ]; then
   exit 0
 fi
 
+# Everything else here is recoverable: secrets come back from 1Password, dotfiles from a
+# re-clone. A commit that only exists on this machine does not. --full purges the repo, so
+# refuse while anything is unsaved. The auto-sync agent has a habit of committing
+# work in progress, so a dirty tree at an unexpected moment is normal, not exotic.
+if [ "$FULL" -eq 1 ] && [ "$FORCE_DIRTY" -ne 1 ] && [ -n "$SRC" ]; then
+  dirty=$(git -C "$SRC" status --porcelain 2>/dev/null)
+  unpushed=$(git -C "$SRC" log --oneline '@{u}..HEAD' 2>/dev/null)
+  if [ -n "$dirty" ] || [ -n "$unpushed" ]; then
+    warn "The source repo has unsaved work, and --full purges it. That would be permanent."
+    printf '\n'
+    [ -n "$unpushed" ] && printf '%s\n' "$unpushed" | sed 's/^/      /'
+    [ -n "$dirty" ] && printf '%s\n' "$dirty" | sed 's/^/      /'
+    printf '\n'
+    say "Push and commit first, or re-run with --force-dirty if you mean to lose it."
+    exit 1
+  fi
+fi
+
 # Anything still running can put files back. The auto-sync agent runs dotfiles-sync, which
 # re-adds and commits; the settings.json SessionStart hook and the zsh skills()/claude()/
 # code() wrappers re-add into the source tree on ordinary use.
 warn "Close other terminals and Claude sessions first: their hooks re-add files into the"
 warn "source tree, and an auto-sync run mid-teardown can commit what you're removing."
-printf '  Continue? [y/N] '
-read -r reply || reply=""
-case "$reply" in
-  [yY] | [yY][eE][sS]) ;;
-  *)
+printf '\n'
+
+# --full deletes every managed dotfile and purges the repo. A reflexive `y` is too cheap a
+# gate for that, so make it cost a deliberate keystroke, the way `gh repo delete` does.
+if [ "$FULL" -eq 1 ]; then
+  host=$(hostname -s 2>/dev/null || echo unknown)
+  say "This removes every managed dotfile and purges the repo on ${host}."
+  printf '  Type the hostname to confirm: '
+  read -r reply || reply=""
+  if [ "$reply" != "$host" ]; then
     say "Aborted. Nothing removed."
     exit 0
-    ;;
-esac
+  fi
+else
+  printf '  Continue? [y/N] '
+  read -r reply || reply=""
+  case "$reply" in
+    [yY] | [yY][eE][sS]) ;;
+    *)
+      say "Aborted. Nothing removed."
+      exit 0
+      ;;
+  esac
+fi
+printf '\n'
+
+# Written before anything is removed, because once the purge lands there's no chezmoi left
+# to re-derive the list from, and a --full run would otherwise be unauditable. It records
+# paths, never contents, and lives outside the teardown set so it survives its own run.
+# Move it off the machine if you'd rather not leave a map of where the secrets were.
+if [ -z "$RECEIPT" ]; then
+  RECEIPT="$HOME/dotfiles-teardown-$(date +%Y%m%d-%H%M%S).txt"
+fi
+{
+  printf '# dotfiles-teardown receipt, level %s\n' "$([ "$FULL" -eq 1 ] && echo full || echo secrets)"
+  printf '# verify with: dotfiles-teardown --verify %s\n' "$RECEIPT"
+  [ "${#secrets[@]}" -gt 0 ] && printf '%s\n' "${secrets[@]}"
+  if [ "$FULL" -eq 1 ]; then
+    [ "${#data[@]}" -gt 0 ] && printf '%s\n' "${data[@]}"
+    [ -e "$PLIST" ] && printf '%s\n' "$PLIST"
+    [ -n "$SRC" ] && printf '%s\n' "$SRC"
+  fi
+} >"$RECEIPT" 2>/dev/null && ok "Receipt: $RECEIPT"
 printf '\n'
 
 # --- execution -------------------------------------------------------------------

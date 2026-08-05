@@ -54,11 +54,38 @@ brew "databricks/tap/databricks"
 {{ end -}}
 
 # Fonts
-# Ghostty and VS Code both name "FantasqueSansM Nerd Font" in their configs. Without the
-# cask a fresh machine renders the p10k prompt as replacement boxes, since the glyphs the
-# prompt draws only exist in the Nerd Font patch. Fonts live in homebrew/cask now; the old
+# The `font` command's roster, ungated by machine role, because a client machine wants
+# readable code too. Every family named in dot_config/font/registry.json comes from a cask
+# here, or the switch writes a family macOS silently substitutes for and you find out from
+# a terminal full of replacement boxes. Fonts live in homebrew/cask now; the old
 # homebrew/cask-fonts tap was folded in, so no tap line is needed.
+#
+# Cask names don't track family names, and the near misses are plausible enough to install
+# without noticing: font-monaspice-* yields MonaspiceNe, font-caskaydia-cove-* yields
+# CaskaydiaCove, and Maple's -nl casks mean "no ligatures", which would quietly defeat the
+# one thing every font on this list was picked for. See _working-memory/dataContracts.md.
+
+# Tier A, patched Nerd Font statics. These are what the terminals use: icons come baked in,
+# so there's no fallback chain to get wrong. Two of them cover two roster keys each, since
+# monaspice ships Neon and Xenon and recursive-mono ships Casual and Linear.
+cask "font-caskaydia-cove-nerd-font"
 cask "font-fantasque-sans-mono-nerd-font"
+cask "font-lilex-nerd-font"
+cask "font-maple-mono-nf"
+cask "font-monaspice-nerd-font"
+cask "font-recursive-mono-nerd-font"
+cask "font-victor-mono-nerd-font"
+
+# Tier B, the unpatched variable builds VS Code uses instead. The patcher can't round-trip
+# fvar/gvar, so patched-or-variable is a real either/or rather than a preference; the axes
+# are worth having in the editor and worth nothing in Ghostty. Icons come from the
+# symbols-only family below, which every Tier B editor entry names as its fallback.
+cask "font-cascadia-code"
+cask "font-lilex"
+cask "font-maple-mono"
+cask "font-monaspace-var"
+cask "font-recursive"
+cask "font-symbols-only-nerd-font"
 
 # Cask apps — universal
 cask "1password"

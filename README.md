@@ -106,6 +106,7 @@ The repo is the source of truth. Change something on one machine, push it, pull 
 | `chezmoi update`  | pull, then apply                                                                                                                         | on every other machine                         |
 | `dotfiles-doctor` | read-only drift report: installed-but-untracked, and tracked-but-not-installed                                                           | after a `chezmoi update`                       |
 | `dotfiles-undo`   | panic button that reverts the most recent `[auto-sync]` commit and pushes the revert                                                     | when auto-sync captured something it shouldn't |
+| `dotfiles-teardown` | removes the secrets, and with `--full` the dotfiles and the repo too                                                                   | when handing a client machine back             |
 
 ### Scheduled Auto-Sync
 
@@ -119,6 +120,29 @@ A launchd agent runs `dotfiles-sync` on a schedule picked at init (each role has
 | `off`     | none                | `client`    |
 
 The scheduled run is push-only and never applies anything on its own. If the remote has moved ahead, it skips the push and fires a macOS notification telling you to `chezmoi update` first, so nothing lands behind your back.
+
+## Teardown
+
+Handing a machine back:
+
+```bash
+dotfiles-teardown              # dry run, shows exactly what would go
+dotfiles-teardown --yes        # secrets only
+dotfiles-teardown --full --yes # plus the dotfiles, the sync agent, and the repo
+```
+
+Dry run is the default and the list it prints is the list it removes, so read it before adding `--yes`. Neither level touches Homebrew, the apps it installed, the macOS defaults, or `~/.nvm`.
+
+What counts as sensitive is derived rather than listed. Encrypted targets come straight from `chezmoi managed --include=encrypted`, so anything you encrypt later is covered without touching the teardown script. What chezmoi can't see, like the gh token or the AWS SSO cache, is declared by whichever script creates it:
+
+```bash
+# teardown:secret ~/.config/gh/hosts.yml
+# teardown:data ~/.agents/skills
+```
+
+`secret` goes at the default level, `data` only under `--full`, and `none` is how a script says it leaves nothing behind. `dotfiles-doctor` flags any `run_` script that declares nothing, which is what keeps the list from quietly falling behind the repo.
+
+One thing it can't do: the `quantified_claude_events` deploy key gets deleted from disk, but that doesn't revoke it on GitHub. The script prints the `gh repo deploy-key delete` command; you have to run it.
 
 ## Gotchas
 

@@ -9,6 +9,9 @@
 # run_after_ so node (from the package + node step) is on hand, and it's keyed off the
 # lockfile so adding a skill on one machine reinstalls it on the rest. No `set -e`:
 # best-effort, and bash 3.2's errexit is unreliable with external commands.
+#
+# teardown:secret ~/.config/gh/hosts.yml
+# teardown:data ~/.agents/skills
 
 LOCKFILE="{{ joinPath .chezmoi.homeDir ".local" "state" "skills" ".skill-lock.json" }}"
 SKILLS_DIR="{{ joinPath .chezmoi.homeDir ".agents" "skills" }}"

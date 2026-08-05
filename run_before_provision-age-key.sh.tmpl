@@ -10,6 +10,8 @@
 # instant the key is in place. No `set -e`: this is best-effort, and bash 3.2's errexit is
 # unreliable with external commands. The op:// below is a reference, not a secret;
 # resolving it needs your unlocked 1Password.
+#
+# teardown:secret ~/.config/chezmoi/key.txt
 
 {{ template "sh-ui.sh" . }}
 

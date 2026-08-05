@@ -8,6 +8,11 @@
 #
 # Targets bash 3.2, which is what /bin/bash is on a factory Mac. Nothing newer is
 # installed yet at this point in the run.
+#
+# Installs Xcode CLT and Homebrew, both system-wide and both wanted by everything else on
+# the machine. Teardown leaves them.
+#
+# teardown:none
 
 set -e
 

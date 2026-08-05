@@ -1,6 +1,10 @@
 #!/bin/bash
 # chezmoi:template:left-delimiter="{{" right-delimiter="}}"
 # VS Code extensions hash: {{ include "dot_config/vscode-extensions.txt" | sha256sum }}
+#
+# Extensions are apps, and teardown leaves apps alone.
+#
+# teardown:none
 # Re-runs whenever the extension list changes.
 
 set -e

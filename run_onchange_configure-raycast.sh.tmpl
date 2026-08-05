@@ -1,6 +1,10 @@
 #!/bin/bash
 # chezmoi:template:left-delimiter="{{" right-delimiter="}}"
 # Raycast extensions hash: {{ include "dot_config/raycast-extensions.txt" | sha256sum }}
+#
+# Extensions land in Raycast's own store dir, which is app state, not ours.
+#
+# teardown:none
 # Re-runs whenever the extension list changes.
 
 set -e

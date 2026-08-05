@@ -6,6 +6,11 @@
 # so changing sync_schedule or the clock times and re-applying reloads the agent with the
 # new run times rather than leaving the old schedule live. `off` unloads it and deletes
 # the plist, since launchd would otherwise re-load a stale plist at the next login.
+#
+# The sync logs are classed secret rather than data: they echo dotfiles-sync output, which
+# names every file captured off this machine.
+#
+# teardown:secret ~/.local/state/dotfiles
 set -e
 
 SCHEDULE="{{ $sched }}"

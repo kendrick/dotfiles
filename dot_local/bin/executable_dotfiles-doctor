@@ -52,3 +52,25 @@ while IFS= read -r line; do
   fi
 done < <(chezmoi status)
 [[ "$tmpl_drift" -eq 0 ]] && echo "    none — templated files match their source"
+
+echo
+echo "== Teardown coverage =="
+# dotfiles-teardown derives the encrypted targets from chezmoi, but anything a script
+# leaves outside chezmoi's view (the gh token, the SSO cache) is invisible to it. Those
+# get declared as `# teardown:<class> <path>` next to the code that creates them. A script
+# with no declaration at all is the drift case: it might leave a credential behind and
+# nothing would know. `none` is a valid answer, it just has to be said out loud.
+#
+# Only run_ scripts are required to declare. They're the provisioners, so they're where
+# new machine state comes from. Scripts in dot_local/bin may declare too (awssso does, for
+# the SSO cache) and teardown reads them, but demanding a comment from `draw` and `cless`
+# would make this section cry wolf until nobody reads it.
+undeclared=0
+while IFS= read -r f; do
+  grep -qI '^# teardown:' "$f" || { echo "    $(basename "$f")"; undeclared=1; }
+done < <(find "$SRC" -maxdepth 1 -name 'run_*' -type f)
+if [[ "$undeclared" -eq 1 ]]; then
+  echo "    ^ no '# teardown:' line. Add one (secret/data/none) so teardown can see it."
+else
+  echo "    none — every run_ script declares what it leaves behind"
+fi

@@ -18,6 +18,8 @@ Source of truth is this repo at `~/.local/share/chezmoi`. Deployed targets:
 - `~/Library/Application Support/` — VS Code, Claude Desktop
 - `~/.config/chezmoi/chezmoi.toml` — local-only machine role + email, never committed
 
+`.chezmoitemplates/` holds partials that are never deployed anywhere: the Brewfile (data, rendered inline by the installer) and `sh-ui.sh` (shared bash helpers, included by the before-phase scripts). It isn't only a data directory.
+
 _(README.md "Layout"; git ls-files)_
 
 ## Key Constraints

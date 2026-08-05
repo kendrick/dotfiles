@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+#
+# Switch the coding font across Ghostty and VS Code together, then hand both
+# files back to chezmoi so the change survives the next apply.
+#
+# Neither config is a chezmoi template, and neither should become one:
+# `chezmoi re-add` skips templates, so converting either would silently drop it
+# from `dotfiles-sync` capture. That's the same failure the README documents for
+# the Brewfile. Both stay plain-managed and this script mutates them in place.
+#
+# Every family name lives in the registry. If you find one spelled out below,
+# something has gone wrong.
+
+set -euo pipefail
+
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+REGISTRY="$CONFIG_HOME/font/registry.json"
+JSONC="$CONFIG_HOME/font/jsonc.jq"
+GHOSTTY="$CONFIG_HOME/ghostty/config"
+VSCODE="$HOME/Library/Application Support/Code/User/settings.json"
+
+BEGIN_MARKER='# BEGIN font (managed by `font`)'
+END_MARKER='# END font'
+
+# The VS Code keys this script owns. Anything not listed here it must not touch.
+# `editor.fontSize` is deliberately absent: it's set to a different value than
+# the terminal on purpose, and the size argument is about terminal legibility.
+EDITOR_FAMILY_KEY='editor.fontFamily'
+EDITOR_LIGATURES_KEY='editor.fontLigatures'
+TERMINAL_SIZE_KEY='terminal.integrated.fontSize'
+
+die() {
+	echo "font: $*" >&2
+	exit 1
+}
+
+require_deps() {
+	command -v jq >/dev/null 2>&1 || die "jq is not installed; it is declared in the Brewfile"
+	[ -f "$REGISTRY" ] || die "registry not found at $REGISTRY"
+	[ -f "$JSONC" ] || die "JSONC filter not found at $JSONC"
+}
+
+# Reads the VS Code settings through the JSONC filter. Trailing commas are
+# tolerated because Prettier owns them; comments fail here on purpose, and the
+# caller is expected to stop rather than rewrite the file without them.
+read_settings() {
+	[ -f "$VSCODE" ] || die "VS Code settings not found at $VSCODE"
+	jq -Rs -f "$JSONC" "$VSCODE" 2>/dev/null ||
+		die "cannot parse $VSCODE; if it has comments, remove them by hand rather than letting this script strip them"
+}
+
+current_terminal_family() {
+	awk -v b="$BEGIN_MARKER" -v e="$END_MARKER" '
+		$0 == b { inside = 1; next }
+		$0 == e { inside = 0; next }
+		inside && /^font-family = / {
+			sub(/^font-family = "/, ""); sub(/"$/, ""); print; exit
+		}
+	' "$GHOSTTY"
+}
+
+cmd_list() {
+	local active
+	active=$(current_terminal_family)
+	# Every entry shows regardless of what's installed. Hiding absent ones would
+	# make a machine that simply hasn't fetched them look like a broken registry.
+	jq -r --arg active "$active" '
+		to_entries
+		| sort_by(.value.order)
+		| .[]
+		| (if .value.terminal.family == $active then "* " else "  " end)
+			+ .key + "  " + .value.label
+	' "$REGISTRY"
+	echo
+	echo "active terminal family: ${active:-none}"
+}
+
+write_ghostty() {
+	local family=$1 size=$2 features=$3 tmp
+	local begin_line end_line
+
+	begin_line=$(grep -nxF "$BEGIN_MARKER" "$GHOSTTY" | head -1 | cut -d: -f1 || true)
+	end_line=$(grep -nxF "$END_MARKER" "$GHOSTTY" | head -1 | cut -d: -f1 || true)
+
+	[ -n "$begin_line" ] || die "$GHOSTTY has no '$BEGIN_MARKER' line; refusing to guess where the font block belongs"
+	[ -n "$end_line" ] || die "$GHOSTTY has no '$END_MARKER' line; refusing to guess where the font block ends"
+	[ "$end_line" -gt "$begin_line" ] || die "$GHOSTTY has its font markers out of order"
+
+	tmp=$(mktemp)
+	{
+		head -n "$begin_line" "$GHOSTTY"
+		echo "font-family = \"$family\""
+		echo "font-size = $size"
+		local feature
+		# Ghostty takes one font-feature per line rather than a list.
+		while IFS= read -r feature; do
+			[ -n "$feature" ] && echo "font-feature = $feature"
+		done <<<"${features//,/$'\n'}"
+		tail -n "+$end_line" "$GHOSTTY"
+	} >"$tmp"
+	mv "$tmp" "$GHOSTTY"
+}
+
+# Rewrites one key's value in place, leaving every other byte alone. The whole
+# object is never serialized back out: jq emits strict JSON, which would strip
+# the trailing commas that format-on-save then restores, churning this file on
+# every switch.
+write_vscode_key() {
+	local key=$1 value=$2 escaped matches tmp
+	escaped=${key//./\\.}
+
+	matches=$(grep -cE "^[[:space:]]*\"$escaped\"[[:space:]]*:" "$VSCODE" || true)
+	[ "$matches" -eq 1 ] ||
+		die "expected exactly one \"$key\" line in $VSCODE, found $matches; refusing to write a partial config"
+
+	tmp=$(mktemp)
+	awk -v key="$key" -v value="$value" '
+		BEGIN { pattern = "^[[:space:]]*\"" key "\"[[:space:]]*:"; gsub(/\./, "\\.", pattern) }
+		$0 ~ pattern {
+			match($0, /^[[:space:]]*/)
+			indent = substr($0, 1, RLENGTH)
+			comma = ($0 ~ /,[[:space:]]*$/) ? "," : ""
+			print indent "\"" key "\": " value comma
+			next
+		}
+		{ print }
+	' "$VSCODE" >"$tmp"
+	mv "$tmp" "$VSCODE"
+}
+
+cmd_switch() {
+	local key=$1 size_override=${2:-}
+	local entry size family features editor_family ligatures
+
+	entry=$(jq -e --arg k "$key" '.[$k] // empty' "$REGISTRY") ||
+		die "unknown font '$key'; run 'font' with no arguments to see the roster"
+
+	# Everything is read and validated before anything is written, so a failure
+	# halfway through can't leave the two configs disagreeing.
+	read_settings >/dev/null
+	[ -f "$GHOSTTY" ] || die "Ghostty config not found at $GHOSTTY"
+
+	size=${size_override:-$(jq -r '.size' <<<"$entry")}
+	[[ "$size" =~ ^[0-9]+$ ]] || die "size must be a positive integer, got '$size'"
+
+	family=$(jq -r '.terminal.family' <<<"$entry")
+	features=$(jq -r '.terminal.features' <<<"$entry")
+	editor_family=$(jq -r '.editor.family' <<<"$entry")
+	ligatures=$(jq -r '.editor.ligatures' <<<"$entry")
+
+	write_ghostty "$family" "$size" "$features"
+	write_vscode_key "$EDITOR_FAMILY_KEY" "$(jq -n --arg v "$editor_family" '$v')"
+	write_vscode_key "$EDITOR_LIGATURES_KEY" "$(jq -n --arg v "$ligatures" '$v')"
+	write_vscode_key "$TERMINAL_SIZE_KEY" "$size"
+
+	# Without the re-add, the next `chezmoi apply` reverts both files.
+	chezmoi re-add "$GHOSTTY" "$VSCODE"
+
+	echo "font: switched to $(jq -r '.label' <<<"$entry") at ${size}pt"
+}
+
+main() {
+	require_deps
+	case ${1:-} in
+	"") cmd_list ;;
+	-h | --help)
+		echo "usage: font [<key> [size]]"
+		echo "  font            list the roster and show what's active"
+		echo "  font <key>      switch Ghostty and VS Code to <key>"
+		echo "  font <key> 16   switch, overriding the registry's size"
+		;;
+	*) cmd_switch "$@" ;;
+	esac
+}
+
+main "$@"

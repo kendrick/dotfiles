@@ -58,16 +58,30 @@ else
   echo "gh not found; private skill repos may fail to clone."
 fi
 
-# Add each source's missing skills in a single clone. `skills add` matches one name per
-# -s flag; joining names into one -s (comma or space) matches nothing, so pass a repeated
-# -s list instead.
+# Which agents get the skills. `-a '*'` reaches every agent in the CLI's registry, 75 of
+# them at last count, and a couple (eve, promptscript) only support project-level skills,
+# so a wildcard restore warns about those once per skill and buries the real output. Name
+# the agents instead. These want slugs, not the display names `skills ls --json` prints
+# ("claude-code", not "Claude Code"). No command lists the valid slugs, but passing a bogus
+# one makes the CLI print the whole set: `npx skills ls -g -a x`.
+AGENTS=(claude-code codex)
+a_args=()
+for agent in "${AGENTS[@]}"; do
+  a_args+=(-a "$agent")
+done
+
+# Add each source's missing skills in a single clone. `skills add` matches one name per -s
+# flag; joining names into one -s (comma or space) matches nothing, so pass a repeated -s
+# list. The -a flag is close but not identical: it does accept `-a x y`, which -s won't,
+# and a comma-joined `-a x,y` is read as one literal slug and fails validation. Repeated
+# flags are the one form that works for both.
 for src in $(printf '%s\n' "$needed" | cut -f1 | sort -u); do
   s_args=()
   while IFS= read -r name; do
     s_args+=(-s "$name")
   done < <(printf '%s\n' "$needed" | awk -F'\t' -v s="$src" '$1==s{print $2}')
-  echo "  skills add $src ${s_args[*]}"
-  npx --yes skills add "$src" -g -y -a '*' "${s_args[@]}" || echo "    some skills from $src failed (a name may have changed upstream)"
+  echo "  skills add $src ${a_args[*]} ${s_args[*]}"
+  npx --yes skills add "$src" -g -y "${a_args[@]}" "${s_args[@]}" || echo "    some skills from $src failed (a name may have changed upstream)"
 done
 
 echo "Skill restore done. If you signed into GitHub mid-run, re-run 'chezmoi apply' to pick up any private skills it skipped."

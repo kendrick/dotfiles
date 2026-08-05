@@ -14,9 +14,10 @@ SRC="${BATS_TEST_DIRNAME}/.."
 setup() {
 	export HOME="$BATS_TEST_TMPDIR/home"
 	export STUBS="$BATS_TEST_TMPDIR/stubs"
-	# Set on this machine, and it would send the script straight back to the real
-	# ~/.config no matter what HOME says.
+	# Set on this machine, and they would send the script straight back to the
+	# real ~/.config and ~/.cache no matter what HOME says.
 	unset XDG_CONFIG_HOME
+	unset XDG_CACHE_HOME
 	VSCODE="$HOME/Library/Application Support/Code/User/settings.json"
 	GHOSTTY="$HOME/.config/ghostty/config"
 
@@ -32,11 +33,60 @@ setup() {
 		printf '%s\n' "$*" >>"$HOME/chezmoi-calls"
 	STUB
 	chmod +x "$STUBS/chezmoi"
+
+	# The real thing takes ten seconds and answers a question about whichever
+	# machine is running the suite, which would make these tests both slow and
+	# dependent on the fonts that machine happens to have. The stub answers from
+	# what the test declared. It also logs every call, which is the only way to
+	# prove a warm-cache switch never reached for it.
+	cat >"$STUBS/system_profiler" <<-'STUB'
+		#!/usr/bin/env bash
+		printf '%s\n' "$*" >>"$HOME/system_profiler-calls"
+		echo "Fonts:"
+		while IFS= read -r family; do
+			printf '    Stub.ttf:\n      Typefaces:\n        Stub:\n          Family: %s\n' "$family"
+		done <"$HOME/installed-families"
+	STUB
+	chmod +x "$STUBS/system_profiler"
 	export PATH="$STUBS:$PATH"
+
+	# Derived from the registry rather than hardcoded, so widening the roster
+	# doesn't leave the stub reporting last month's fonts.
+	jq -r '.[].terminal.family' "$HOME/.config/font/registry.json" >"$HOME/installed-families"
+
+	# Most tests exercise the warm-cache path; the ones that don't clear this or
+	# backdate it themselves.
+	mkdir -p "$HOME/.cache/font"
+	sort -u "$HOME/installed-families" >"$HOME/.cache/font/families"
 }
 
 font() {
 	bash "$SCRIPT" "$@"
+}
+
+# A registry entry pointing at a family no machine can have. The refusal path has
+# to be provable without betting on which fonts the machine running the suite
+# happens to be missing today.
+add_absent_entry() {
+	jq --arg tier "$1" \
+		--arg family 'NoSuchFamily XX' \
+		--arg editor_family "'NoSuchFamily XX'" \
+		--arg ligatures "'calt'" '
+		.absent = {
+			order: 999,
+			tier: $tier,
+			label: "Nonexistent Test Face",
+			size: 14,
+			terminal: { family: $family, features: "calt" },
+			editor: {
+				family: $editor_family,
+				variations: "",
+				ligatures: $ligatures,
+				terminalFamily: $family
+			}
+		}
+	' "$HOME/.config/font/registry.json" >"$HOME/registry.tmp"
+	mv "$HOME/registry.tmp" "$HOME/.config/font/registry.json"
 }
 
 @test "lists the roster in order and marks the active font" {
@@ -179,6 +229,92 @@ font() {
 	run font victor
 	[ "$status" -ne 0 ]
 	[[ "$output" == *"editor.fontLigatures"* ]]
+}
+
+@test "builds the family cache when it is missing" {
+	rm -rf "$HOME/.cache/font"
+	run font
+	[ "$status" -eq 0 ]
+	[ -s "$HOME/.cache/font/families" ]
+	grep -q 'SPFontsDataType' "$HOME/system_profiler-calls"
+}
+
+@test "rebuilds the family cache once it is older than seven days" {
+	touch -t "$(date -v-8d '+%Y%m%d%H%M')" "$HOME/.cache/font/families"
+	run font victor
+	[ "$status" -eq 0 ]
+	grep -q 'SPFontsDataType' "$HOME/system_profiler-calls"
+}
+
+@test "leaves a family cache younger than seven days alone" {
+	touch -t "$(date -v-6d '+%Y%m%d%H%M')" "$HOME/.cache/font/families"
+	run font victor
+	[ "$status" -eq 0 ]
+	[ ! -f "$HOME/system_profiler-calls" ]
+}
+
+@test "--refresh rebuilds the cache on demand" {
+	echo 'Stale Family' >"$HOME/.cache/font/families"
+	run font --refresh
+	[ "$status" -eq 0 ]
+	grep -q 'SPFontsDataType' "$HOME/system_profiler-calls"
+	! grep -qxF 'Stale Family' "$HOME/.cache/font/families"
+}
+
+# system_profiler is the reason the cache exists. If an ordinary switch still
+# pays for it, the cache is decoration.
+@test "does not invoke system_profiler on an ordinary switch with a warm cache" {
+	run font victor
+	[ "$status" -eq 0 ]
+	[ ! -f "$HOME/system_profiler-calls" ]
+}
+
+# Asserting on the label and the tier rather than on phrasing. A refusal that
+# doesn't say which font or which tier leaves you no better off than the tofu
+# did, so those two are the behavior; the sentence around them isn't.
+@test "refuses a font whose family is absent, naming it and its tier, touching nothing" {
+	add_absent_entry a
+	cp "$GHOSTTY" "$BATS_TEST_TMPDIR/ghostty.before"
+	cp "$VSCODE" "$BATS_TEST_TMPDIR/vscode.before"
+	run font absent
+	[ "$status" -ne 0 ]
+	[[ "$output" == *"Nonexistent Test Face"* ]]
+	[[ "$output" == *"tier a"* ]]
+	cmp "$GHOSTTY" "$BATS_TEST_TMPDIR/ghostty.before"
+	cmp "$VSCODE" "$BATS_TEST_TMPDIR/vscode.before"
+	[ ! -f "$HOME/chezmoi-calls" ]
+}
+
+@test "a Tier C refusal points at 1Password and the fetch that may not have run" {
+	add_absent_entry c
+	run font absent
+	[ "$status" -ne 0 ]
+	[[ "$output" == *"tier c"* ]]
+	[[ "$output" == *"1Password"* ]]
+	[[ "$output" == *"fetch"* ]]
+}
+
+@test "--force writes a font the cache says is absent" {
+	add_absent_entry a
+	run font absent --force
+	[ "$status" -eq 0 ]
+	grep -qxF 'font-family = "NoSuchFamily XX"' "$GHOSTTY"
+	grep -q "'NoSuchFamily XX'" "$VSCODE"
+}
+
+# A client machine with no licensed fonts should look like a machine missing
+# fonts, not like a registry that's broken.
+@test "lists an absent entry marked rather than hiding it, and exits 0" {
+	add_absent_entry c
+	run font
+	[ "$status" -eq 0 ]
+	echo "$output" | grep -q '^  absent .*(not installed)'
+	[ "$(echo "$output" | grep -c '(not installed)')" -eq 1 ]
+}
+
+@test "an unknown option exits non-zero rather than being read as a key" {
+	run font --nope
+	[ "$status" -ne 0 ]
 }
 
 # The registry is meant to be the only place a family name appears. This is the

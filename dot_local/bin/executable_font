@@ -19,6 +19,16 @@ JSONC="$CONFIG_HOME/font/jsonc.jq"
 GHOSTTY="$CONFIG_HOME/ghostty/config"
 VSCODE="$HOME/Library/Application Support/Code/User/settings.json"
 
+# What the registry lists and what this machine has installed are two different
+# questions. The second one is answered from a cache because `system_profiler
+# SPFontsDataType` takes about ten seconds, which nobody should pay per switch.
+CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+FAMILY_CACHE="$CACHE_HOME/font/families"
+
+# Fonts get installed rarely enough that a week-old answer is usually still
+# right, and --refresh and --force cover the times it isn't.
+CACHE_MAX_AGE_SECONDS=$((7 * 24 * 60 * 60))
+
 BEGIN_MARKER='# BEGIN font (managed by `font`)'
 END_MARKER='# END font'
 
@@ -55,6 +65,71 @@ require_deps() {
 # Reads the VS Code settings through the JSONC filter. Trailing commas are
 # tolerated because Prettier owns them; comments fail here on purpose, and the
 # caller is expected to stop rather than rewrite the file without them.
+rebuild_family_cache() {
+	local tmp
+	command -v system_profiler >/dev/null 2>&1 ||
+		die "system_profiler is not on PATH, so there is no way to tell what is installed"
+
+	mkdir -p "$(dirname "$FAMILY_CACHE")"
+	tmp=$(mktemp)
+	system_profiler SPFontsDataType 2>/dev/null |
+		sed -n 's/^[[:space:]]*Family: //p' | sort -u >"$tmp" || true
+
+	# An empty answer is indistinguishable from a machine with no fonts on it, and
+	# caching it would make every font in the registry look absent from here on.
+	# The old cache, however stale, is a better guess than that.
+	[ -s "$tmp" ] || {
+		rm -f "$tmp"
+		die "system_profiler reported no font families; leaving the existing cache alone rather than caching a list that would refuse everything"
+	}
+
+	replace_preserving_mode "$tmp" "$FAMILY_CACHE"
+	# On stderr because it explains a ten-second pause rather than answering the
+	# question that was asked, and because the roster listing has to stay parseable.
+	echo "font: cached $(wc -l <"$FAMILY_CACHE" | tr -d ' ') installed families" >&2
+}
+
+ensure_family_cache() {
+	local mtime age
+
+	if [ ! -s "$FAMILY_CACHE" ]; then
+		rebuild_family_cache
+		return
+	fi
+
+	mtime=$(stat -f '%m' "$FAMILY_CACHE" 2>/dev/null || echo 0)
+	age=$(($(date +%s) - mtime))
+	[ "$age" -le "$CACHE_MAX_AGE_SECONDS" ] || rebuild_family_cache
+}
+
+# Runs before either config is touched, which is the only ordering that helps.
+# Name a family macOS can't resolve and it substitutes without a word: the config
+# stays valid, the apply succeeds, nothing exits non-zero, and the first sign of
+# trouble is a terminal full of replacement boxes. A refusal is the only outcome
+# that names what went wrong while there's still something to do about it.
+check_available() {
+	local entry=$1 key=$2
+	local family tier label hint
+
+	family=$(jq -r '.terminal.family' <<<"$entry")
+	tier=$(jq -r '.tier' <<<"$entry")
+	label=$(jq -r '.label' <<<"$entry")
+
+	ensure_family_cache
+	if grep -qxF "$family" "$FAMILY_CACHE"; then
+		return 0
+	fi
+
+	case $tier in
+	c) hint="Tier C fonts are fetched from 1Password and patched locally, so either the fetch script has not run or the item is not in the vault yet." ;;
+	*) hint="Tier A and B fonts install from the Brewfile, so \`brew bundle\` is the likely gap." ;;
+	esac
+
+	die "$label (tier $tier) is not installed: no font family named \"$family\" in $FAMILY_CACHE.
+  $hint
+  If you installed it after the cache was built, run \`font --refresh\`, or \`font $key --force\` to write anyway."
+}
+
 read_settings() {
 	[ -f "$VSCODE" ] || die "VS Code settings not found at $VSCODE"
 	jq -Rs -f "$JSONC" "$VSCODE" 2>/dev/null ||
@@ -73,15 +148,20 @@ current_terminal_family() {
 
 cmd_list() {
 	local active
+	ensure_family_cache
 	active=$(current_terminal_family)
 	# Every entry shows regardless of what's installed. Hiding absent ones would
 	# make a machine that simply hasn't fetched them look like a broken registry.
-	jq -r --arg active "$active" '
-		to_entries
+	# So listing reports availability where switching enforces it.
+	jq -r --arg active "$active" --rawfile families "$FAMILY_CACHE" '
+		($families | split("\n")) as $installed
+		| to_entries
 		| sort_by(.value.order)
 		| .[]
-		| (if .value.terminal.family == $active then "* " else "  " end)
+		| .value.terminal.family as $family
+		| (if $family == $active then "* " else "  " end)
 			+ .key + "  " + .value.label
+			+ (if ($installed | index($family)) then "" else "  (not installed)" end)
 	' "$REGISTRY"
 	echo
 	echo "active terminal family: ${active:-none}"
@@ -141,7 +221,7 @@ write_vscode_key() {
 }
 
 cmd_switch() {
-	local key=$1 size_override=${2:-}
+	local key=$1 size_override=$2 force=$3
 	local entry size family features editor_family ligatures
 
 	entry=$(jq -e --arg k "$key" '.[$k] // empty' "$REGISTRY") ||
@@ -151,6 +231,7 @@ cmd_switch() {
 	# halfway through can't leave the two configs disagreeing.
 	read_settings >/dev/null
 	[ -f "$GHOSTTY" ] || die "Ghostty config not found at $GHOSTTY"
+	[ "$force" -eq 1 ] || check_available "$entry" "$key"
 
 	size=${size_override:-$(jq -r '.size' <<<"$entry")}
 	[[ "$size" =~ ^[0-9]+$ ]] || die "size must be a positive integer, got '$size'"
@@ -171,18 +252,52 @@ cmd_switch() {
 	echo "font: switched to $(jq -r '.label' <<<"$entry") at ${size}pt"
 }
 
+usage() {
+	echo "usage: font [<key> [size]] [--force] [--refresh]"
+	echo "  font                 list the roster and show what's active"
+	echo "  font <key>           switch Ghostty and VS Code to <key>"
+	echo "  font <key> 16        switch, overriding the registry's size"
+	echo "  font <key> --force   switch without checking that the font is installed"
+	echo "  font --refresh       rebuild the cached list of installed families"
+}
+
 main() {
+	# Scalars rather than an array of positionals: /bin/bash is 3.2, where
+	# expanding an empty array under `set -u` aborts. That one cost the teardown
+	# script a crash on its second run; see decisionLog 2026-08-05.
+	local key="" size="" force=0 refresh=0
+
 	require_deps
-	case ${1:-} in
-	"") cmd_list ;;
-	-h | --help)
-		echo "usage: font [<key> [size]]"
-		echo "  font            list the roster and show what's active"
-		echo "  font <key>      switch Ghostty and VS Code to <key>"
-		echo "  font <key> 16   switch, overriding the registry's size"
-		;;
-	*) cmd_switch "$@" ;;
-	esac
+
+	while [ $# -gt 0 ]; do
+		case $1 in
+		-h | --help)
+			usage
+			return 0
+			;;
+		--force) force=1 ;;
+		--refresh) refresh=1 ;;
+		-*) die "unknown option '$1'; run 'font --help'" ;;
+		*)
+			if [ -z "$key" ]; then
+				key=$1
+			elif [ -z "$size" ]; then
+				size=$1
+			else
+				die "unexpected argument '$1'; usage is 'font [<key> [size]]'"
+			fi
+			;;
+		esac
+		shift
+	done
+
+	[ "$refresh" -eq 0 ] || rebuild_family_cache
+
+	if [ -z "$key" ]; then
+		cmd_list
+	else
+		cmd_switch "$key" "$size" "$force"
+	fi
 }
 
 main "$@"

@@ -65,7 +65,11 @@ A font's ssXX features carry their own UI names in the `name` table, reachable t
 
 So Monaspace is the only family whose stylistic sets belong in a feature string. Enabling the recorded sets across the board, which is what the ticket's table reads like an instruction to do, would defeat ligatures on two of the nine fonts. _(GSUB FeatureParams + name table, 2026-08-05)_
 
-Hand-placed `MonaspaceNeonVarVF[…].ttf` and `MonaspaceXenonVarVF[…].ttf` still sit in `~/Library/Fonts` and register the same families as `font-monaspace-var`, so those two families resolve from two sources. Same shape as the Fantasque collision in decisionLog 2026-08-04, and it needs the hand-placed copies removed to settle.
+Resolved 2026-08-05: hand-placed `Monaspace*VarVF[…].ttf` files were registering the same families as `font-monaspace-var`, and they were not equivalent. The hand-placed copies were version 1.200 carrying `calt` and `liga`; the cask is 1.400 and adds `rlig`, which is what the registry writes. macOS picks between same-named families on its own, so the old file winning would have made `rlig` silently inert, the exact failure this feature exists to prevent. Deleted; `Monaspace Neon Var` and `Monaspace Xenon Var` now resolve to 1.400 only.
+
+The `Monaspace*Frozen-*.ttf` statics also in `~/Library/Fonts` register `Monaspace <style> Frozen`, a family the registry never names, so they don't collide. Left in place.
+
+The general shape is worth remembering, since it has now happened twice (Fantasque, decisionLog 2026-08-04): a hand-placed font silently defeats its own cask. `brew bundle` fails the collision without reporting it, and where the two copies differ in features, the registry can end up describing a font that isn't the one being used.
 
 Every Nerd Font cask registers three families, the base name plus a ` Mono` and a ` Propo` suffix, which differ in glyph advance width rather than in features. Maple is the exception with one. Picking the wrong one changes spacing without erroring. _(system_profiler SPFontsDataType, 2026-08-05)_
 

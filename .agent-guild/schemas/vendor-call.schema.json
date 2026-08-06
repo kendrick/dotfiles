@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Vendor call ledger line",
+  "description": "One structured record of an external-vendor dispatch (a courier lane), written as a single newline-terminated JSON line to .agent-guild/state/log/vendor-calls.jsonl by ledger-append.py — no courier ever hand-formats this shape. Nullability on tokens_in, tokens_out, cost_usd, and brief_tokens means the vendor didn't report that figure; null is never replaced with a fabricated zero. tokenizer is null exactly when brief_tokens is null, and is the string \"heuristic-bytes/4\" whenever ledger-append.py computed brief_tokens itself (see --brief in ledger-append.py); this is a semantic rule the append helper enforces, since the conservative keyword set below can't express a cross-field constraint. Keyword set stays conservative like verdict.schema.json (type, properties, required, items, enum, additionalProperties) so validate-verdict.py's hand-rolled validator pattern covers this schema too.",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "The guild task this vendor call served, e.g. \"T-007\"."
+    },
+    "vendor": {
+      "type": "string",
+      "description": "The external vendor dispatched to, e.g. \"codex\"."
+    },
+    "model": {
+      "type": "string",
+      "description": "The model the vendor ran, e.g. \"gpt-5.5\"."
+    },
+    "started_at": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp the call started, e.g. \"2026-07-22T18:00:00Z\"."
+    },
+    "duration_ms": {
+      "type": "integer",
+      "description": "Wall-clock duration of the call, in milliseconds."
+    },
+    "exit_code": {
+      "type": "integer",
+      "description": "The vendor process's exit code."
+    },
+    "tokens_in": {
+      "type": ["number", "null"],
+      "description": "Input tokens the vendor reported, or null if the vendor didn't report a figure — never a fabricated 0."
+    },
+    "tokens_out": {
+      "type": ["number", "null"],
+      "description": "Output tokens the vendor reported, or null if the vendor didn't report a figure — never a fabricated 0."
+    },
+    "cost_usd": {
+      "type": ["number", "null"],
+      "description": "Cost in US dollars the vendor reported, or null if the vendor didn't report a figure — never a fabricated 0."
+    },
+    "brief_tokens": {
+      "type": ["number", "null"],
+      "description": "Size of the brief handed to the vendor, in tokens, or null if no brief was measured. When present it is a stdlib heuristic (bytes of the brief file divided by 4), not a vendor-reported or vendor-tokenizer figure — see tokenizer."
+    },
+    "tokenizer": {
+      "type": ["string", "null"],
+      "description": "Name of the tokenizer that produced brief_tokens (\"heuristic-bytes/4\" for the stdlib byte-count heuristic), or null exactly when brief_tokens is null."
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths the courier verified on disk after the call, never paths the vendor merely claimed to have written. May be empty but must be present."
+    },
+    "quota_event": {
+      "type": "boolean",
+      "description": "True when this call registered a vendor quota exhaustion. A quota_event line is always written before any exhaustion sentinel is touched, so the ledger always explains the sentinel."
+    }
+  },
+  "required": [
+    "task_id",
+    "vendor",
+    "model",
+    "started_at",
+    "duration_ms",
+    "exit_code",
+    "tokens_in",
+    "tokens_out",
+    "cost_usd",
+    "brief_tokens",
+    "tokenizer",
+    "artifacts",
+    "quota_event"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Checker verdict",
+  "description": "A checker's verdict on one guild task, written as JSON (the record of record) and rendered to a Markdown sibling for humans. Structured-output-safe by construction: no if/then, no $dynamicRef, no unevaluatedProperties, only the conservative keyword set (type, properties, required, items, enum, additionalProperties) — a second checker family writes this shape via strict vendor structured-output modes, which cannot evaluate conditionals. All nine properties are required, with none marked optional: OpenAI's strict structured-output mode (the mode `codex exec --output-schema` uses) rejects a schema that leaves any key out of `required` outright, so `duration_ms` and `cost_usd` are typed nullable (`[\"integer\", \"null\"]` and `[\"number\", \"null\"]`) instead — a checker that doesn't know a wall-clock time or cost emits `null` for it, meaning unreported, never a fabricated 0, the same convention `vendor-call.schema.json` uses for its own nullable fields. Two further compromises this implies: (1) the two semantic rules a conditional would normally express here — a fail verdict must carry at least one finding, and every finding's evidence must be non-empty — are enforced by validate-verdict.py instead of by this schema; (2) 'blocked' is not a third flavor of outcome alongside pass/fail, it carries the guild's old ERROR semantics (the check itself couldn't complete — script crashed, tool unreachable, vendor quota hit) and does not count against the worker's retry budget.",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "The task this verdict checks, e.g. \"T-001\"."
+    },
+    "checker": {
+      "type": "string",
+      "description": "The checker agent that produced this verdict, e.g. \"checker-judgment\"."
+    },
+    "vendor": {
+      "type": "string",
+      "description": "The model vendor that ran the check, e.g. \"anthropic\"."
+    },
+    "model": {
+      "type": "string",
+      "description": "The model that ran the check, e.g. \"claude-opus-4\"."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "fail", "blocked"]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "clause_id": {
+            "type": "string",
+            "description": "The constitution clause this finding is about, e.g. \"C-1\"."
+          },
+          "severity": {
+            "type": "string",
+            "description": "How serious the finding is, e.g. \"blocker\", \"major\", \"minor\"."
+          },
+          "description": {
+            "type": "string",
+            "description": "One sentence stating the defect or the clause being satisfied."
+          },
+          "evidence": {
+            "type": "string",
+            "description": "A file path plus line range (e.g. \"foo.py:12-18\"), or a command-output excerpt."
+          }
+        },
+        "required": ["clause_id", "severity", "description", "evidence"],
+        "additionalProperties": false
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO-8601 UTC, e.g. \"2026-07-22T18:00:00Z\"."
+    },
+    "duration_ms": {
+      "type": ["integer", "null"],
+      "description": "Wall-clock duration of the check, in milliseconds, or null if unreported — never a fabricated 0."
+    },
+    "cost_usd": {
+      "type": ["number", "null"],
+      "description": "The check's cost in US dollars, or null if unreported — never a fabricated 0."
+    }
+  },
+  "required": [
+    "task_id",
+    "checker",
+    "vendor",
+    "model",
+    "verdict",
+    "findings",
+    "timestamp",
+    "duration_ms",
+    "cost_usd"
+  ],
+  "additionalProperties": false
+}

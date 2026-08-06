@@ -9,11 +9,12 @@
 # hold a work-only marketplace's entries and this repo is public. Personal machines
 # install only the public-marketplace allowlist; work and client machines get the
 # full set. The reinstall is the durable record: live ~/.claude/plugins/*.json is
-# CLI-owned state the daily re-add captures (and re-encrypts) back into source.
+# CLI-owned state that claude-plugins-capture normalizes back into source, keeping
+# only the repos and specs read below so the file is identical on every machine.
 #
-# The two manifests themselves are encrypted targets, so teardown picks them up from
-# `chezmoi managed --include=encrypted`. What it can't see is the cloned marketplace
-# repos the CLI drops alongside them.
+# Those manifests are deliberately not chezmoi targets (see .chezmoiignore), so the
+# teardown:data line below is what clears them — it covers the whole plugins dir,
+# including the cloned marketplace repos the CLI drops alongside them.
 #
 # teardown:data ~/.claude/plugins
 

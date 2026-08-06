@@ -103,8 +103,17 @@ keys_in_order() {
 	# and the inactive ones parse the same way.
 	listed=$(echo "$output" | grep '^[* ] ' | cut -c3- | awk '{print $1}')
 	[ "$listed" = "$expected" ]
-	[[ "$output" == *"active terminal family: FantasqueSansM Nerd Font"* ]]
-	echo "$output" | grep -q '^\* fantasque'
+	# Read out of the fixture rather than hardcoded. The committed Ghostty config
+	# holds whatever font was active when it was last re-added, so naming one here
+	# breaks this test every time someone switches and commits.
+	active_family=$(sed -n '/BEGIN font/,/END font/p' "$GHOSTTY" |
+		sed -n 's/^font-family = "\(.*\)"$/\1/p' | head -1)
+	active_key=$(jq -r --arg f "$active_family" \
+		'to_entries[] | select(.value.terminal.family == $f) | .key' \
+		"$HOME/.config/font/registry.json")
+	[ -n "$active_key" ]
+	[[ "$output" == *"active terminal family: $active_family"* ]]
+	echo "$output" | grep -q "^\* $active_key"
 }
 
 @test "switching rewrites the Ghostty block and the VS Code keys together" {
@@ -491,4 +500,30 @@ keys_in_order() {
 	# (Claude settings, two plugin manifests, npmrc). What must never appear is a
 	# font smuggled in that way, which the 1Password decision rejected outright.
 	[ -z "$(git ls-files | grep -iE '\.age$' | grep -iE 'font|mono|dank|lisa|operator')" ]
+}
+
+# VS Code's integrated terminal has its own ligature switch, separate from the
+# editor's and defaulting to off, so a font can ligate in the editor and stay
+# flat one pane over. Its featureSettings defaults to 'calt', which does nothing
+# for MonoLisa: that font implements ligatures under liga and dlig and carries no
+# calt at all.
+@test "switching drives the terminal's ligature settings too" {
+	printf 'MonoLisa\nSymbols Nerd Font Mono\n' >>"$HOME/installed-families"
+	sort -u "$HOME/installed-families" >"$HOME/.cache/font/families"
+	run font monolisa
+	[ "$status" -eq 0 ]
+	grep -q '"terminal.integrated.fontLigatures.enabled": true' "$VSCODE"
+	grep -q "\"terminal.integrated.fontLigatures.featureSettings\": \"'dlig', 'liga'\"" "$VSCODE"
+}
+
+# The editor gets a fallback chain and the terminal used to get a bare family, so
+# icons resolved in one and rendered as boxes in the other. Any font needing a
+# fallback needs it in both places.
+@test "an unpatched font names its icon fallback in the terminal family too" {
+	for key in $(keys_in_order); do
+		fallback=$(jq -r --arg k "$key" '.[$k].terminal.fallback // ""' "$HOME/.config/font/registry.json")
+		[ -n "$fallback" ] || continue
+		terminal_family=$(jq -r --arg k "$key" '.[$k].editor.terminalFamily' "$HOME/.config/font/registry.json")
+		[[ "$terminal_family" == *"$fallback"* ]]
+	done
 }

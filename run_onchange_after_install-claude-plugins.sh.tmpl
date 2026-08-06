@@ -42,11 +42,23 @@ install_plugin() {
 }
 
 {{/* Marketplaces a personal machine may install from. The bar is whether the repo is
-     reachable without work credentials, not who wrote it: agent-guild is mine and public,
-     so it qualifies, while slalom-agent-kit is the work-only one this file is encrypted
-     for. Leaving agent-guild out silently starved personal boxes of the guild tooling
-     that .agent-guild/CLAUDE.md expects to be loaded. */ -}}
-{{ $public := list "superpowers-marketplace" "chrome-devtools-plugins" "claude-plugins-official" "agent-guild" -}}
+     reachable without work credentials, not who wrote it, so kendrick/agent-guild
+     qualifies while slalom-agent-kit is the work-only one this file is encrypted for.
+     Leaving it out starved personal boxes of the guild tooling .agent-guild/CLAUDE.md
+     expects to be loaded.
+
+     The name here is "kendrick", not "agent-guild": these entries match the marketplace
+     name the CLI registers, and it takes that from the repo's own
+     .claude-plugin/marketplace.json rather than from the repo or plugin name. So the
+     marketplace is kendrick and the plugin inside it is agent-guild@kendrick. Getting
+     this wrong fails silently, since add_marketplace below discards its errors.
+
+     No chrome-devtools-plugins entry for the same reason it isn't a marketplace at all:
+     ChromeDevTools/chrome-devtools-mcp is the MCP server's own repo, and the plugin
+     actually ships from claude-plugins-official. Config carried the bogus coordinate for
+     a while, which left chrome-devtools-mcp enabled against a marketplace that could
+     never resolve it. */ -}}
+{{ $public := list "superpowers-marketplace" "claude-plugins-official" "kendrick" -}}
 {{ if stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") -}}
 {{   $marketplaces := include "dot_claude/private_plugins/encrypted_known_marketplaces.json.age" | decrypt | fromJson -}}
 {{   range $name, $info := $marketplaces -}}

@@ -230,6 +230,33 @@ keys_in_order() {
 	[ "$status" -eq 0 ]
 }
 
+# `casks` is for dotfiles-doctor rather than the switcher: it checks that the Brewfile
+# actually installs what the roster names. A new entry that omits the key would be
+# invisible to that check, which is the failure it was written to prevent, so the shape is
+# enforced here rather than left to whoever adds the next font.
+@test "every half declares where its font comes from" {
+	run jq -e '
+		to_entries | all(
+			[.value.terminal, .value.editor]
+			| all((has("casks")) and (.casks | type == "array"))
+		)
+	' "$HOME/.config/font/registry.json"
+	[ "$status" -eq 0 ]
+}
+
+# An empty list means "not installed by Homebrew", which is only true of the licensed
+# fonts. On any other tier it reads as a declaration when it's really an omission.
+@test "only Tier C declares no casks" {
+	run jq -e '
+		to_entries | all(
+			select(.value.tier != "c")
+			| [.value.terminal, .value.editor]
+			| all(.casks | length > 0)
+		)
+	' "$HOME/.config/font/registry.json"
+	[ "$status" -eq 0 ]
+}
+
 # order drives the list, so a collision makes the roster reshuffle depending on
 # whatever order jq happened to hand back.
 @test "no two entries share an order" {

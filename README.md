@@ -100,13 +100,13 @@ chezmoi prompts for a role on first init. Role and email live in `~/.config/chez
 
 The repo is the source of truth. Change something on one machine, push it, pull it down on the others.
 
-| Command           | What it does                                                                                                                             | When to run it                                 |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `dotfiles-sync`   | regenerates the VS Code list, re-adds every changed managed file, flags brew packages missing from the Brewfile, then commits and pushes | on the machine you changed                     |
-| `chezmoi update`  | pull, then apply                                                                                                                         | on every other machine                         |
-| `dotfiles-doctor` | read-only drift report: installed-but-untracked, and tracked-but-not-installed                                                           | after a `chezmoi update`                       |
-| `dotfiles-undo`   | panic button that reverts the most recent `[auto-sync]` commit and pushes the revert                                                     | when auto-sync captured something it shouldn't |
-| `dotfiles-teardown` | removes the secrets, and with `--full` the dotfiles and the repo too                                                                   | when handing a client machine back             |
+| Command             | What it does                                                                                                                             | When to run it                                 |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `dotfiles-sync`     | regenerates the VS Code list, re-adds every changed managed file, flags brew packages missing from the Brewfile, then commits and pushes | on the machine you changed                     |
+| `chezmoi update`    | pull, then apply                                                                                                                         | on every other machine                         |
+| `dotfiles-doctor`   | read-only drift report: installed-but-untracked, tracked-but-not-installed, and configs naming a font the Brewfile never installs        | after a `chezmoi update`                       |
+| `dotfiles-undo`     | panic button that reverts the most recent `[auto-sync]` commit and pushes the revert                                                     | when auto-sync captured something it shouldn't |
+| `dotfiles-teardown` | removes the secrets, and with `--full` the dotfiles and the repo too                                                                     | when handing a client machine back             |
 
 ### Scheduled Auto-Sync
 

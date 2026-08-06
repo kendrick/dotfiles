@@ -29,19 +29,25 @@ The one place a font family name is allowed to appear, consumed by `dot_local/bi
     "terminal": {
       "family": "...",          // verbatim system_profiler string, Ghostty font-family
       "features": "calt,liga",  // comma-separated; one Ghostty font-feature line each
-      "fallback": "..."         // optional; second font-family line for unpatched fonts
+      "fallback": "...",        // optional; second font-family line for unpatched fonts
+      "casks": ["font-x"]       // casks providing the families above; [] only on tier c
     },
     "editor": {
       "family": "'A', 'B', monospace",  // VS Code editor.fontFamily, a full chain
       "variations": "'wght' 400",       // editor.fontVariations; "" is valid for statics
       "ligatures": "'calt', 'liga'",    // editor.fontLigatures AND the terminal's featureSettings
-      "terminalFamily": "..."           // terminal.integrated.fontFamily; a chain if a fallback is needed
+      "terminalFamily": "...",          // terminal.integrated.fontFamily; a chain if a fallback is needed
+      "casks": ["font-x", "font-y"]     // casks providing the families above; [] only on tier c
     }
   }
 }
 ```
 
 `terminal.fallback` and `editor.terminalFamily` have to agree: a font needing an icon fallback needs it named in both, or icons resolve in the editor and render as boxes in the integrated terminal. `editor.family` and `editor.terminalFamily` deliberately disagree for Tier B, since the editor keeps the variable build while the terminal takes the patched static. _(dot_config/font/registry.json, dot_local/bin/executable_font)_
+
+`casks` is the half's answer to "where do these bytes come from". `font` never reads it; `dotfiles-doctor` does, to assert the Brewfile installs what the roster names (GitHub #7). Three states, and the difference between the last two is the point: a populated list is a claim doctor checks, `[]` means the font isn't a Homebrew font at all and is legal only on Tier C, and a missing key is a roster entry nobody said where to get. Tier B editor halves carry two casks, the variable build plus `font-symbols-only-nerd-font`, because dropping the symbols font breaks icons without breaking anything that errors.
+
+`editor.terminalFamily` needs no casks of its own. By construction it names the same families as `terminal.family` plus `terminal.fallback`, which MonoLisa shows most clearly: its key is the two-family chain `'MonoLisa', 'Symbols Nerd Font Mono'`. So `terminal.casks` already covers it, and duplicating those casks into the editor half would only create a second place to forget them.
 
 ## Licensed font manifest (`.chezmoitemplates/licensed-fonts.txt`)
 One 1Password document item title per line; `#` comments and blank lines skipped. Source-only, read by `run_onchange_after_fetch-licensed-fonts.sh.tmpl` through a Go template include, following the npm-globals and vscode-extensions pattern. Each item is a zip of one family in the Personal vault of `my.1password.com`, tagged `fonts`, so `op item list --tags fonts` validates the manifest against what's actually fetchable. A title that isn't in the vault is skipped with a notice rather than failing the apply. _(.chezmoitemplates/licensed-fonts.txt)_

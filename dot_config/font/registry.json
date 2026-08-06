@@ -6,13 +6,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "FantasqueSansM Nerd Font",
-			"features": "calt"
+			"features": "calt",
+			"casks": ["font-fantasque-sans-mono-nerd-font"]
 		},
 		"editor": {
 			"family": "'FantasqueSansM Nerd Font', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "",
 			"ligatures": "'calt'",
-			"terminalFamily": "FantasqueSansM Nerd Font"
+			"terminalFamily": "FantasqueSansM Nerd Font",
+			"casks": ["font-fantasque-sans-mono-nerd-font"]
 		}
 	},
 	"maple": {
@@ -22,13 +24,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "Maple Mono NF",
-			"features": "calt"
+			"features": "calt",
+			"casks": ["font-maple-mono-nf"]
 		},
 		"editor": {
 			"family": "'Maple Mono', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "'wght' 400",
 			"ligatures": "'calt'",
-			"terminalFamily": "Maple Mono NF"
+			"terminalFamily": "Maple Mono NF",
+			"casks": ["font-maple-mono", "font-symbols-only-nerd-font"]
 		}
 	},
 	"monaspace": {
@@ -38,13 +42,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "MonaspiceNe Nerd Font",
-			"features": "calt,liga,ss01,ss02,ss03,ss04,ss05,ss06,ss07,ss08,ss09,ss10"
+			"features": "calt,liga,ss01,ss02,ss03,ss04,ss05,ss06,ss07,ss08,ss09,ss10",
+			"casks": ["font-monaspice-nerd-font"]
 		},
 		"editor": {
 			"family": "'Monaspace Neon Var', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "'wght' 400",
 			"ligatures": "'calt', 'liga', 'rlig', 'ss01', 'ss02', 'ss03', 'ss04', 'ss05', 'ss06', 'ss07', 'ss08', 'ss09', 'ss10'",
-			"terminalFamily": "MonaspiceNe Nerd Font"
+			"terminalFamily": "MonaspiceNe Nerd Font",
+			"casks": ["font-monaspace-var", "font-symbols-only-nerd-font"]
 		}
 	},
 	"monaspace-xenon": {
@@ -54,13 +60,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "MonaspiceXe Nerd Font",
-			"features": "calt,liga,ss01,ss02,ss03,ss04,ss05,ss06,ss07,ss08,ss09,ss10"
+			"features": "calt,liga,ss01,ss02,ss03,ss04,ss05,ss06,ss07,ss08,ss09,ss10",
+			"casks": ["font-monaspice-nerd-font"]
 		},
 		"editor": {
 			"family": "'Monaspace Xenon Var', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "'wght' 400",
 			"ligatures": "'calt', 'liga', 'rlig', 'ss01', 'ss02', 'ss03', 'ss04', 'ss05', 'ss06', 'ss07', 'ss08', 'ss09', 'ss10'",
-			"terminalFamily": "MonaspiceXe Nerd Font"
+			"terminalFamily": "MonaspiceXe Nerd Font",
+			"casks": ["font-monaspace-var", "font-symbols-only-nerd-font"]
 		}
 	},
 	"victor": {
@@ -70,13 +78,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "VictorMono Nerd Font",
-			"features": "calt"
+			"features": "calt",
+			"casks": ["font-victor-mono-nerd-font"]
 		},
 		"editor": {
 			"family": "'VictorMono Nerd Font', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "",
 			"ligatures": "'calt'",
-			"terminalFamily": "VictorMono Nerd Font"
+			"terminalFamily": "VictorMono Nerd Font",
+			"casks": ["font-victor-mono-nerd-font"]
 		}
 	},
 	"cascadia": {
@@ -86,13 +96,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "CaskaydiaCove Nerd Font",
-			"features": "calt,rlig"
+			"features": "calt,rlig",
+			"casks": ["font-caskaydia-cove-nerd-font"]
 		},
 		"editor": {
 			"family": "'Cascadia Code', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "'wght' 400",
 			"ligatures": "'calt', 'rlig'",
-			"terminalFamily": "CaskaydiaCove Nerd Font"
+			"terminalFamily": "CaskaydiaCove Nerd Font",
+			"casks": ["font-cascadia-code", "font-symbols-only-nerd-font"]
 		}
 	},
 	"recursive": {
@@ -102,13 +114,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "RecMonoCasual Nerd Font",
-			"features": "calt"
+			"features": "calt",
+			"casks": ["font-recursive-mono-nerd-font"]
 		},
 		"editor": {
 			"family": "'Recursive', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "'MONO' 1, 'CASL' 1, 'wght' 400",
 			"ligatures": "'liga', 'dlig'",
-			"terminalFamily": "RecMonoCasual Nerd Font"
+			"terminalFamily": "RecMonoCasual Nerd Font",
+			"casks": ["font-recursive", "font-symbols-only-nerd-font"]
 		}
 	},
 	"recursive-linear": {
@@ -118,13 +132,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "RecMonoLinear Nerd Font",
-			"features": "calt"
+			"features": "calt",
+			"casks": ["font-recursive-mono-nerd-font"]
 		},
 		"editor": {
 			"family": "'Recursive', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "'MONO' 1, 'CASL' 0, 'wght' 400",
 			"ligatures": "'liga', 'dlig'",
-			"terminalFamily": "RecMonoLinear Nerd Font"
+			"terminalFamily": "RecMonoLinear Nerd Font",
+			"casks": ["font-recursive", "font-symbols-only-nerd-font"]
 		}
 	},
 	"lilex": {
@@ -134,13 +150,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "Lilex Nerd Font",
-			"features": "calt"
+			"features": "calt",
+			"casks": ["font-lilex-nerd-font"]
 		},
 		"editor": {
 			"family": "'Lilex', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "'wght' 400",
 			"ligatures": "'calt'",
-			"terminalFamily": "Lilex Nerd Font"
+			"terminalFamily": "Lilex Nerd Font",
+			"casks": ["font-lilex", "font-symbols-only-nerd-font"]
 		}
 	},
 	"dank": {
@@ -150,13 +168,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "DankMono Nerd Font",
-			"features": "calt,liga"
+			"features": "calt,liga",
+			"casks": []
 		},
 		"editor": {
 			"family": "'DankMono Nerd Font', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "",
 			"ligatures": "'calt', 'liga'",
-			"terminalFamily": "DankMono Nerd Font"
+			"terminalFamily": "DankMono Nerd Font",
+			"casks": []
 		}
 	},
 	"monolisa": {
@@ -167,13 +187,15 @@
 		"terminal": {
 			"family": "MonoLisa",
 			"features": "dlig,liga",
-			"fallback": "Symbols Nerd Font Mono"
+			"fallback": "Symbols Nerd Font Mono",
+			"casks": ["font-symbols-only-nerd-font"]
 		},
 		"editor": {
 			"family": "'MonoLisa', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "",
 			"ligatures": "'dlig', 'liga'",
-			"terminalFamily": "'MonoLisa', 'Symbols Nerd Font Mono'"
+			"terminalFamily": "'MonoLisa', 'Symbols Nerd Font Mono'",
+			"casks": ["font-symbols-only-nerd-font"]
 		}
 	},
 	"operator": {
@@ -183,13 +205,15 @@
 		"size": 14,
 		"terminal": {
 			"family": "OperatorMonoLig Nerd Font Mono",
-			"features": "calt"
+			"features": "calt",
+			"casks": []
 		},
 		"editor": {
 			"family": "'OperatorMonoLig Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "",
 			"ligatures": "'calt'",
-			"terminalFamily": "OperatorMonoLig Nerd Font Mono"
+			"terminalFamily": "OperatorMonoLig Nerd Font Mono",
+			"casks": []
 		}
 	}
 }

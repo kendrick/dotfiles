@@ -1,0 +1,26 @@
+{{- /* Which package bundles this machine has turned on, as a JSON array.
+
+Single source of truth for that question. .chezmoitemplates/Brewfile renders from it,
+and dotfiles-doctor and dotfiles-sync ask for it at runtime with
+`chezmoi execute-template '{{ template "bundles" . }}'`. JSON rather than a space-separated
+list so the shell side can hand it straight to `jq --argjson`.
+
+The role defaults below are duplicated in .chezmoi.toml.tmpl, which needs them at prompt
+time. Prompt functions only exist while the config renders, so there's no way to share one
+copy. Change one, change the other. */ -}}
+{{- $roleDefaults := dict
+      "client"   (list "core" "fonts" "dev" "browsers" "media" "office")
+      "personal" (list "core" "fonts" "dev" "browsers" "media" "office" "ai" "personal-apps")
+      "work"     (list "core" "fonts" "dev" "browsers" "media" "office" "ai" "personal-apps" "cloud") -}}
+{{- /* `get . "machine_role"` rather than `.machine_role`: a direct dereference dies with
+       "map has no entry for key" when this renders against a fixture config, which the
+       tests do. An unrecognized role falls back to core alone rather than to a role's
+       worth of apps nobody asked for. */ -}}
+{{- $enabled := get $roleDefaults (get . "machine_role" | toString) | default (list "core") -}}
+{{- /* hasKey, not the `get . "bundles" | default $roleDefault` idiom used for sync_schedule
+       in .chezmoiignore. An empty list is falsy in Go templates, so `default` would hand a
+       machine that deliberately recorded `bundles = []` the whole role default back without
+       saying so. That idiom is safe for sync_schedule only because "" isn't a legal answer
+       there. */ -}}
+{{- if hasKey . "bundles" }}{{ $enabled = get . "bundles" }}{{ end -}}
+{{- $enabled | toJson -}}

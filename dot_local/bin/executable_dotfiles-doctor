@@ -22,18 +22,52 @@ fi
 
 echo
 echo "== Homebrew =="
-if command -v brew &>/dev/null; then
-  brewfile="$SRC/.chezmoitemplates/Brewfile"
-  echo "-- here but not in the Brewfile (uninstall, or add to the template):"
+# Packages are data now (GitHub #4), so this compares against .chezmoidata.toml narrowed to
+# the bundles this machine turned on, not against Brewfile text. Both lists come back through
+# `chezmoi execute-template` rather than being parsed here: it's the same parser the render
+# uses, so there's no second reader to drift from the first.
+#
+# A package installed from a bundle this machine hasn't enabled stays silent on purpose.
+# You already decided about that one, and apply never uninstalls, so saying it out loud
+# would be a complaint with no way to end it. dotfiles-apps is where that gets acted on.
+if command -v brew &>/dev/null && command -v jq &>/dev/null; then
+  bundles="$(chezmoi execute-template '{{ template "bundles" . }}')"
+  pkgs="$(chezmoi execute-template '{{ .pkg.packages | toJson }}')"
+
+  # Two spellings of every tapped formula, because brew uses both: `brew leaves` reports
+  # them qualified (sbcinnovation/tap/squoosh) and `brew list --formula` reports them bare.
+  # Carrying both means neither direction of the comparison invents drift that isn't there.
+  tracked_brew="$(jq -r --argjson b "$bundles" '
+    .[] | select(.type == "brew") | select(.bundles | any(IN($b[]))) | .name' <<<"$pkgs")"
+  tracked_brew_any="$(jq -r --argjson b "$bundles" '
+    .[] | select(.type == "brew") | select(.bundles | any(IN($b[])))
+    | .name, (.name | split("/") | last)' <<<"$pkgs")"
+  tracked_cask="$(jq -r --argjson b "$bundles" '
+    .[] | select(.type == "cask") | select(.bundles | any(IN($b[]))) | .name' <<<"$pkgs")"
+
+  echo "-- here but not tracked at all (add it to .chezmoidata.toml, or uninstall):"
   while IFS= read -r formula; do
-    name="${formula##*/}"
-    grep -qiE "[\"/]${name}\"" "$brewfile" || echo "    brew  $formula"
+    grep -qxF "$formula" <<<"$tracked_brew_any" || echo "    brew  $formula"
   done < <(brew leaves)
   while IFS= read -r cask; do
-    grep -qiE "\"${cask}\"" "$brewfile" || echo "    cask  $cask"
+    grep -qxF "$cask" <<<"$tracked_cask" || echo "    cask  $cask"
   done < <(brew list --cask 2>/dev/null)
+
+  # Against `brew list`, not `brew leaves`: a tracked formula that something else depends on
+  # isn't a leaf, and comparing to leaves would report it missing on every single run.
+  echo "-- in a bundle you've enabled but not installed (next apply installs these):"
+  installed_brew="$(brew list --formula)"
+  installed_cask="$(brew list --cask 2>/dev/null)"
+  while IFS= read -r formula; do
+    [[ -n "$formula" ]] || continue
+    grep -qxF "${formula##*/}" <<<"$installed_brew" || echo "    brew  $formula"
+  done <<<"$tracked_brew"
+  while IFS= read -r cask; do
+    [[ -n "$cask" ]] || continue
+    grep -qxF "$cask" <<<"$installed_cask" || echo "    cask  $cask"
+  done <<<"$tracked_cask"
 else
-  echo "    brew not found — skipping"
+  echo "    brew or jq not found — skipping"
 fi
 
 echo
@@ -50,22 +84,31 @@ echo "== Config dependencies =="
 #
 # Fonts are the only resource checked here so far, since fonts are what bit. Each half of
 # each registry entry declares the casks that provide the families it names, and this
-# asserts the Brewfile carries them. An empty list means "not from Homebrew" and is only
-# legal on Tier C, the licensed fonts fetched from 1Password. A missing key means someone
-# added a roster entry and never said where the bytes come from, which is its own gap.
+# asserts the package registry carries them. An empty list means "not from Homebrew" and is
+# only legal on Tier C, the licensed fonts fetched from 1Password. A missing key means
+# someone added a roster entry and never said where the bytes come from, which is its own gap.
+#
+# Narrowed to enabled bundles, unlike the Homebrew section above. A machine that turned the
+# fonts bundle off has configs naming families nothing will install, which is exactly the
+# failure described above rather than a choice already made. In practice fonts is in every
+# role's defaults, so this reads the same as it always has.
 if command -v jq &>/dev/null; then
   registry="$SRC/dot_config/font/registry.json"
-  brewfile="$SRC/.chezmoitemplates/Brewfile"
   dep_gaps=0
   if [[ -f "$registry" ]]; then
-    echo "-- fonts the registry names that the Brewfile doesn't install:"
+    dep_bundles="$(chezmoi execute-template '{{ template "bundles" . }}')"
+    dep_casks="$(chezmoi execute-template '{{ .pkg.packages | toJson }}' | jq -r --argjson b "$dep_bundles" '
+      .[] | select(.type == "cask") | select(.bundles | any(IN($b[]))) | .name')"
+    echo "-- fonts the registry names that no enabled bundle installs:"
     while IFS=$'\t' read -r key half cask; do
       if [[ "$cask" == "!undeclared" ]]; then
         echo "    $key  $half  has no \"casks\" key — name the casks it needs, or [] if it's licensed"
         dep_gaps=1
-      # Anchored on `cask "name"` rather than the bare name so a formula can't satisfy a
-      # cask dependency, and so `font-lilex` doesn't match `font-lilex-nerd-font`.
-      elif ! grep -qE "^[[:space:]]*cask \"${cask}\"" "$brewfile"; then
+      # Whole-line exact match against the cask set, so a formula of the same name can't
+      # satisfy a cask dependency and `font-lilex` can't be answered by `font-lilex-nerd-font`.
+      # Both used to ride on the shape of a grep against Brewfile text; the type filter and
+      # the -x now carry them structurally.
+      elif ! grep -qxF "$cask" <<<"$dep_casks"; then
         echo "    $key  $half  $cask"
         dep_gaps=1
       fi

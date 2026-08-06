@@ -11,7 +11,9 @@
 - zsh config is split by concern under `~/.config/zsh/` (aliases, exports, functions, plugins, keybindings, options, styles), sourced from `~/.zshrc`. _(dot_config/zsh/, dot_zshrc.tmpl)_
 
 ## Templating / Machine Conditionals
-- Machine-specific content uses Go-template guards on `.machine_role` (e.g. `{{ if eq .machine_role "work" }}`) inside a single file, not branched files. _(.chezmoitemplates/Brewfile, dot_gitconfig.tmpl, .chezmoi.toml.tmpl)_
+- Machine-specific content uses Go-template guards on `.machine_role` (e.g. `{{ if eq .machine_role "work" }}`) inside a single file, not branched files. _(dot_gitconfig.tmpl, .chezmoi.toml.tmpl)_
+- Where the list of things being gated is long enough to be data, gate on membership instead: the item declares what it belongs to, the role only picks a default set, and the machine can override. Roles are a coarse lever, and a machine that wants one exception has nowhere to say so under a role branch. _(.chezmoidata.toml bundles; GitHub #4)_
+- A `[data]` key added after a machine last ran `chezmoi init` isn't in that machine's config, and `chezmoi apply` doesn't regenerate it; it warns and carries on. So every read of a newer key needs a fallback, or the first apply after a pull dies with "map has no entry for key". Use `hasKey` when an empty value is legal; `| default` only when it isn't, since empty lists and strings are both falsy. _(.chezmoitemplates/bundles, .chezmoiignore)_
 
 ## Shared shell code
 - Helpers used by more than one script live in `.chezmoitemplates/` and come in through a Go template include, which is what turns a plain `.sh` script into a `.sh.tmpl`. Never write the include call inside the partial itself: chezmoi parses partials as templates too, so it recurses. _(.chezmoitemplates/sh-ui.sh)_
@@ -25,7 +27,7 @@
 - Don't add paths to a central list in the teardown script. Anything chezmoi can enumerate should be queried from chezmoi; anything it can't should be declared where it's created. _(decisionLog 2026-08-05)_
 
 ## Config-to-package coupling
-- When a managed config names an external resource by string (a font family, a binary, a theme), the Brewfile needs a matching entry, or it fails only on a fresh machine where the resource was never hand-installed. Fonts are the case that's closed: every half of every `dot_config/font/registry.json` entry declares the casks it needs, and `dotfiles-doctor`'s "Config dependencies" section asserts the Brewfile carries them. Anything else named by string is still unchecked. _(dot_config/font/registry.json, dot_local/bin/executable_dotfiles-doctor; GitHub #7)_
+- When a managed config names an external resource by string (a font family, a binary, a theme), the package registry needs a matching entry in a bundle the machine has on, or it fails only on a fresh machine where the resource was never hand-installed. Fonts are the case that's closed: every half of every `dot_config/font/registry.json` entry declares the casks it needs, and `dotfiles-doctor`'s "Config dependencies" section asserts an enabled bundle carries them. Anything else named by string is still unchecked. _(dot_config/font/registry.json, dot_local/bin/executable_dotfiles-doctor; GitHub #7, #4)_
 - Declare the dependency next to the config that names it and have the checker read the declaration. Don't teach the checker to parse resource names out of configs and map them to package names: cask names don't track family names (`font-monaspice-*` ships `MonaspiceNe`), so a resolver is a second table to keep in sync. A declaration that's missing reports itself; a lookup table that's stale still looks correct. _(decisionLog 2026-08-05)_
 
 ## Scripts that rewrite a managed config
@@ -44,8 +46,9 @@
 - Setup scripts use `set -e` for fail-fast, with two deliberate exceptions: the macOS-defaults script omits it (non-fatal `defaults write` errors), and external-tool installers (`brew bundle`, `code --install-extension`, `open raycast://`) guard each call with `|| true` and skip cleanly if the CLI is absent. _(run_onchange_install-vscode-extensions.sh.tmpl, run_once_after_configure-macos.sh)_
 
 ## Cross-machine sync
-- Capture local changes with `dotfiles-sync` (regenerates VS Code ext list, `chezmoi re-add`, commit + push); pull elsewhere with `chezmoi update`; spot drift with `dotfiles-doctor`. Brewfile and Raycast extensions are captured by hand. _(dot_local/bin/executable_dotfiles-sync)_
+- Capture local changes with `dotfiles-sync` (regenerates VS Code ext list, `chezmoi re-add`, commit + push); pull elsewhere with `chezmoi update`; spot drift with `dotfiles-doctor`. Packages and Raycast extensions are captured by hand. _(dot_local/bin/executable_dotfiles-sync)_
 
 ## chezmoi ignore + source-only data
 - `.chezmoiignore` matches TARGET paths (home-relative), not source paths. A source-name entry (`private_Library/…`, `dot_local/bin/executable_x`) silently no-ops — use the deployed path (`Library/…`, `.local/bin/x`) and verify with `chezmoi ignored`. _(.chezmoiignore, chezmoi ignored)_
-- Files generated from live state, or rendered purely as data for a script, are source-only: `.chezmoiignore` the target so the daily `chezmoi re-add` can't clobber the freshly-generated source with a stale deployed copy. _(VS Code ext list; the Brewfile is read inline by the installer)_
+- Files generated from live state, or rendered purely as data for a script, are source-only: `.chezmoiignore` the target so the daily `chezmoi re-add` can't clobber the freshly-generated source with a stale deployed copy. _(VS Code ext list; the Brewfile is rendered inline by the installer)_
+- A dot-prefixed source entry (`.chezmoidata.toml`, `.chezmoitemplates/`) is source-only for free, since chezmoi never gives it a target, so it needs no `.chezmoiignore` line at all. The rule above is for entries that would otherwise deploy. _(.chezmoidata.toml)_

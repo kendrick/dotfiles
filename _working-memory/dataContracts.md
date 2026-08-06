@@ -4,14 +4,29 @@
 <!-- Agents must consume data through these contracts. -->
 <!-- When mocking data, conform to these shapes exactly. -->
 
-## Brewfile (package manifest)
-Declares `tap` / `brew` / `cask` / `mas` entries. Canonical list is `.chezmoitemplates/Brewfile`; `dot_config/Brewfile.tmpl` includes it via `{{ template "Brewfile" . }}`. Edit the canonical file, not the deployed copy. _(.chezmoitemplates/Brewfile)_
+## Package registry (`.chezmoidata.toml`)
+The canonical package list, source-only (chezmoi gives a dot-prefixed source entry no target at all, so it needs no `.chezmoiignore` line). `.chezmoitemplates/Brewfile` renders a Brewfile from it, filtered to the machine's enabled bundles; `run_onchange_install-packages.sh.tmpl` pipes that render into `brew bundle --file=/dev/stdin`. Everything sits under `[pkg]` because `[data]` in `chezmoi.toml` outranks `.chezmoidata`, so a top-level `bundles` key here would be shadowed by the machine's own selection, and nothing would report it.
+
+```toml
+[pkg]
+catalog = ["core", ...]                                  # the bundle vocabulary; anything else is a typo
+taps     = [{ name = "owner/repo", bundles = [...] }]
+packages = [{ name = "age", type = "brew", bundles = [...] }]   # type: brew | cask | mas
+                                                          # mas entries also carry id = <integer>
+```
+
+Invariants, all asserted in `tests/packages.bats`: every bundle a package or tap names is in `catalog`; `mas` entries carry an integer `id` and nothing else does; no `(type, name)` appears twice; and a tapped formula's tap is enabled in every bundle the formula is, or it renders with nothing to install it from. The render emits taps first at column 0, because `brew bundle` walks the file in order, and the installer finds taps to trust with `awk '/^tap /'`.
+
+Bundles are a refinement of the `machine_role` conditionals they replaced: each one sits entirely inside one of ungated / not-on-client / work-only, which is what lets the three role defaults reproduce the old per-role renders exactly (91 / 77 / 84 entries). _(.chezmoidata.toml, .chezmoitemplates/Brewfile, .chezmoitemplates/bundles; GitHub #4)_
+
+## Enabled bundles (`.chezmoitemplates/bundles`)
+Resolves which bundles a machine has on and emits them as a JSON array, so the shell side can pass it straight to `jq --argjson`. Reads `bundles` from `[data]` if the key is present, else falls back to a per-role default. Two spellings matter: `hasKey . "bundles"` rather than `| default`, because an empty list is falsy in Go templates and `default` would silently restore the whole role default; and `get . "machine_role"` rather than `.machine_role`, because a direct dereference aborts when rendering against a fixture config. The role→bundles map is duplicated in `.chezmoi.toml.tmpl`, which needs it at prompt time; prompt functions only exist while the config renders. _(.chezmoitemplates/bundles, .chezmoi.toml.tmpl)_
 
 ## Extension lists
 `dot_config/vscode-extensions.txt` and `dot_config/raycast-extensions.txt` are newline-delimited id lists (leading `#` and blank lines skipped) consumed by `run_onchange_` installers on `chezmoi apply`. _(README.md "Editor"/"Apps")_ `dotfiles-sync` regenerates the VS Code list as a full snapshot of installed extensions; both lists are additive on `chezmoi apply` (removals aren't propagated — see `dotfiles-doctor`).
 
 ## chezmoi template data
-`.chezmoi.toml.tmpl` `[data]` exposes three variables to every `.tmpl`: `machine_role` (work/client/personal), `email`, `name`. _(.chezmoi.toml.tmpl)_
+`.chezmoi.toml.tmpl` `[data]` exposes to every `.tmpl`: `machine_role` (work/client/personal), `email`, `name`, `sync_schedule` (workday/evening/both/off), the `sync_times` table, and `bundles`. Anything added after a machine last ran `chezmoi init` is absent from that machine's config until it re-inits, so read the newer keys through `hasKey`/`get` with a fallback rather than dereferencing them. `.chezmoidata.toml` merges into the same namespace under `[pkg]`, but `[data]` wins on a collision. _(.chezmoi.toml.tmpl, .chezmoidata.toml)_
 
 ## Teardown declarations
 `# teardown:<class> <path>`, one per line in a script's header comment. `<class>` is `secret` (removed at the default teardown level), `data` (`--full` only), or `none` (the script leaves nothing behind). `<path>` is literal and uses `~`, expanded by the consumer, so no template rendering is needed to read it; `none` takes no path. Two consumers: `dotfiles-teardown` greps `run_*` and `dot_local/bin/*` with `-I` so it skips the binaries in there, and treats an unrecognized class as a hard error rather than a silent skip; `dotfiles-doctor` requires a declaration on every `run_*` script and reports the ones missing it. _(dot_local/bin/executable_dotfiles-teardown.tmpl, dot_local/bin/executable_dotfiles-doctor)_

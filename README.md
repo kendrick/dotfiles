@@ -49,7 +49,7 @@ chezmoi edit ~/.config/zsh/aliases.zsh   # edit the source
 chezmoi apply                            # deploy it
 ```
 
-Or edit the live file and pull it back with `chezmoi re-add ~/.config/zsh/aliases.zsh`. Editing the Brewfile, the VS Code list, or the Raycast list and running `chezmoi apply` re-runs the matching installer on its own.
+Or edit the live file and pull it back with `chezmoi re-add ~/.config/zsh/aliases.zsh`. Editing the package registry, the VS Code list, or the Raycast list and running `chezmoi apply` re-runs the matching installer on its own.
 
 To capture and commit in one step, skip the manual `chezmoi cd && git commit` and run `dotfiles-sync` instead (see [Keeping Machines in Sync](#keeping-machines-in-sync)).
 
@@ -61,7 +61,7 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 | Git          | delta pager, the aliases I actually use, `g*` shell shortcuts (`gco`, `gd`, `gs`)                  | `~/.config/git/`, `~/.gitconfig`                |
 | Terminal     | Ghostty. Synthwave Everything (dark), Light Owl (light); FantasqueSansM Nerd Font 14px             | `~/.config/ghostty/config`                      |
 | Editor       | VS Code settings, keybindings, snippets; extensions from a tracked text list                       | `~/Library/Application Support/Code/User/`      |
-| Apps         | Brewfile: formulae, casks, Mac App Store apps, some gated by machine role                          | `.chezmoitemplates/Brewfile`                    |
+| Apps         | Formulae, casks, and Mac App Store apps, each filed into bundles a machine opts into               | `.chezmoidata.toml`                             |
 | Node         | nvm (via Homebrew), default floored at 24, pnpm through corepack, two globals lists                | `~/.config/npm-globals.txt`, `pnpm-globals.txt` |
 | Scripts      | custom bins on `$PATH`                                                                             | `~/.local/bin/`                                 |
 | macOS        | one-time `defaults write` for Finder, Dock, screenshots                                            | `run_once_after_configure-macos.sh`             |
@@ -71,7 +71,7 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 <details>
 <summary>Scripts in <code>~/.local/bin</code></summary>
 
-`awssso`, `cless`, `cscreen`, `dotfiles-doctor`, `dotfiles-sync`, `dotfiles-undo`, `draw`, `e`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`
+`awssso`, `cless`, `cscreen`, `dotfiles-doctor`, `dotfiles-sync`, `dotfiles-teardown`, `dotfiles-undo`, `draw`, `e`, `font`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`
 
 </details>
 
@@ -88,13 +88,35 @@ This repo's own `.claude/skills/` is separate: it holds the project-scoped worki
 
 ## Machine Roles
 
-chezmoi prompts for a role on first init. Role and email live in `~/.config/chezmoi/chezmoi.toml` and never hit the repo.
+chezmoi prompts for a role on first init. Role and email live in `~/.config/chezmoi/chezmoi.toml` and never hit the repo. The role still drives a few things directly—the auto-sync default, whether `awssso` gets deployed—but for packages it only picks a starting set of bundles.
 
-| Role       | What's different                                         |
-| ---------- | -------------------------------------------------------- |
-| `work`     | AWS CLI tooling, work-only brew packages, Claude Desktop |
-| `client`   | Minimal: no Claude Desktop, no work packages             |
-| `personal` | Screen Studio, superwhisper, codex                       |
+### Package Bundles
+
+Every package in `.chezmoidata.toml` declares which bundles it belongs to, and a machine installs the union of the bundles it has turned on. `.chezmoitemplates/Brewfile` renders a Brewfile from that on each apply; there's no flat list to maintain.
+
+| Bundle          | What's in it                                                            |
+| --------------- | ----------------------------------------------------------------------- |
+| `core`          | the CLI base, 1Password, Ghostty, Raycast, VS Code, Slack, Zoom         |
+| `fonts`         | the `font` command's roster, all 13 casks                               |
+| `dev`           | toolchains and build tools: go, nvm, cmake, pre-commit                  |
+| `browsers`      | Brave, Chrome, Edge, Firefox                                            |
+| `media`         | ffmpeg, ImageMagick, Tesseract, Spotify, Shottr, superwhisper           |
+| `office`        | pandoc, marp, Grammarly, Obsidian, TickTick                             |
+| `ai`            | Claude, Claude Code, Conductor, MacWhisper                              |
+| `personal-apps` | LibreOffice, Notion, Reader                                             |
+| `cloud`         | AWS, Azure, and Databricks CLIs, plus Deskflow and Zappy                |
+
+Roles seed the list:
+
+| Role       | Bundles on by default                                          |
+| ---------- | -------------------------------------------------------------- |
+| `client`   | `core fonts dev browsers media office`                         |
+| `personal` | those, plus `ai personal-apps`                                 |
+| `work`     | all nine                                                       |
+
+The seed is only a starting point. Edit `bundles` under `[data]` in `~/.config/chezmoi/chezmoi.toml` and re-apply, and a client machine that wants LibreOffice this one time can have it without touching the repo. Because the answer lives in config, a re-apply reproduces it and `dotfiles-doctor` reconciles against it.
+
+Moving a package between bundles is a repo edit, in `.chezmoidata.toml`. It affects every machine, which is the point.
 
 ## Keeping Machines in Sync
 
@@ -102,9 +124,9 @@ The repo is the source of truth. Change something on one machine, push it, pull 
 
 | Command             | What it does                                                                                                                             | When to run it                                 |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `dotfiles-sync`     | regenerates the VS Code list, re-adds every changed managed file, flags brew packages missing from the Brewfile, then commits and pushes | on the machine you changed                     |
+| `dotfiles-sync`     | regenerates the VS Code list, re-adds every changed managed file, flags installed packages the registry doesn't track, then commits and pushes | on the machine you changed                     |
 | `chezmoi update`    | pull, then apply                                                                                                                         | on every other machine                         |
-| `dotfiles-doctor`   | read-only drift report: installed-but-untracked, tracked-but-not-installed, and configs naming a font the Brewfile never installs        | after a `chezmoi update`                       |
+| `dotfiles-doctor`   | read-only drift report: installed-but-untracked, tracked-but-not-installed, and configs naming a font no enabled bundle installs         | after a `chezmoi update`                       |
 | `dotfiles-undo`     | panic button that reverts the most recent `[auto-sync]` commit and pushes the revert                                                     | when auto-sync captured something it shouldn't |
 | `dotfiles-teardown` | removes the secrets, and with `--full` the dotfiles and the repo too                                                                     | when handing a client machine back             |
 
@@ -156,7 +178,7 @@ The things I'll have forgotten by next quarter:
 - **A factory Mac has a fake git, and it takes the bootstrap down with it.** `/usr/bin/git` on a machine with no Command Line Tools is a stub that fires the CLT installer and exits 1. chezmoi's `useBuiltinGit` defaults to `auto`, which only checks whether `git` is on `$PATH`. The stub is, so chezmoi reaches for it and the clone dies before a single script has run. That's what `--use-builtin-git=on` is for: it routes the first clone through chezmoi's own Go git. Only that first clone needs it, since by the time you're running `chezmoi update` there's a real git.
 - **The encrypted Claude config takes two applies.** First pass can't decrypt it; the second one can. See the setup note above.
 - **The extension and package lists are additive.** `chezmoi update` only adds, so removing a package on one machine leaves the others untouched. `dotfiles-doctor` is what surfaces the drift.
-- **The Brewfile is a template, not a flat list.** It carries role conditionals, so `dotfiles-sync` won't touch it on purpose; a `brew bundle dump` over it would wipe them out. Edit `.chezmoitemplates/Brewfile` by hand.
+- **There's no Brewfile to edit.** It's rendered from `.chezmoidata.toml` on every apply. `dotfiles-sync` still won't write the registry on its own: which bundles a package belongs to is a judgement call, and a `brew bundle dump` has no way to make it.
 - **Raycast extensions stay manual.** There's no CLI to list what's installed.
 - **The skills lockfile only tracks what went through the `skills` wrapper**, and restore always pulls each skill at its source's latest (no pinned-hash restore), so an upstream change can ride along. Worth a reconcile pass now and then.
 
@@ -167,7 +189,7 @@ chezmoi runs scripts based on naming conventions:
 | Prefix                       | Runs                                  | Used for                                                            |
 | ---------------------------- | ------------------------------------- | ------------------------------------------------------------------- |
 | `run_once_`                  | once per machine                      | Homebrew/Xcode install, macOS defaults                              |
-| `run_onchange_`              | whenever the script's content changes | Brewfile, VS Code + Raycast lists, node globals                     |
+| `run_onchange_`              | whenever the script's content changes | packages, VS Code + Raycast lists, node globals                     |
 | `run_before_` / `run_after_` | around the file-copy step             | age-key fetch (before); node, Claude plugins, skill restore (after) |
 
 ## Layout
@@ -189,7 +211,7 @@ chezmoi runs scripts based on naming conventions:
 ~/.local/share/chezmoi/         # source of truth (this repo)
 ```
 
-The Brewfile is the exception. It lives in the source repo at `.chezmoitemplates/Brewfile`, not under `~/.config/`, because the installer renders it inline rather than deploying it as a dotfile.
+Packages are the exception. They live in the source repo at `.chezmoidata.toml`, not under `~/.config/`, because the installer renders a Brewfile from them inline rather than deploying one as a dotfile.
 
 ---
 

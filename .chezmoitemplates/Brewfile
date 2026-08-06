@@ -1,132 +1,27 @@
-tap "romkatv/powerlevel10k"
-tap "fkhadra/cli"
+{{- /* Generated from .chezmoidata.toml. Nothing to edit here: add or move a package there
+       and re-apply. Emitted in tap, brew, cask, mas order: `brew bundle` walks the file
+       top to bottom, so a tapped formula whose tap hasn't been declared yet fails, and
+       run_onchange_install-packages.sh.tmpl trusts taps by scanning for lines matching
+       `^tap `, which means they have to land at column 0. Both are asserted in
+       tests/packages.bats.
 
-# Core utilities
-brew "age"
-brew "bats-core"
-brew "chezmoi"
-brew "coreutils"
-brew "eza"
-brew "ffmpeg"
-brew "gh"
-brew "git-cliff"
-brew "git-delta"
-brew "git-extras"
-brew "git-filter-repo"
-brew "glow"
-brew "go"
-brew "imagemagick"
-brew "jq"
-brew "marp-cli"
-brew "mas"
-brew "mole"
-brew "nvm"
-brew "p7zip"
-brew "pandoc"
-brew "powershell"
-brew "powerlevel10k"
-brew "pre-commit"
-brew "procs"
-brew "repomix"
-brew "rtk"
-brew "shellcheck"
-brew "tesseract"
-brew "uv"
-brew "wget"
-brew "z"
-brew "fkhadra/cli/caniuse"
-
-# Build tools
-brew "ccat"
-brew "chroma"
-brew "cmake"
-
-brew "specify"
-tap "sbcinnovation/tap"
-brew "sbcinnovation/tap/squoosh"
-
-{{ if eq .machine_role "work" -}}
-# Work machine packages
-tap "databricks/tap"
-brew "aws-amplify"
-brew "awscli"
-brew "databricks/tap/databricks"
-{{ end -}}
-
-# Fonts
-# The `font` command's roster, ungated by machine role, because a client machine wants
-# readable code too. Every family named in dot_config/font/registry.json comes from a cask
-# here, or the switch writes a family macOS silently substitutes for and you find out from
-# a terminal full of replacement boxes. Fonts live in homebrew/cask now; the old
-# homebrew/cask-fonts tap was folded in, so no tap line is needed.
-#
-# Cask names don't track family names, and the near misses are plausible enough to install
-# without noticing: font-monaspice-* yields MonaspiceNe, font-caskaydia-cove-* yields
-# CaskaydiaCove, and Maple's -nl casks mean "no ligatures", which would quietly defeat the
-# one thing every font on this list was picked for. See _working-memory/dataContracts.md.
-
-# Tier A, patched Nerd Font statics. These are what the terminals use: icons come baked in,
-# so there's no fallback chain to get wrong. Two of them cover two roster keys each, since
-# monaspice ships Neon and Xenon and recursive-mono ships Casual and Linear.
-cask "font-caskaydia-cove-nerd-font"
-cask "font-fantasque-sans-mono-nerd-font"
-cask "font-lilex-nerd-font"
-cask "font-maple-mono-nf"
-cask "font-monaspice-nerd-font"
-cask "font-recursive-mono-nerd-font"
-cask "font-victor-mono-nerd-font"
-
-# Tier B, the unpatched variable builds VS Code uses instead. The patcher can't round-trip
-# fvar/gvar, so patched-or-variable is a real either/or rather than a preference; the axes
-# are worth having in the editor and worth nothing in Ghostty. Icons come from the
-# symbols-only family below, which every Tier B editor entry names as its fallback.
-cask "font-cascadia-code"
-cask "font-lilex"
-cask "font-maple-mono"
-cask "font-monaspace-var"
-cask "font-recursive"
-cask "font-symbols-only-nerd-font"
-
-# Cask apps — universal
-cask "1password"
-cask "1password-cli"
-cask "brave-browser"
-cask "firefox"
-cask "ghostty"
-cask "glance-chamburr"
-cask "grammarly-desktop"
-cask "google-chrome"
-cask "jordanbaird-ice"
-cask "microsoft-edge"
-cask "obsidian"
-cask "raycast"
-cask "screen-studio"
-cask "slack"
-cask "spotify"
-cask "ticktick"
-cask "shottr"
-cask "superwhisper"
-cask "visual-studio-code"
-cask "zoom"
-
-{{ if ne .machine_role "client" -}}
-# Not on client machines
-cask "claude"
-cask "claude-code@latest"
-cask "conductor"
-cask "libreoffice"
-cask "macwhisper"
-cask "notion"
-cask "reader"
-{{ end -}}
-
-{{ if eq .machine_role "work" -}}
-brew "azure-cli"
-cask "deskflow"
-cask "zappy"
-{{ end -}}
-
-# Mac App Store
-mas "ColorSlurp", id: 1287239339
-mas "Hidden Bar", id: 1452453066
-mas "Presentify", id: 1507246666
+       Built by appending to a list and joining at the end rather than emitting inside the
+       loops. Every line then starts at column 0 by construction instead of by getting the
+       {{- -}} trimming right in eight places. */ -}}
+{{- $enabled := includeTemplate "bundles" . | fromJson -}}
+{{- $lines := list -}}
+{{- range $t := .pkg.taps -}}
+{{-   $hit := false -}}
+{{-   range $b := $t.bundles }}{{ if has $b $enabled }}{{ $hit = true }}{{ end }}{{ end -}}
+{{-   if $hit }}{{ $lines = append $lines (printf "tap \"%s\"" $t.name) }}{{ end -}}
+{{- end -}}
+{{- $on := list -}}
+{{- range $p := .pkg.packages -}}
+{{-   $hit := false -}}
+{{-   range $b := $p.bundles }}{{ if has $b $enabled }}{{ $hit = true }}{{ end }}{{ end -}}
+{{-   if $hit }}{{ $on = append $on $p }}{{ end -}}
+{{- end -}}
+{{- range $p := $on }}{{ if eq $p.type "brew" }}{{ $lines = append $lines (printf "brew \"%s\"" $p.name) }}{{ end }}{{ end -}}
+{{- range $p := $on }}{{ if eq $p.type "cask" }}{{ $lines = append $lines (printf "cask \"%s\"" $p.name) }}{{ end }}{{ end -}}
+{{- range $p := $on }}{{ if eq $p.type "mas" }}{{ $lines = append $lines (printf "mas \"%s\", id: %d" $p.name $p.id) }}{{ end }}{{ end -}}
+{{ join "\n" $lines }}

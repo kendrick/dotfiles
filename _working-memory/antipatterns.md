@@ -14,6 +14,12 @@
 <!-- The last line is the agent-targeted lever. Be specific. "Don't suggest    -->
 <!-- moving X to Y" beats "don't suggest big refactors."                       -->
 
+## 2026-08-06 — Don't dump packages over the registry, and don't hand-edit the rendered Brewfile
+**Tried:** Nothing new broke. This scopes the 2026-06-07 entry below, whose reasoning stopped being true when GitHub #4 landed.
+**What broke:** That entry says not to dump the Brewfile because it's a template with `machine_role` guards. There are no guards left. `.chezmoitemplates/Brewfile` holds no package names at all, and the Brewfile never exists on disk. The conclusion survives its reasoning: `brew bundle dump` produces a flat list, and which bundles a package belongs to is a judgement nothing in Homebrew's output encodes.
+**Why we backed out:** `dotfiles-sync` and `dotfiles-doctor` still only report. A tool that files a package into a bundle is wanted, and is GitHub #5, but it writes `.chezmoidata.toml` after asking, not by dumping.
+**Don't suggest:** Auto-dumping into `.chezmoidata.toml`. Editing `.chezmoitemplates/Brewfile` to add a package: it's a render, and the edit vanishes on the next apply. Reading Brewfile text to find out what's tracked; ask `chezmoi execute-template` for `.pkg.packages` instead.
+
 ## 2026-08-05 — Don't decide a font has ligatures from its GSUB feature tags
 **Tried:** Two cheap proxies for "is this font ligature-bearing," which the roster requires of every entry. First the feature tags (`calt`, `liga`, `dlig`, `rlig`), then a count of GSUB type 4 `LigatureSubst` rules when the tags proved too loose.
 **What broke:** Both are wrong in opposite directions. SF Mono carries a `calt` tag that substitutes nothing, so tags alone would have admitted a font with no ligatures at all. The rule count then reported Fantasque and Recursive as having none — Fantasque being a font whose ligatures had been watched rendering on screen minutes earlier. Both implement ligatures as chained contextual substitutions rather than type 4, so the count reads zero for fonts that ligate perfectly well.

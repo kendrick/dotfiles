@@ -18,6 +18,17 @@
 {{- else if eq $machineRole "personal" -}}{{- $syncDefault = "evening" -}}{{- end -}}
 {{- $syncSchedule := promptChoiceOnce . "sync_schedule" "Auto-sync schedule (workday/evening/both/off)" (list "workday" "evening" "both" "off") $syncDefault -}}
 
+{{- /* Which package bundles this machine installs. Default per role; the prompt lets any
+       machine override, and [data] bundles below stays editable afterward. The same map
+       lives in .chezmoitemplates/bundles, which answers this at render time for machines
+       that predate the key. Prompt functions only exist while this file renders, so the
+       duplication is unavoidable: change one, change the other. */ -}}
+{{- $bundleCatalog := list "core" "fonts" "dev" "browsers" "media" "office" "ai" "personal-apps" "cloud" -}}
+{{- $bundleDefault := list "core" "fonts" "dev" "browsers" "media" "office" -}}
+{{- if eq $machineRole "personal" -}}{{- $bundleDefault = concat $bundleDefault (list "ai" "personal-apps") -}}
+{{- else if eq $machineRole "work" -}}{{- $bundleDefault = concat $bundleDefault (list "ai" "personal-apps" "cloud") -}}{{- end -}}
+{{- $bundles := promptMultichoiceOnce . "bundles" "Package bundles" $bundleCatalog $bundleDefault -}}
+
 encryption = "age"
 
 [data]
@@ -25,6 +36,9 @@ encryption = "age"
   email = {{ $email | quote }}
   name = "Kendrick Arnett"
   sync_schedule = {{ $syncSchedule | quote }}
+  # Packages this machine installs, by bundle. Edit and re-apply to add or drop one;
+  # .chezmoidata.toml is what says which packages each bundle holds.
+  bundles = {{ $bundles | toJson }}
   # Clock times the schedule presets draw from. Edit here and re-apply to reschedule.
   [data.sync_times]
     workday_start = "10:00"

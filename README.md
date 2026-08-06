@@ -114,7 +114,9 @@ Roles seed the list:
 | `personal` | those, plus `ai personal-apps`                                 |
 | `work`     | all nine                                                       |
 
-The seed is only a starting point. Edit `bundles` under `[data]` in `~/.config/chezmoi/chezmoi.toml` and re-apply, and a client machine that wants LibreOffice this one time can have it without touching the repo. Because the answer lives in config, a re-apply reproduces it and `dotfiles-doctor` reconciles against it.
+`chezmoi init` prompts for the list with the role's defaults preselected, and writes the answer to `bundles` under `[data]` in `~/.config/chezmoi/chezmoi.toml`. The seed is only a starting point: edit that list and re-apply, and a client machine that wants LibreOffice this one time can have it without touching the repo. Because the answer lives in config, a re-apply reproduces it and `dotfiles-doctor` reconciles against it.
+
+A machine that hasn't re-run `chezmoi init` since bundles landed has no `bundles` key, so it falls back to its role's defaults and installs exactly what it did before. chezmoi will warn on every apply that the config template changed; `chezmoi init` once clears it and keeps every other answer you already gave.
 
 Moving a package between bundles is a repo edit, in `.chezmoidata.toml`. It affects every machine, which is the point.
 

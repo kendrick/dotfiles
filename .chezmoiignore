@@ -22,7 +22,8 @@ tests
 
 # ~/.config/Brewfile isn't deployed: the package installer renders the Brewfile
 # inline (brew bundle --file=/dev/stdin), so a deployed copy just goes stale and
-# unused. The real data lives in .chezmoitemplates/Brewfile.
+# unused. The real data lives in .chezmoidata.toml, which chezmoi never deploys
+# either, because source entries starting with a dot have no target at all.
 .config/Brewfile
 
 # Claude Desktop — device-specific state, don't sync

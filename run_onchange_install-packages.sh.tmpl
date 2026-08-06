@@ -1,6 +1,8 @@
 #!/bin/bash
-# Brewfile hash: {{ include ".chezmoitemplates/Brewfile" | sha256sum }}
-# Re-runs whenever the Brewfile content changes.
+# Brewfile hash: {{ includeTemplate "Brewfile" . | sha256sum }}
+# Re-runs whenever the rendered Brewfile changes. Hashing the render rather than the
+# template file is what makes this react to .chezmoidata.toml edits and to a machine
+# turning a bundle on or off. The template itself now holds no package names at all.
 #
 # Installs apps. Teardown deliberately stops short of uninstalling them.
 #

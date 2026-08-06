@@ -1,0 +1,171 @@
+# Package registry. One entry per package, declaring which bundles it belongs to;
+# .chezmoitemplates/Brewfile renders a Brewfile from this, filtered to the bundles
+# this machine turned on. A machine's list lives in chezmoi.toml under [data] bundles,
+# seeded from the role at init. .chezmoitemplates/bundles resolves the effective list.
+#
+# Source-only: chezmoi never deploys a source entry whose name starts with a dot, so
+# this file has no target and needs no .chezmoiignore line.
+#
+# Everything hangs off [pkg] rather than sitting at the top level because [data] in
+# chezmoi.toml outranks .chezmoidata. A top-level `bundles` key here would be shadowed
+# by the machine's own selection, silently and with no error to notice.
+
+[pkg]
+
+# The vocabulary. A bundle named by a package but missing here fails tests/packages.bats.
+#
+#   core           the CLI base and the apps every machine needs
+#   fonts          the `font` roster, in every role's defaults (a client machine wants readable code too)
+#   dev            toolchains and build tools
+#   browsers       all four, because testing
+#   media          audio, video, images, screenshots
+#   office         documents, notes, writing
+#   ai             off on client machines
+#   personal-apps  the rest of what client machines skip; see the note below
+#   cloud          work-only
+catalog = ["core", "fonts", "dev", "browsers", "media", "office", "ai", "personal-apps", "cloud"]
+
+# personal-apps is a holding pen, not a category. It holds what's left of the old
+# `ne client` gate once the AI apps are pulled out of it. The bundles exist to preserve
+# today's per-role behavior exactly; redistributing these three by topic is a later,
+# visible change rather than something to slip in during the move to data.
+
+taps = [
+  { name = "romkatv/powerlevel10k", bundles = ["core"] },
+  { name = "fkhadra/cli",           bundles = ["core"] },
+  # Tagged with the bundle of its only formula so the tap and squoosh switch together.
+  { name = "sbcinnovation/tap",     bundles = ["dev"] },
+  { name = "databricks/tap",        bundles = ["cloud"] },
+]
+
+packages = [
+  # ---- core ----
+  { name = "age",                  type = "brew", bundles = ["core"] },
+  { name = "bats-core",            type = "brew", bundles = ["core"] },
+  { name = "chezmoi",              type = "brew", bundles = ["core"] },
+  { name = "coreutils",            type = "brew", bundles = ["core"] },
+  { name = "eza",                  type = "brew", bundles = ["core"] },
+  { name = "gh",                   type = "brew", bundles = ["core"] },
+  { name = "git-cliff",            type = "brew", bundles = ["core"] },
+  { name = "git-delta",            type = "brew", bundles = ["core"] },
+  { name = "git-extras",           type = "brew", bundles = ["core"] },
+  { name = "git-filter-repo",      type = "brew", bundles = ["core"] },
+  { name = "jq",                   type = "brew", bundles = ["core"] },
+  { name = "mas",                  type = "brew", bundles = ["core"] },
+  { name = "mole",                 type = "brew", bundles = ["core"] },
+  { name = "p7zip",                type = "brew", bundles = ["core"] },
+  { name = "powerlevel10k",        type = "brew", bundles = ["core"] },
+  { name = "procs",                type = "brew", bundles = ["core"] },
+  { name = "rtk",                  type = "brew", bundles = ["core"] },
+  { name = "shellcheck",           type = "brew", bundles = ["core"] },
+  { name = "uv",                   type = "brew", bundles = ["core"] },
+  { name = "wget",                 type = "brew", bundles = ["core"] },
+  { name = "z",                    type = "brew", bundles = ["core"] },
+  { name = "fkhadra/cli/caniuse",  type = "brew", bundles = ["core"] },
+  { name = "1password",            type = "cask", bundles = ["core"] },
+  { name = "1password-cli",        type = "cask", bundles = ["core"] },
+  { name = "ghostty",              type = "cask", bundles = ["core"] },
+  { name = "glance-chamburr",      type = "cask", bundles = ["core"] },
+  { name = "jordanbaird-ice",      type = "cask", bundles = ["core"] },
+  { name = "raycast",              type = "cask", bundles = ["core"] },
+  { name = "slack",                type = "cask", bundles = ["core"] },
+  { name = "visual-studio-code",   type = "cask", bundles = ["core"] },
+  { name = "zoom",                 type = "cask", bundles = ["core"] },
+  { name = "Hidden Bar",           type = "mas",  id = 1452453066, bundles = ["core"] },
+
+  # ---- fonts ----
+  # The `font` command's roster. Every family named in dot_config/font/registry.json comes
+  # from a cask here, or the switch writes a family macOS silently substitutes for and you
+  # find out from a terminal full of replacement boxes. Fonts live in homebrew/cask now;
+  # the old homebrew/cask-fonts tap was folded in, so no tap line is needed.
+  #
+  # Cask names don't track family names, and the near misses are plausible enough to install
+  # without noticing: font-monaspice-* yields MonaspiceNe, font-caskaydia-cove-* yields
+  # CaskaydiaCove, and Maple's -nl casks mean "no ligatures", which would quietly defeat the
+  # one thing every font on this list was picked for. See _working-memory/dataContracts.md.
+
+  # Tier A, patched Nerd Font statics. These are what the terminals use: icons come baked in,
+  # so there's no fallback chain to get wrong. Two of them cover two roster keys each, since
+  # monaspice ships Neon and Xenon and recursive-mono ships Casual and Linear.
+  { name = "font-caskaydia-cove-nerd-font",     type = "cask", bundles = ["fonts"] },
+  { name = "font-fantasque-sans-mono-nerd-font", type = "cask", bundles = ["fonts"] },
+  { name = "font-lilex-nerd-font",              type = "cask", bundles = ["fonts"] },
+  { name = "font-maple-mono-nf",                type = "cask", bundles = ["fonts"] },
+  { name = "font-monaspice-nerd-font",          type = "cask", bundles = ["fonts"] },
+  { name = "font-recursive-mono-nerd-font",     type = "cask", bundles = ["fonts"] },
+  { name = "font-victor-mono-nerd-font",        type = "cask", bundles = ["fonts"] },
+
+  # Tier B, the unpatched variable builds VS Code uses instead. The patcher can't round-trip
+  # fvar/gvar, so patched-or-variable is a real either/or rather than a preference; the axes
+  # are worth having in the editor and worth nothing in Ghostty. Icons come from the
+  # symbols-only family below, which every Tier B editor entry names as its fallback.
+  { name = "font-cascadia-code",            type = "cask", bundles = ["fonts"] },
+  { name = "font-lilex",                    type = "cask", bundles = ["fonts"] },
+  { name = "font-maple-mono",               type = "cask", bundles = ["fonts"] },
+  { name = "font-monaspace-var",            type = "cask", bundles = ["fonts"] },
+  { name = "font-recursive",                type = "cask", bundles = ["fonts"] },
+  { name = "font-symbols-only-nerd-font",   type = "cask", bundles = ["fonts"] },
+
+  # ---- dev ----
+  { name = "ccat",                        type = "brew", bundles = ["dev"] },
+  { name = "chroma",                      type = "brew", bundles = ["dev"] },
+  { name = "cmake",                       type = "brew", bundles = ["dev"] },
+  { name = "go",                          type = "brew", bundles = ["dev"] },
+  { name = "nvm",                         type = "brew", bundles = ["dev"] },
+  { name = "pre-commit",                  type = "brew", bundles = ["dev"] },
+  { name = "repomix",                     type = "brew", bundles = ["dev"] },
+  { name = "specify",                     type = "brew", bundles = ["dev"] },
+  { name = "sbcinnovation/tap/squoosh",   type = "brew", bundles = ["dev"] },
+
+  # ---- browsers ----
+  { name = "brave-browser",  type = "cask", bundles = ["browsers"] },
+  { name = "firefox",        type = "cask", bundles = ["browsers"] },
+  { name = "google-chrome",  type = "cask", bundles = ["browsers"] },
+  { name = "microsoft-edge", type = "cask", bundles = ["browsers"] },
+
+  # ---- media ----
+  # superwhisper sits here rather than in `ai` because it's ungated today and `ai` is not.
+  # macwhisper, the one the old template did gate, is in `ai`. That split looks arbitrary
+  # because it is: the two were treated differently before this file existed. Preserved
+  # rather than quietly reconciled.
+  { name = "ffmpeg",        type = "brew", bundles = ["media"] },
+  { name = "imagemagick",   type = "brew", bundles = ["media"] },
+  { name = "tesseract",     type = "brew", bundles = ["media"] },
+  { name = "screen-studio", type = "cask", bundles = ["media"] },
+  { name = "shottr",        type = "cask", bundles = ["media"] },
+  { name = "spotify",       type = "cask", bundles = ["media"] },
+  { name = "superwhisper",  type = "cask", bundles = ["media"] },
+  { name = "ColorSlurp",    type = "mas",  id = 1287239339, bundles = ["media"] },
+  { name = "Presentify",    type = "mas",  id = 1507246666, bundles = ["media"] },
+
+  # ---- office ----
+  { name = "glow",              type = "brew", bundles = ["office"] },
+  { name = "marp-cli",          type = "brew", bundles = ["office"] },
+  { name = "pandoc",            type = "brew", bundles = ["office"] },
+  { name = "powershell",        type = "brew", bundles = ["office"] },
+  { name = "grammarly-desktop", type = "cask", bundles = ["office"] },
+  { name = "obsidian",          type = "cask", bundles = ["office"] },
+  { name = "ticktick",          type = "cask", bundles = ["office"] },
+
+  # ---- ai ----
+  { name = "claude",             type = "cask", bundles = ["ai"] },
+  { name = "claude-code@latest", type = "cask", bundles = ["ai"] },
+  { name = "conductor",          type = "cask", bundles = ["ai"] },
+  { name = "macwhisper",         type = "cask", bundles = ["ai"] },
+
+  # ---- personal-apps ----
+  { name = "libreoffice", type = "cask", bundles = ["personal-apps"] },
+  { name = "notion",      type = "cask", bundles = ["personal-apps"] },
+  { name = "reader",      type = "cask", bundles = ["personal-apps"] },
+
+  # ---- cloud ----
+  # deskflow and zappy are here because they're work-only, not because they're cloud tools.
+  # They rode along in the old `eq work` block; giving them their own bundle would be a
+  # tenth name for two casks.
+  { name = "aws-amplify",                 type = "brew", bundles = ["cloud"] },
+  { name = "awscli",                      type = "brew", bundles = ["cloud"] },
+  { name = "azure-cli",                   type = "brew", bundles = ["cloud"] },
+  { name = "databricks/tap/databricks",   type = "brew", bundles = ["cloud"] },
+  { name = "deskflow",                    type = "cask", bundles = ["cloud"] },
+  { name = "zappy",                       type = "cask", bundles = ["cloud"] },
+]

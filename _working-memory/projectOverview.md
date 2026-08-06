@@ -6,19 +6,19 @@ Personal macOS dotfiles managed by [chezmoi](https://chezmoi.io) — one command
 ## Stack
 - Manager: chezmoi (dotfile management + Go text/template)
 - Shell: zsh (Powerlevel10k prompt, Znap plugin manager)
-- Packages: Homebrew via Brewfile (formulae, casks, `mas` App Store apps)
+- Packages: Homebrew, from a registry in `.chezmoidata.toml` rendered into a Brewfile per machine
 - Setup: bash scripts run by chezmoi naming convention
 - Templating: Go templates (`.tmpl`) keyed on machine role
 - No application language runtime — this is a config repo, not an app.
 
 ## Repository Structure
 Source of truth is this repo at `~/.local/share/chezmoi`. Deployed targets:
-- `~/.config/` — zsh, git, ghostty, gh (XDG layout). Brewfile + VS Code ext list are source-only data, not deployed.
+- `~/.config/` — zsh, git, ghostty, gh (XDG layout). The package registry + VS Code ext list are source-only data, not deployed.
 - `~/.local/bin/` — custom scripts, on `$PATH`
 - `~/Library/Application Support/` — VS Code, Claude Desktop
 - `~/.config/chezmoi/chezmoi.toml` — local-only machine role + email, never committed
 
-`.chezmoitemplates/` holds partials that are never deployed anywhere: the Brewfile (data, rendered inline by the installer) and `sh-ui.sh` (shared bash helpers, included by the before-phase scripts). It isn't only a data directory.
+`.chezmoitemplates/` holds partials that are never deployed anywhere: the Brewfile (rendered inline by the installer from `.chezmoidata.toml`), `bundles` (which package bundles this machine has on), and `sh-ui.sh` (shared bash helpers, included by the before-phase scripts). It isn't only a data directory.
 
 _(README.md "Layout"; git ls-files)_
 

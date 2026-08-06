@@ -7,8 +7,9 @@
 # ~/.local/state/dotfiles/last-sync.log for forensic poking.
 #
 # Deliberately NOT doing:
-#   - Auto-editing the Brewfile. It's a chezmoi template with machine-role guards
-#     that a flat `brew bundle dump` would erase. Drift gets noted in the log.
+#   - Auto-editing the package registry. Which bundles a package belongs to is a
+#     judgement a flat `brew bundle dump` has no way to make and would erase.
+#     Drift gets noted in the log; dotfiles-apps is where you act on it.
 #   - Capturing Raycast extensions. No CLI for listing them.
 #   - Touching anything in ~/.config/gh. Auth tokens stay in $HOME only.
 
@@ -75,21 +76,29 @@ else
   echo "    none"
 fi
 
-# ---- Phase: Brewfile drift report (read-only; never edits) ----
-echo "==> Brewfile drift (installed but not in template; edit by hand if you want it tracked)"
-if command -v brew &>/dev/null; then
-  brewfile="$SRC/.chezmoitemplates/Brewfile"
+# ---- Phase: package drift report (read-only; never edits) ----
+echo "==> Package drift (installed but untracked; file it into a bundle if you want it kept)"
+if command -v brew &>/dev/null && command -v jq &>/dev/null; then
+  # Mirrors dotfiles-doctor's Homebrew section: same registry, same enabled-bundle filter,
+  # same two spellings for tapped formulae. This one only reports the untracked direction,
+  # since a package the registry wants but hasn't installed isn't something to capture.
+  bundles="$(chezmoi execute-template '{{ template "bundles" . }}')"
+  pkgs="$(chezmoi execute-template '{{ .pkg.packages | toJson }}')"
+  tracked_brew="$(jq -r --argjson b "$bundles" '
+    .[] | select(.type == "brew") | select(.bundles | any(IN($b[])))
+    | .name, (.name | split("/") | last)' <<<"$pkgs")"
+  tracked_cask="$(jq -r --argjson b "$bundles" '
+    .[] | select(.type == "cask") | select(.bundles | any(IN($b[]))) | .name' <<<"$pkgs")"
   drift=0
   while IFS= read -r formula; do
-    name="${formula##*/}"
-    grep -qiE "[\"/]${name}\"" "$brewfile" || { echo "    + brew  $formula"; drift=1; }
+    grep -qxF "$formula" <<<"$tracked_brew" || { echo "    + brew  $formula"; drift=1; }
   done < <(brew leaves)
   while IFS= read -r cask; do
-    grep -qiE "\"${cask}\"" "$brewfile" || { echo "    + cask  $cask"; drift=1; }
+    grep -qxF "$cask" <<<"$tracked_cask" || { echo "    + cask  $cask"; drift=1; }
   done < <(brew list --cask 2>/dev/null)
-  [[ "$drift" -eq 0 ]] && echo "    none, Brewfile is in sync"
+  [[ "$drift" -eq 0 ]] && echo "    none, the registry matches what's installed"
 else
-  echo "    brew not found, skipping"
+  echo "    brew or jq not found, skipping"
 fi
 
 # ---- Phase: commit + push ----

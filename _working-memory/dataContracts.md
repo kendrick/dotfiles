@@ -16,6 +16,39 @@ Declares `tap` / `brew` / `cask` / `mas` entries. Canonical list is `.chezmoitem
 ## Teardown declarations
 `# teardown:<class> <path>`, one per line in a script's header comment. `<class>` is `secret` (removed at the default teardown level), `data` (`--full` only), or `none` (the script leaves nothing behind). `<path>` is literal and uses `~`, expanded by the consumer, so no template rendering is needed to read it; `none` takes no path. Two consumers: `dotfiles-teardown` greps `run_*` and `dot_local/bin/*` with `-I` so it skips the binaries in there, and treats an unrecognized class as a hard error rather than a silent skip; `dotfiles-doctor` requires a declaration on every `run_*` script and reports the ones missing it. _(dot_local/bin/executable_dotfiles-teardown.tmpl, dot_local/bin/executable_dotfiles-doctor)_
 
+## Font registry (`dot_config/font/registry.json`)
+The one place a font family name is allowed to appear, consumed by `dot_local/bin/executable_font` and enforced by a test that greps the script for family names. Deploys to `~/.config/font/registry.json`. One object per selectable key:
+
+```json
+{
+  "<key>": {
+    "order": 0,                 // integer, sorts the listing as the roster grows
+    "tier": "a",                // a | b | c — drives the refusal message only
+    "label": "Human Name",      // shown by `font` with no arguments
+    "size": 14,                 // default pt, overridable per invocation
+    "terminal": {
+      "family": "...",          // verbatim system_profiler string, Ghostty font-family
+      "features": "calt,liga",  // comma-separated; one Ghostty font-feature line each
+      "fallback": "..."         // optional; second font-family line for unpatched fonts
+    },
+    "editor": {
+      "family": "'A', 'B', monospace",  // VS Code editor.fontFamily, a full chain
+      "variations": "'wght' 400",       // editor.fontVariations; "" is valid for statics
+      "ligatures": "'calt', 'liga'",    // editor.fontLigatures AND the terminal's featureSettings
+      "terminalFamily": "..."           // terminal.integrated.fontFamily; a chain if a fallback is needed
+    }
+  }
+}
+```
+
+`terminal.fallback` and `editor.terminalFamily` have to agree: a font needing an icon fallback needs it named in both, or icons resolve in the editor and render as boxes in the integrated terminal. `editor.family` and `editor.terminalFamily` deliberately disagree for Tier B, since the editor keeps the variable build while the terminal takes the patched static. _(dot_config/font/registry.json, dot_local/bin/executable_font)_
+
+## Licensed font manifest (`.chezmoitemplates/licensed-fonts.txt`)
+One 1Password document item title per line; `#` comments and blank lines skipped. Source-only, read by `run_onchange_after_fetch-licensed-fonts.sh.tmpl` through a Go template include, following the npm-globals and vscode-extensions pattern. Each item is a zip of one family in the Personal vault of `my.1password.com`, tagged `fonts`, so `op item list --tags fonts` validates the manifest against what's actually fetchable. A title that isn't in the vault is skipped with a notice rather than failing the apply. _(.chezmoitemplates/licensed-fonts.txt)_
+
+## Font availability cache (`~/.cache/font/families`)
+Newline-delimited, sorted, unique `Family:` strings from `system_profiler SPFontsDataType`. Honors `XDG_CACHE_HOME`. Rebuilt when missing, older than seven days, or on `font --refresh`. An empty `system_profiler` result is never cached: it's indistinguishable from a machine with no fonts, and caching it would make every registry entry read as absent. _(dot_local/bin/executable_font)_
+
 ## Font roster: Tier A, the patched statics (Phase 0 verified facts)
 The terminal half of every `font` registry entry (#8, #12). Every family string below was copied from `system_profiler SPFontsDataType` on this machine after the cask installed, and every feature tag was read out of the font's own GSUB table. Nothing here came from documentation, because the documentation was wrong twice (see decisionLog 2026-08-05).
 

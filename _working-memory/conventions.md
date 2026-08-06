@@ -25,7 +25,19 @@
 - Don't add paths to a central list in the teardown script. Anything chezmoi can enumerate should be queried from chezmoi; anything it can't should be declared where it's created. _(decisionLog 2026-08-05)_
 
 ## Config-to-package coupling
-- When a managed config names an external resource by string (a font family, a binary, a theme), the Brewfile needs a matching entry. Nothing checks this today, so it fails only on a fresh machine where the resource was never hand-installed. _(dot_config/ghostty/config font-family; GitHub #7)_
+- When a managed config names an external resource by string (a font family, a binary, a theme), the Brewfile needs a matching entry. Nothing checks this today, so it fails only on a fresh machine where the resource was never hand-installed. Font families now go through `dot_config/font/registry.json` rather than being written into the configs directly, which narrows the surface to one file but doesn't close the gap. _(dot_config/font/registry.json; GitHub #7)_
+
+## Scripts that rewrite a managed config
+- Build the new content in a `mktemp` file and move it into place, so a failed run can't leave a half-written config. Then restore the target's mode: `mktemp` creates 0600, and a bare `mv` tightens the file enough that `chezmoi re-add` records it as a `private_` source entry, which renames it and turns one edit into a delete plus an add. Stat the target before the move, `chmod` after. _(dot_local/bin/executable_font `replace_preserving_mode`)_
+- Write into a marker-delimited region (`# BEGIN x (managed by \`y\`)` … `# END x`) when the rest of the file is hand-edited, and treat a missing marker as a hard error rather than guessing where the block belongs. _(dot_config/ghostty/config)_
+- Prefer an anchored line replacement over parse-and-reserialize when a formatter also owns the file. Serializing normalizes away whatever the formatter will just put back, so the file churns on every write. Anchor on the key, and fail if the anchor matches zero times or more than once. _(dot_local/bin/executable_font `write_vscode_key`, decisionLog 2026-08-05)_
+- After mutating a managed file in `$HOME`, `chezmoi re-add` it. Without that the next `chezmoi apply` reverts the change, so the script looks like it worked until it silently doesn't.
+
+## Testing scripts with bats
+- Drive the real script as a subprocess against a fake `$HOME` with its external tools stubbed on `PATH`, and assert on exit codes and resulting file bytes. Don't reach in for helper functions and don't assert on log wording: what matters is what the run left on disk and whether it refused when it should have. _(tests/font.bats, tests/licensed-fonts.bats)_
+- `unset XDG_CONFIG_HOME` and `XDG_CACHE_HOME` in `setup()`. Both are set on this machine, and a script honoring them goes straight back to the real `~/.config` and `~/.cache` no matter what `$HOME` says.
+- Derive expected values from the data file or the fixture, never from what a managed config currently holds. A test pinning a live setting breaks the moment the thing under test starts owning that setting, which has happened twice. _(tests/font.bats)_
+- Stub anything slow or machine-dependent (`system_profiler` takes ten seconds and answers about whichever machine is running the suite) and have the stub log its invocations, which is the only way to assert a cache was actually used.
 
 ## Error Handling
 - Setup scripts use `set -e` for fail-fast, with two deliberate exceptions: the macOS-defaults script omits it (non-fatal `defaults write` errors), and external-tool installers (`brew bundle`, `code --install-extension`, `open raycast://`) guard each call with `|| true` and skip cleanly if the CLI is absent. _(run_onchange_install-vscode-extensions.sh.tmpl, run_once_after_configure-macos.sh)_

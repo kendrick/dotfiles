@@ -44,6 +44,13 @@ EDITOR_VARIATIONS_KEY='editor.fontVariations'
 # preference; decisionLog has the long version.
 TERMINAL_FAMILY_KEY='terminal.integrated.fontFamily'
 TERMINAL_SIZE_KEY='terminal.integrated.fontSize'
+# VS Code's integrated terminal has its own ligature switch, separate from the
+# editor's and off by default, so a font can ligate in the editor and not one
+# pane over. Its featureSettings also defaults to 'calt', which does nothing for
+# the roster entries that implement ligatures under liga and dlig instead, so
+# both keys get driven from the registry rather than left at their defaults.
+TERMINAL_LIGATURES_KEY='terminal.integrated.fontLigatures.enabled'
+TERMINAL_FEATURES_KEY='terminal.integrated.fontLigatures.featureSettings'
 
 die() {
 	echo "font: $*" >&2
@@ -260,6 +267,8 @@ cmd_switch() {
 	write_vscode_key "$EDITOR_LIGATURES_KEY" "$(jq -n --arg v "$ligatures" '$v')"
 	write_vscode_key "$EDITOR_VARIATIONS_KEY" "$(jq -n --arg v "$variations" '$v')"
 	write_vscode_key "$TERMINAL_FAMILY_KEY" "$(jq -n --arg v "$terminal_family" '$v')"
+	write_vscode_key "$TERMINAL_LIGATURES_KEY" true
+	write_vscode_key "$TERMINAL_FEATURES_KEY" "$(jq -n --arg v "$ligatures" '$v')"
 	write_vscode_key "$TERMINAL_SIZE_KEY" "$size"
 
 	# Without the re-add, the next `chezmoi apply` reverts both files.

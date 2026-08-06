@@ -52,6 +52,8 @@
 	"editor.fontSize": 15,
 	"extensions.ignoreRecommendations": true,
 	"terminal.integrated.fontFamily": "FantasqueSansM Nerd Font",
+	"terminal.integrated.fontLigatures.enabled": true,
+	"terminal.integrated.fontLigatures.featureSettings": "'calt'",
 	"terminal.integrated.fontSize": 14,
 	"chat.viewSessions.orientation": "stacked",
 	"chat.disableAIFeatures": true,

@@ -173,7 +173,7 @@
 			"family": "'MonoLisa', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
 			"variations": "",
 			"ligatures": "'dlig', 'liga'",
-			"terminalFamily": "MonoLisa"
+			"terminalFamily": "'MonoLisa', 'Symbols Nerd Font Mono'"
 		}
 	},
 	"operator": {

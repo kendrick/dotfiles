@@ -434,3 +434,61 @@ keys_in_order() {
 	[ -f "$SRC/dot_config/ghostty/config" ]
 	[ -f "$SRC/private_Library/private_Application Support/Code/User/settings.json" ]
 }
+
+# Tier C fonts come from 1Password, and two of the three arrived already patched.
+# The third doesn't, which is why the terminal half needs a fallback family at
+# all: Ghostty stacks repeated font-family lines to cover codepoints the primary
+# is missing, so an unpatched font gets icons without anyone patching it.
+@test "an unpatched terminal font emits its fallback family" {
+	printf 'MonoLisa\nSymbols Nerd Font Mono\n' >>"$HOME/installed-families"
+	sort -u "$HOME/installed-families" >"$HOME/.cache/font/families"
+	run font monolisa
+	[ "$status" -eq 0 ]
+	grep -qxF 'font-family = "MonoLisa"' "$GHOSTTY"
+	grep -qxF 'font-family = "Symbols Nerd Font Mono"' "$GHOSTTY"
+	# Order matters: the fallback has to come second or it wins the codepoints.
+	[ "$(grep -n 'font-family' "$GHOSTTY" | head -1 | grep -c MonoLisa)" -eq 1 ]
+}
+
+@test "a patched terminal font emits no fallback line" {
+	run font victor
+	[ "$status" -eq 0 ]
+	[ "$(grep -c '^font-family = ' "$GHOSTTY")" -eq 1 ]
+}
+
+# MonoLisa carries dlig and liga and no calt at all, where every other font in
+# the roster leans on calt. dlig is off by default, so omitting it renders a
+# correct-looking font with the ligatures silently inactive.
+@test "MonoLisa names dlig explicitly in both halves" {
+	[ "$(jq -r '.monolisa.terminal.features' "$HOME/.config/font/registry.json")" = "dlig,liga" ]
+	[[ "$(jq -r '.monolisa.editor.ligatures' "$HOME/.config/font/registry.json")" == *"dlig"* ]]
+}
+
+@test "every Tier C entry is fetchable by a manifest line" {
+	manifest="$SRC/.chezmoitemplates/licensed-fonts.txt"
+	[ -f "$manifest" ]
+	# Three registry entries, three manifest lines. A Tier C font nobody can fetch
+	# is worse than one that isn't listed: it lists as absent forever.
+	[ "$(jq -r '[.[] | select(.tier == "c")] | length' "$HOME/.config/font/registry.json")" -eq 3 ]
+	[ "$(grep -cvE '^\s*(#|$)' "$manifest")" -eq 3 ]
+}
+
+@test "the fetch script declares its teardown class" {
+	grep -qE '^# teardown:secret ~/Library/Fonts/Licensed$' \
+		"$SRC/run_onchange_after_fetch-licensed-fonts.sh.tmpl"
+}
+
+# The whole reason Tier C goes through 1Password is that these are paid licenses
+# on a public repo. This is the test that catches a fetch script, or a person,
+# leaving bytes behind where they'd be committed.
+@test "no font bytes are tracked in the source tree" {
+	# Asks git rather than the filesystem, because the question is what would be
+	# committed. Untracked scratch in the working tree is nobody's problem.
+	cd "$SRC" || return 1
+	[ -z "$(git ls-files | grep -iE '\.(otf|ttf|zip)$')" ]
+
+	# Not a ban on .age: the repo legitimately encrypts four things already
+	# (Claude settings, two plugin manifests, npmrc). What must never appear is a
+	# font smuggled in that way, which the 1Password decision rejected outright.
+	[ -z "$(git ls-files | grep -iE '\.age$' | grep -iE 'font|mono|dank|lisa|operator')" ]
+}

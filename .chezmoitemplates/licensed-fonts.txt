@@ -1,0 +1,14 @@
+# Licensed fonts fetched from 1Password at apply time. One document item title
+# per line, matching the titles in the Personal vault of my.1password.com.
+#
+# These are paid licenses and this repo is public, so the repo carries these
+# names and never the bytes. Each item is a zip of one family.
+#
+# Verify this list against what's actually fetchable:
+#   op item list --tags fonts --vault Personal --account my.1password.com
+#
+# A name here that isn't in the vault is skipped with a notice, not an error, so
+# it's safe to list a font before you've stored it.
+Font: Dank Mono Nerd Font
+Font: MonoLisa
+Font: Operator Mono Lig Nerd Font

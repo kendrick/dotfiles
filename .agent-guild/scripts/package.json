@@ -1,0 +1,11 @@
+{
+  "name": "agent-guild-checks",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dependencies for check-a11y.mjs only. Self-installed on first run into .agent-guild/scripts/node_modules (gitignored). Every other check script is dependency-free.",
+  "type": "module",
+  "dependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "playwright": "^1.48.0"
+  }
+}

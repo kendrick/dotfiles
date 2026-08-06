@@ -1,3 +1,10 @@
 # Local-only active context (working-memory-kit)
 _working-memory/activeContext.md
 .agent-guild/state/
+
+# Python bytecode. render-verdict.py pulls validate-verdict.py in through importlib
+# (the hyphen makes it un-importable the normal way), and an importlib load writes a
+# __pycache__ entry next to the script. Running the guild's checks on any machine
+# therefore leaves bytecode the auto-sync will happily commit if left untracked.
+__pycache__/
+*.pyc

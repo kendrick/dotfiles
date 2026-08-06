@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Capture the Claude plugin manifests into chezmoi source as portable intent.
+
+`chezmoi re-add` used to do this job, but it captured the manifests verbatim, and
+the CLI writes machine-local facts into them: absolute installPaths under whichever
+home dir this box uses, resolved versions, git SHAs, install timestamps. Two machines
+that install the same plugin therefore produce two different files, so every
+concurrent auto-sync collided, and the winning side left the losing box pointing at
+an installPath that doesn't exist there.
+
+None of that is worth syncing. run_onchange_after_install-claude-plugins.sh.tmpl
+reinstalls from intent, and it reads exactly two things: each marketplace's
+source.repo, and each plugin's "<plugin>@<marketplace>" spec key. So this strips the
+manifests to that intent, sorts every key, and writes the result to source encrypted.
+Same plugins installed on two machines now means byte-identical plaintext, which is
+what actually stops the conflicts.
+
+Live ~/.claude/plugins/*.json stays CLI-owned and is no longer a chezmoi target (see
+.chezmoiignore); a fresh machine gets it back from the reinstall script, not from a
+copy of some other machine's paths.
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+LIVE = os.path.expanduser("~/.claude/plugins")
+MANIFESTS = ("installed_plugins.json", "known_marketplaces.json")
+
+
+def source_dir():
+    out = subprocess.run(
+        ["chezmoi", "source-path"], capture_output=True, text=True, check=True
+    )
+    return os.path.join(out.stdout.strip(), "dot_claude", "private_plugins")
+
+
+def sorted_dict(d):
+    return {k: d[k] for k in sorted(d)}
+
+
+def strip_marketplaces(live):
+    """Keep the repo coordinates; drop installLocation and lastUpdated."""
+    out = {}
+    for name, info in live.items():
+        source = info.get("source", {})
+        out[name] = {"source": sorted_dict(source)}
+    return sorted_dict(out)
+
+
+def strip_plugins(live):
+    """Keep the spec keys and scope; drop installPath, version, SHA, and timestamps.
+
+    scope survives because it's a real choice (user vs project), not a machine fact.
+    The reinstall script ignores the value entirely, but keeping the array shape means
+    the file still parses as what the CLI would recognize.
+    """
+    plugins = {}
+    for spec, records in live.get("plugins", {}).items():
+        kept = []
+        for record in records:
+            if "scope" in record:
+                kept.append({"scope": record["scope"]})
+        plugins[spec] = kept
+    out = {"plugins": sorted_dict(plugins)}
+    if "version" in live:
+        out["version"] = live["version"]
+    return sorted_dict(out)
+
+
+STRIPPERS = {
+    "known_marketplaces.json": strip_marketplaces,
+    "installed_plugins.json": strip_plugins,
+}
+
+
+def main():
+    try:
+        dest_dir = source_dir()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("chezmoi not available; skipping plugin capture.", file=sys.stderr)
+        return 0
+
+    for name in MANIFESTS:
+        live_path = os.path.join(LIVE, name)
+        if not os.path.exists(live_path):
+            continue
+        try:
+            with open(live_path) as fh:
+                live = json.load(fh)
+        except (json.JSONDecodeError, OSError) as exc:
+            # A half-written manifest is the CLI mid-install, not a reason to fail the
+            # whole sync. Next run catches it.
+            print(f"skipping {name}: {exc}", file=sys.stderr)
+            continue
+
+        payload = json.dumps(STRIPPERS[name](live), indent=2, sort_keys=False)
+        dest = os.path.join(dest_dir, f"encrypted_{name}.age")
+
+        # Only rewrite when the plaintext actually moved. age re-encrypts
+        # nondeterministically, so an unconditional write would churn the ciphertext
+        # and hand the auto-sync a bogus diff to commit on every single run.
+        if os.path.exists(dest):
+            current = subprocess.run(
+                ["chezmoi", "decrypt", dest], capture_output=True, text=True
+            )
+            if current.returncode == 0 and current.stdout == payload:
+                continue
+
+        encrypted = subprocess.run(
+            ["chezmoi", "encrypt"], input=payload, capture_output=True, text=True
+        )
+        if encrypted.returncode != 0:
+            print(f"failed to encrypt {name}: {encrypted.stderr}", file=sys.stderr)
+            return 1
+        with open(dest, "w") as fh:
+            fh.write(encrypted.stdout)
+        print(f"captured {name}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

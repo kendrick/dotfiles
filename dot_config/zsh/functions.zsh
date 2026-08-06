@@ -74,16 +74,20 @@ function skills() {
 }
 
 # `claude plugin ...` (install/uninstall, marketplace add/remove) rewrites
-# ~/.claude/plugins/{installed_plugins,known_marketplaces}.json. Re-add after any
-# plugin subcommand; those manifests are age-encrypted in source, so re-add
-# re-encrypts rather than leaking. The in-app /plugin menu bypasses this shell
-# wrapper, so the daily dotfiles-sync re-add stays the real safety net.
+# ~/.claude/plugins/{installed_plugins,known_marketplaces}.json. Capture the intent
+# behind that change rather than the file itself: the CLI bakes this box's absolute
+# installPaths, resolved versions, and git SHAs into those manifests, so the verbatim
+# `chezmoi re-add` this used to run gave two machines two different files and every
+# concurrent auto-sync collided on them. claude-plugins-capture strips them to the
+# repos and specs the reinstall script actually reads, which is identical everywhere.
+# The in-app /plugin menu bypasses this shell wrapper, so the daily dotfiles-sync
+# capture stays the real safety net.
 function claude() {
 	command claude "$@"
 	local rc=$?
 	case "$1" in
 		plugin)
-			chezmoi re-add ~/.claude/plugins/installed_plugins.json ~/.claude/plugins/known_marketplaces.json >/dev/null 2>&1
+			claude-plugins-capture >/dev/null 2>&1
 			;;
 	esac
 	return $rc

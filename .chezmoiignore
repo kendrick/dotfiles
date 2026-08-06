@@ -8,6 +8,13 @@ _working-memory
 scripts
 tests
 
+# Python bytecode. Importing any script under the source tree drops a __pycache__
+# beside it, and chezmoi would otherwise treat that as a target and deploy it. The
+# .gitignore entry keeps bytecode out of git; this keeps it out of $HOME, since
+# chezmoi doesn't read .gitignore.
+**/__pycache__
+**/*.pyc
+
 # Install-manifest lists: source-only data the run_onchange installers read via
 # `include`, deliberately not deployed to $HOME. The wrappers in
 # dot_config/zsh/functions.zsh rewrite the vscode/npm/pnpm lists straight into
@@ -36,14 +43,23 @@ dot_local/bin/executable_awssso
 
 # Age-encrypted Claude config. chezmoi decrypts encrypted_ targets unconditionally
 # on apply, so a fresh machine with no ~/.config/chezmoi/key.txt aborts the whole
-# run on the first one. Skip them while the key is absent and the rest of the
+# run on the first one. Skip it while the key is absent and the rest of the
 # bootstrap (brew, vscode, zsh, git, …) still lands; seed the key, re-apply, and
-# these come in on the next pass. The plugin reinstall script guards the same way.
+# it comes in on the next pass. The plugin reinstall script guards the same way.
 {{ if not (stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt")) }}
 .claude/settings.json
+{{ end }}
+
+# The plugin manifests are never deployed, in either direction of the key check above.
+# They're CLI-owned state holding this box's absolute installPaths, so applying one
+# machine's copy onto another points it at directories that don't exist there. The
+# encrypted source files remain as the portable intent record: claude-plugins-capture
+# writes them, run_onchange_after_install-claude-plugins.sh.tmpl reads them straight
+# from the source tree (`include` is unaffected by this file), and the CLI rebuilds
+# live state itself. Teardown still clears them via the reinstall script's
+# `teardown:data ~/.claude/plugins` declaration, which covers the whole directory.
 .claude/plugins/installed_plugins.json
 .claude/plugins/known_marketplaces.json
-{{ end }}
 
 # Auto-sync off: don't deploy the LaunchAgent plist. The load script also unloads and
 # removes any copy already on disk, so toggling to off actually stops the scheduled sync.

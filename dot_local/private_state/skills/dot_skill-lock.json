@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "0ab9406017344756c23da2462d2ac46372693e30",
+      "skillFolderHash": "eeac6e28a2dbdf95258068a140c110d98a6dc3ad",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-07-30T21:28:09.869Z"
+      "updatedAt": "2026-08-06T20:52:14.086Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -469,9 +469,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/wayfinder/SKILL.md",
-      "skillFolderHash": "33ed747fb30668c0e7b61698af5268c25c0d75cb",
+      "skillFolderHash": "48c3a8b0a9705d6310d37f7f9b53bcb2c55955c7",
       "installedAt": "2026-07-09T17:31:36.214Z",
-      "updatedAt": "2026-07-20T21:15:25.633Z"
+      "updatedAt": "2026-08-06T20:52:26.396Z"
     },
     "writing-great-skills": {
       "source": "mattpocock/skills",
@@ -559,9 +559,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "databricks-api/SKILL.md",
-      "skillFolderHash": "9efd9f81de00bb6438621f659df4c8aafd4d1b0b",
+      "skillFolderHash": "c7a7cd2e172e7f18e09245e8ef19f10efceac1c1",
       "installedAt": "2026-07-10T21:06:31.538Z",
-      "updatedAt": "2026-07-20T21:16:01.732Z"
+      "updatedAt": "2026-08-06T20:52:46.967Z"
     },
     "inbox-to-memory": {
       "source": "kendrick/skills",
@@ -570,7 +570,7 @@
       "skillPath": "inbox-to-memory/SKILL.md",
       "skillFolderHash": "2d35fdb80e8e258801cdc5fa2c9db39ceed9f002",
       "installedAt": "2026-07-10T21:06:31.566Z",
-      "updatedAt": "2026-07-10T21:06:31.566Z"
+      "updatedAt": "2026-08-06T20:51:41.860Z"
     },
     "readme-coauthorship": {
       "source": "kendrick/skills",
@@ -579,16 +579,25 @@
       "skillPath": "readme-coauthorship/SKILL.md",
       "skillFolderHash": "9e615741ac8a9d33135eb5eb88d06b870431f4d9",
       "installedAt": "2026-07-10T21:06:31.581Z",
-      "updatedAt": "2026-07-10T21:06:31.581Z"
+      "updatedAt": "2026-08-06T20:51:41.868Z"
     },
     "handoff": {
       "source": "kendrick/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "handoff/SKILL.md",
-      "skillFolderHash": "23661758001e47eb7b67e14268da922fed221f0a",
+      "skillFolderHash": "b699008b1e7ac9387d17d5d1b1efe7ca6e48da67",
       "installedAt": "2026-07-27T17:29:02.387Z",
-      "updatedAt": "2026-07-30T21:28:12.985Z"
+      "updatedAt": "2026-08-06T20:51:41.837Z"
+    },
+    "file-issue": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "file-issue/SKILL.md",
+      "skillFolderHash": "195a211d6b90059cb97310e416340548c9a1e3b3",
+      "installedAt": "2026-08-06T20:51:41.803Z",
+      "updatedAt": "2026-08-06T20:51:41.803Z"
     }
   },
   "dismissed": {

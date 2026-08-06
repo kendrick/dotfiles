@@ -71,7 +71,7 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 <details>
 <summary>Scripts in <code>~/.local/bin</code></summary>
 
-`awssso`, `cless`, `cscreen`, `dotfiles-doctor`, `dotfiles-sync`, `dotfiles-teardown`, `dotfiles-undo`, `draw`, `e`, `font`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`
+`awssso`, `cless`, `cscreen`, `dotfiles-apps`, `dotfiles-doctor`, `dotfiles-sync`, `dotfiles-teardown`, `dotfiles-undo`, `draw`, `e`, `font`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`
 
 </details>
 
@@ -120,6 +120,8 @@ A machine that hasn't re-run `chezmoi init` since bundles landed has no `bundles
 
 Moving a package between bundles is a repo edit, in `.chezmoidata.toml`. It affects every machine, which is the point.
 
+`dotfiles-apps` does all of this without hand-editing TOML: the bare command moves packages between bundles, `--adopt` files installed-but-untracked packages into one, and `--machine` picks which bundles this machine installs. It keeps the repo edit and the local edit on separate screens, because they look alike and don't mean the same thing. It writes, shows you the diff, and stops; you run `chezmoi apply` yourself.
+
 ## Keeping Machines in Sync
 
 The repo is the source of truth. Change something on one machine, push it, pull it down on the others.
@@ -129,6 +131,7 @@ The repo is the source of truth. Change something on one machine, push it, pull 
 | `dotfiles-sync`     | regenerates the VS Code list, re-adds every changed managed file, flags installed packages the registry doesn't track, then commits and pushes | on the machine you changed                     |
 | `chezmoi update`    | pull, then apply                                                                                                                         | on every other machine                         |
 | `dotfiles-doctor`   | read-only drift report: installed-but-untracked, tracked-but-not-installed, and configs naming a font no enabled bundle installs         | after a `chezmoi update`                       |
+| `dotfiles-apps`     | move packages between bundles, adopt untracked ones, or pick which bundles this machine installs                                          | when an app is in the wrong place              |
 | `dotfiles-undo`     | panic button that reverts the most recent `[auto-sync]` commit and pushes the revert                                                     | when auto-sync captured something it shouldn't |
 | `dotfiles-teardown` | removes the secrets, and with `--full` the dotfiles and the repo too                                                                     | when handing a client machine back             |
 

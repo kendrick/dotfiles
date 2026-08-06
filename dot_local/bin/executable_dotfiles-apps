@@ -1,0 +1,283 @@
+#!/bin/bash
+# dotfiles-apps — move packages between bundles, adopt untracked ones, and pick which
+# bundles this machine installs, without hand-editing TOML.
+#
+# Two files, two blast radii, and conflating them is the mistake this tool exists to make
+# hard. `.chezmoidata.toml` says which bundle each package belongs to: it's in the repo, it
+# gets committed, and it changes every machine you own. `chezmoi.toml` says which bundles
+# this machine installs: it's local, never committed, and changes nothing else. So the
+# repo edits live under the default command and --adopt, the local edit lives under
+# --machine, and no screen ever mixes the two.
+#
+# Writes nothing you can't undo: everything under .chezmoidata.toml is git-tracked, and the
+# local config change is one line. It prints a diff and stops rather than applying, because
+# `chezmoi apply` only ever installs. Moving a package into a bundle you don't have on will
+# not uninstall it, and pretending otherwise by applying automatically would be worse than
+# saying so.
+#
+# teardown:none
+set -euo pipefail
+
+usage() {
+	echo "usage: dotfiles-apps [--adopt | --machine] [--help]"
+	echo "  dotfiles-apps            move tracked packages between bundles (repo edit)"
+	echo "  dotfiles-apps --adopt    file installed-but-untracked packages into a bundle (repo edit)"
+	echo "  dotfiles-apps --machine  choose which bundles this machine installs (local edit)"
+}
+
+die() {
+	echo "dotfiles-apps: $1" >&2
+	exit 1
+}
+
+require_deps() {
+	local missing=""
+	for tool in chezmoi jq fzf; do
+		command -v "$tool" &>/dev/null || missing="$missing $tool"
+	done
+	# fzf is declared in the core bundle, so a machine without it is a machine that hasn't
+	# applied recently rather than one that needs a Homebrew lesson.
+	[ -z "$missing" ] || die "missing:${missing} — run 'chezmoi apply' to install"
+}
+
+# ---- reading ----
+# Through chezmoi rather than by parsing the TOML, the same way dotfiles-doctor does it.
+# One reader of this data, not two that can drift.
+
+registry_json() { chezmoi execute-template '{{ .pkg.packages | toJson }}'; }
+catalog_list() { chezmoi execute-template '{{ .pkg.catalog | toJson }}' | jq -r '.[]'; }
+enabled_list() { chezmoi execute-template '{{ template "bundles" . }}' | jq -r '.[]'; }
+
+# ---- writing ----
+# Anchored single-line replacement, never parse-and-reserialize. The registry is hand
+# formatted with aligned inline tables and carries the cask-naming warnings that moved out
+# of the Brewfile; a TOML library would flatten both on every write. Same reasoning as
+# `font`'s write_vscode_key. See conventions.md "Scripts that rewrite a managed config".
+#
+# awk with index() rather than a regex, because package names carry /, @ and . and escaping
+# them for sed is how you match the wrong line eventually.
+replace_preserving_mode() {
+	# Args: tmpfile, target. mktemp is 0600, and a bare mv tightens the target enough that
+	# `chezmoi re-add` records it as a private_ source entry, turning one edit into a delete
+	# plus an add.
+	local tmp=$1 target=$2 mode
+	mode=$(stat -f '%Lp' "$target")
+	mv "$tmp" "$target"
+	chmod "$mode" "$target"
+}
+
+# Rewrites one package's bundles array in place. The anchor is `{ name = "<pkg>",` and the
+# closing quote is the load-bearing character: without it `1password` matches
+# `1password-cli` and the tool rewrites the neighbour while reporting the name you picked.
+# The comma is belt and braces. Anything matching zero or two lines is refused rather than
+# guessed at.
+set_package_bundles() {
+	local registry=$1 pkg=$2 bundles=$3 tmp hits
+	hits=$(awk -v anchor="{ name = \"$pkg\"," 'index($0, anchor)' "$registry" | wc -l | tr -d ' ')
+	[ "$hits" -eq 1 ] || die "expected one entry for '$pkg' in the registry, found $hits"
+
+	tmp=$(mktemp)
+	awk -v anchor="{ name = \"$pkg\"," -v new="$bundles" '
+		index($0, anchor) {
+			# Rebuild only the bundles array, so the alignment padding and any trailing
+			# comment on the line survive untouched.
+			pre = substr($0, 1, index($0, "bundles = [") + length("bundles = [") - 1)
+			rest = substr($0, index($0, "bundles = [") + length("bundles = ["))
+			post = substr(rest, index(rest, "]"))
+			print pre new post
+			next
+		}
+		{ print }
+	' "$registry" >"$tmp"
+	replace_preserving_mode "$tmp" "$registry"
+}
+
+# Appends new entries just before the packages array closes. Not into the bundle's comment
+# group: those groups are a reading aid with no meaning to the render, and guessing where a
+# group ends is how a comment ends up orphaned from the block it describes. Adopted entries
+# land together at the end, where they're easy to see and easy to move by hand.
+append_packages() {
+	local registry=$1 lines=$2 tmp closing
+	# The packages array's closing bracket is the last line that is exactly `]`.
+	closing=$(grep -n '^]$' "$registry" | tail -1 | cut -d: -f1)
+	[ -n "$closing" ] || die "could not find where the packages array ends in $registry"
+
+	tmp=$(mktemp)
+	awk -v at="$closing" -v block="$lines" 'NR == at { printf "%s\n", block } { print }' \
+		"$registry" >"$tmp"
+	replace_preserving_mode "$tmp" "$registry"
+}
+
+show_diff() {
+	local target=$1 dir
+	dir=$(dirname "$target")
+	echo
+	if git -C "$dir" rev-parse --git-dir &>/dev/null; then
+		# `|| true` on the grep: reassigning a package to the bundles it already had is a
+		# legal no-op, and an empty diff would otherwise exit 1 under pipefail and kill the
+		# script after it had already written the file.
+		git -C "$dir" --no-pager diff --unified=0 -- "$target" \
+			| { grep -E '^[-+][^-+]' || true; } | sed 's/^/  /'
+	else
+		echo "  (not a git repo, no diff to show)"
+	fi
+}
+
+# ---- bundle picking ----
+# One picker for every mode that needs a set of bundles. fzf can't preselect rows, so the
+# caller prints current state before calling rather than pretending the marks carry it.
+pick_bundles() {
+	# Args: header line. Prints the chosen bundle names, one per line.
+	catalog_list | fzf --multi --prompt="bundles> " --height=60% --reverse \
+		--header="$1" || true
+}
+
+# ---- modes ----
+
+cmd_move() {
+	local registry=$1 pkgs chosen bundles new
+	pkgs=$(registry_json | jq -r '.[] | "\(.type)\t\(.name)\t\(.bundles | join(","))"')
+	[ -n "$pkgs" ] || die "the registry has no packages"
+
+	chosen=$(printf '%s\n' "$pkgs" \
+		| awk -F'\t' '{ printf "%-5s %-34s %s\n", $1, $2, $3 }' \
+		| fzf --multi --prompt="move> " --height=70% --reverse \
+			--header="tab to mark several, enter to confirm. Column 3 is current bundles." \
+		|| true)
+	[ -n "$chosen" ] || { echo "nothing selected"; return 0; }
+
+	local names
+	names=$(printf '%s\n' "$chosen" | awk '{ print $2 }')
+	echo "moving:"
+	printf '%s\n' "$names" | sed 's/^/    /'
+
+	bundles=$(pick_bundles "tab to mark every bundle these should belong to, enter to confirm")
+	[ -n "$bundles" ] || { echo "no bundles chosen, nothing written"; return 0; }
+	new=$(printf '%s\n' "$bundles" | awk 'NF { printf "%s\"%s\"", sep, $0; sep = ", " }')
+
+	local pkg
+	while IFS= read -r pkg; do
+		[ -n "$pkg" ] || continue
+		set_package_bundles "$registry" "$pkg" "$new"
+	done <<<"$names"
+
+	show_diff "$registry"
+	echo
+	echo "  run 'chezmoi apply' to install, then commit the registry"
+}
+
+cmd_adopt() {
+	local registry=$1 tracked untracked chosen bundles new block
+	command -v brew &>/dev/null || die "brew not found, nothing to adopt from"
+
+	# The same comparison dotfiles-doctor's Homebrew section makes: installed, and named
+	# nowhere in the registry. Both spellings of a tapped formula, since `brew leaves`
+	# reports them qualified while the registry may not.
+	tracked=$(registry_json | jq -r '.[] | .name, (.name | split("/") | last)')
+	untracked=$(
+		while IFS= read -r f; do
+			grep -qxF "$f" <<<"$tracked" || printf 'brew\t%s\n' "$f"
+		done < <(brew leaves)
+		while IFS= read -r c; do
+			grep -qxF "$c" <<<"$tracked" || printf 'cask\t%s\n' "$c"
+		done < <(brew list --cask 2>/dev/null)
+	)
+	[ -n "$untracked" ] || { echo "nothing untracked — the registry matches what's installed"; return 0; }
+
+	chosen=$(printf '%s\n' "$untracked" \
+		| awk -F'\t' '{ printf "%-5s %s\n", $1, $2 }' \
+		| fzf --multi --prompt="adopt> " --height=70% --reverse \
+			--header="installed but tracked nowhere. tab to mark several, enter to confirm." \
+		|| true)
+	[ -n "$chosen" ] || { echo "nothing selected"; return 0; }
+
+	bundles=$(pick_bundles "tab to mark every bundle these should belong to, enter to confirm")
+	[ -n "$bundles" ] || { echo "no bundles chosen, nothing written"; return 0; }
+	new=$(printf '%s\n' "$bundles" | awk 'NF { printf "%s\"%s\"", sep, $0; sep = ", " }')
+
+	# Built as one string and inserted in a single pass, so a failure partway through can't
+	# leave half the selection adopted.
+	block=$(printf '%s\n' "$chosen" | awk -v b="$new" 'NF {
+		printf "  { name = \"%s\", type = \"%s\", bundles = [%s] },\n", $2, $1, b
+	}')
+	append_packages "$registry" "$block"
+
+	show_diff "$registry"
+	echo
+	echo "  run 'chezmoi apply' to install, then commit the registry"
+}
+
+cmd_machine() {
+	local cfg=$1 on picked new tmp
+	[ -f "$cfg" ] || die "no config at $cfg — run 'chezmoi init' first"
+
+	on=$(enabled_list)
+	echo "this machine currently installs:"
+	printf '%s\n' "$on" | sed 's/^/    /'
+	echo
+
+	picked=$(catalog_list | fzf --multi --prompt="bundles> " --height=60% --reverse \
+		--header="tab to mark every bundle this machine should install. Marking none turns them all off." \
+		|| true)
+	# Distinguishing "escaped" from "deliberately chose none" needs fzf's exit code, which
+	# the || true above swallows. Cancelling is the common case and silently wiping every
+	# bundle is the expensive mistake, so an empty pick means cancel; --machine with nothing
+	# marked is not the way to opt out of everything.
+	[ -n "$picked" ] || { echo "nothing marked, leaving this machine alone"; return 0; }
+
+	new=$(printf '%s\n' "$picked" | awk 'NF { printf "%s\"%s\"", sep, $0; sep = "," }')
+
+	tmp=$(mktemp)
+	if grep -q '^[[:space:]]*bundles = ' "$cfg"; then
+		awk -v new="[$new]" '
+			/^[[:space:]]*bundles = / { sub(/=.*/, "= " new); print; next }
+			{ print }
+		' "$cfg" >"$tmp"
+	else
+		# A machine that predates the key, running on the role fallback. Writing it under
+		# [data] rather than appending: a bare append could land inside [data.sync_times]
+		# or [age] and change the wrong table.
+		awk -v line="  bundles = [$new]" '
+			/^\[data\]/ { print; print line; next }
+			{ print }
+		' "$cfg" >"$tmp"
+		grep -q '^  bundles = ' "$tmp" || die "could not find a [data] table in $cfg"
+	fi
+	replace_preserving_mode "$tmp" "$cfg"
+
+	echo
+	echo "  bundles = [$new]"
+	echo
+	echo "  run 'chezmoi apply' to install. Note apply never uninstalls, so a bundle you"
+	echo "  just turned off leaves its packages on disk; dotfiles-doctor won't mention them."
+}
+
+main() {
+	# Scalars rather than an array of positionals: /bin/bash is 3.2, where expanding an
+	# empty array under `set -u` aborts. See decisionLog 2026-08-05.
+	local mode="move"
+
+	while [ $# -gt 0 ]; do
+		case $1 in
+		-h | --help)
+			usage
+			return 0
+			;;
+		--adopt) mode="adopt" ;;
+		--machine) mode="machine" ;;
+		-*) die "unknown option '$1'; run 'dotfiles-apps --help'" ;;
+		*) die "unexpected argument '$1'; run 'dotfiles-apps --help'" ;;
+		esac
+		shift
+	done
+
+	require_deps
+
+	case $mode in
+	move) cmd_move "$(chezmoi source-path)/.chezmoidata.toml" ;;
+	adopt) cmd_adopt "$(chezmoi source-path)/.chezmoidata.toml" ;;
+	machine) cmd_machine "${XDG_CONFIG_HOME:-$HOME/.config}/chezmoi/chezmoi.toml" ;;
+	esac
+}
+
+main "$@"

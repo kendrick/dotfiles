@@ -20,6 +20,8 @@ Source of truth is this repo at `~/.local/share/chezmoi`. Deployed targets:
 
 `.chezmoitemplates/` holds partials that are never deployed anywhere: the Brewfile (rendered inline by the installer from `.chezmoidata.toml`), `bundles` (which package bundles this machine has on), and `sh-ui.sh` (shared bash helpers, included by the before-phase scripts). It isn't only a data directory.
 
+`.agent-guild/` is the repo-side half of an agent-guild install: the verdict and vendor-call schemas, the check scripts a task's `check_method` names, and the templates Phase 0 and Phase 1 render from. Dot-prefixed, so it never deploys. Its `state/` subdirectory is a running job's scratch and is gitignored. _(.agent-guild/CLAUDE.md; decisionLog 2026-08-06)_
+
 _(README.md "Layout"; git ls-files)_
 
 ## Key Constraints

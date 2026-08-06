@@ -7,6 +7,14 @@
 <!-- **Decision:** What was decided -->
 <!-- **Alternatives considered:** What was rejected and why -->
 
+## 2026-08-06 — The agent guild installs in two halves, and its job state stays out of git
+**Context:** The guild is a multi-agent job runner: an orchestrator writes the spec, constitution, and task files; workers build; checkers re-derive every claim instead of trusting a worker's self-report; an auditor holds the orchestrator to the same bar. Installing it isn't one move, because the checks have to run where the code is. A task's `check_method` names a script by path, and a verdict has to validate against a schema that the checker and the enforcement hooks both read.
+**Decision:** Split it. `.agent-guild/` in this repo carries the verdict and vendor-call schemas, the check scripts tasks point at, and the templates Phase 0 and Phase 1 render from. The plugin carries the hooks that do the enforcing: keeping the orchestrator out of deliverables, and refusing any dispatch it can't identify by Task-ID. The repo half is inert without them, which is why enabling the plugin was its own commit rather than a footnote on the scaffolding one.
+**`.agent-guild/` is source-only for free.** It's dot-prefixed, so chezmoi never gives it a target. Same mechanism that keeps `.claude/` and `.chezmoidata.toml` out of the home dir, and it needs no `.chezmoiignore` line. That makes three trees in here that look like deployable config and aren't; CLAUDE.md's "Two Kinds of Claude Config" section is the map, and it still names two.
+**`.agent-guild/state/` is gitignored.** It's a running job's message bus (tasks, verdicts, disputes, logs), scratch for one machine mid-job. Committing it would hand half-finished state to whoever pulls next.
+**The orchestrator contract loads on entry:** `CLAUDE.md` `@`-includes `.agent-guild/CLAUDE.md`, so anyone working in this repo gets the org chart, model routing, and lifecycle rules up front instead of finding them after the fact.
+**Not exercised yet.** No guild job has run here. The retry ladder, the dual-check regime, and the courier lane are as-shipped and unvalidated in this repo. The courier relays to `codex`, which is installed on this machine but tracked in no bundle.
+
 ## 2026-08-06 — dotfiles-apps edits TOML by anchored line, and keeps the two files apart
 **Context:** GitHub #5. With packages as data, moving one between bundles meant hand-editing `.chezmoidata.toml`, and adopting an installed-but-untracked package meant reading `dotfiles-doctor`'s output and then finding the right place to type.
 **Decision:** One script, three modes. The bare command moves tracked packages, `--adopt` files untracked ones, and `--machine` picks which bundles this machine installs. It writes, prints a diff, and stops.

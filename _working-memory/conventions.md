@@ -52,4 +52,4 @@
 ## chezmoi ignore + source-only data
 - `.chezmoiignore` matches TARGET paths (home-relative), not source paths. A source-name entry (`private_Library/…`, `dot_local/bin/executable_x`) silently no-ops — use the deployed path (`Library/…`, `.local/bin/x`) and verify with `chezmoi ignored`. _(.chezmoiignore, chezmoi ignored)_
 - Files generated from live state, or rendered purely as data for a script, are source-only: `.chezmoiignore` the target so the daily `chezmoi re-add` can't clobber the freshly-generated source with a stale deployed copy. _(VS Code ext list; the Brewfile is rendered inline by the installer)_
-- A dot-prefixed source entry (`.chezmoidata.toml`, `.chezmoitemplates/`) is source-only for free, since chezmoi never gives it a target, so it needs no `.chezmoiignore` line at all. The rule above is for entries that would otherwise deploy. _(.chezmoidata.toml)_
+- A dot-prefixed source entry (`.chezmoidata.toml`, `.chezmoitemplates/`, `.agent-guild/`) is source-only for free, since chezmoi never gives it a target, so it needs no `.chezmoiignore` line at all. The rule above is for entries that would otherwise deploy. _(.chezmoidata.toml)_

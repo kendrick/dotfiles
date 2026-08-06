@@ -41,7 +41,12 @@ install_plugin() {
   claude plugin install "$spec" 2>/dev/null || true
 }
 
-{{ $public := list "superpowers-marketplace" "chrome-devtools-plugins" "claude-plugins-official" -}}
+{{/* Marketplaces a personal machine may install from. The bar is whether the repo is
+     reachable without work credentials, not who wrote it: agent-guild is mine and public,
+     so it qualifies, while slalom-agent-kit is the work-only one this file is encrypted
+     for. Leaving agent-guild out silently starved personal boxes of the guild tooling
+     that .agent-guild/CLAUDE.md expects to be loaded. */ -}}
+{{ $public := list "superpowers-marketplace" "chrome-devtools-plugins" "claude-plugins-official" "agent-guild" -}}
 {{ if stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") -}}
 {{   $marketplaces := include "dot_claude/private_plugins/encrypted_known_marketplaces.json.age" | decrypt | fromJson -}}
 {{   range $name, $info := $marketplaces -}}

@@ -152,6 +152,31 @@ render_with() {
 	done
 }
 
+# The role-to-bundles map exists twice: .chezmoi.toml.tmpl needs it at prompt time and
+# .chezmoitemplates/bundles needs it at render time, and prompt functions don't exist outside
+# config rendering, so there's no way to share one copy. Drift between them is invisible —
+# init would seed a machine with one list while every apply before its next init used another.
+@test "the seeded bundle list matches what the render falls back to" {
+	local blank="$BATS_TEST_TMPDIR/blank.toml"
+	printf '[data]\n' >"$blank"
+	for role in work client personal; do
+		local seeded fallback rolecfg="$BATS_TEST_TMPDIR/$role.toml"
+		seeded="$(chezmoi execute-template --init --stdinisatty=false --config "$blank" \
+			--promptString "Machine role (work/client/personal)=$role" \
+			--promptString "Work email address=a@b.c" \
+			--promptString "Client email address=a@b.c" \
+			--promptString "Personal email address=a@b.c" \
+			<"$SRC/.chezmoi.toml.tmpl" | grep '^  bundles = ' | cut -d= -f2- | tr -d ' ')"
+		printf '[data]\n  machine_role = "%s"\n' "$role" >"$rolecfg"
+		fallback="$(chezmoi execute-template --source "$SRC" --config "$rolecfg" \
+			'{{ template "bundles" . }}' | tr -d ' ')"
+		[ "$seeded" = "$fallback" ] || {
+			echo "role $role: init seeds $seeded but the render falls back to $fallback" >&2
+			return 1
+		}
+	done
+}
+
 # Bundles are a refinement of the machine_role conditionals they replaced, so each role's
 # defaults have to land on the same package count the old template produced. These numbers
 # are the pre-migration render, captured before the conditionals came out.

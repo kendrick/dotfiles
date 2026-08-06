@@ -37,6 +37,58 @@ else
 fi
 
 echo
+echo "== Config dependencies =="
+# The Homebrew section above is the right check on the wrong axis. It compares what's
+# installed against what's tracked, and never asks whether a managed config names a
+# resource the Brewfile is supposed to provide. A font hand-dropped into ~/Library/Fonts
+# satisfies neither side of that comparison, so it looks like nothing is wrong.
+#
+# That's how Fantasque went years unnoticed: the configs named it, the Brewfile installed
+# no fonts at all, and the gap only surfaced on a fresh MacBook as a p10k prompt full of
+# replacement boxes. macOS substitutes silently for a family it can't resolve, so there's
+# no error anywhere to catch: the config stays valid and the apply succeeds.
+#
+# Fonts are the only resource checked here so far, since fonts are what bit. Each half of
+# each registry entry declares the casks that provide the families it names, and this
+# asserts the Brewfile carries them. An empty list means "not from Homebrew" and is only
+# legal on Tier C, the licensed fonts fetched from 1Password. A missing key means someone
+# added a roster entry and never said where the bytes come from, which is its own gap.
+if command -v jq &>/dev/null; then
+  registry="$SRC/dot_config/font/registry.json"
+  brewfile="$SRC/.chezmoitemplates/Brewfile"
+  dep_gaps=0
+  if [[ -f "$registry" ]]; then
+    echo "-- fonts the registry names that the Brewfile doesn't install:"
+    while IFS=$'\t' read -r key half cask; do
+      if [[ "$cask" == "!undeclared" ]]; then
+        echo "    $key  $half  has no \"casks\" key — name the casks it needs, or [] if it's licensed"
+        dep_gaps=1
+      # Anchored on `cask "name"` rather than the bare name so a formula can't satisfy a
+      # cask dependency, and so `font-lilex` doesn't match `font-lilex-nerd-font`.
+      elif ! grep -qE "^[[:space:]]*cask \"${cask}\"" "$brewfile"; then
+        echo "    $key  $half  $cask"
+        dep_gaps=1
+      fi
+    done < <(jq -r '
+      to_entries[]
+      | .key as $key
+      | .value.tier as $tier
+      | (["terminal", "editor"][]) as $half
+      | .value[$half] as $cfg
+      | if ($cfg | has("casks") | not) then "\($key)\t\($half)\t!undeclared"
+        elif (($cfg.casks | length) == 0 and $tier != "c") then "\($key)\t\($half)\t!undeclared"
+        else ($cfg.casks[] | "\($key)\t\($half)\t\(.)")
+        end
+    ' "$registry")
+    [[ "$dep_gaps" -eq 0 ]] && echo "    none — every family the registry names comes from a cask you track"
+  else
+    echo "    font registry not found at $registry — skipping"
+  fi
+else
+  echo "    jq not found — skipping"
+fi
+
+echo
 echo "== Template drift =="
 # re-add won't reverse-render a template, so a templated file an app rewrites in
 # $HOME (Claude's settings.json is the classic) drifts without ever being captured

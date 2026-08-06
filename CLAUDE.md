@@ -14,3 +14,8 @@ This repo is also the chezmoi source dir, so it carries two Claude config trees 
 - `.claude/` is this repo's own project config, holding the working-memory agents (`hydrator`, `working-memory-synchronizer`) and the `hydrate-*` skills. It loads only when you work inside this repo, and chezmoi skips it because it's dot-prefixed.
 
 The working-memory toolkit is project-scoped on purpose. Don't "fix" `.claude/` by moving it into `dot_claude/`, which would push those agents and skills into every project you open. User-level skills are managed by `npx skills`, not by dropping skill bodies into `dot_claude/skills/`.
+
+<!-- agent-guild:claude:start -->
+<!-- Added by the Agent Guild project installer. -->
+@.agent-guild/CLAUDE.md
+<!-- agent-guild:claude:end -->

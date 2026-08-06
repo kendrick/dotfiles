@@ -174,7 +174,7 @@ cmd_list() {
 }
 
 write_ghostty() {
-	local family=$1 size=$2 features=$3 tmp
+	local family=$1 size=$2 features=$3 fallback=$4 tmp
 	local begin_line end_line
 
 	begin_line=$(grep -nxF "$BEGIN_MARKER" "$GHOSTTY" | head -1 | cut -d: -f1 || true)
@@ -188,6 +188,10 @@ write_ghostty() {
 	{
 		head -n "$begin_line" "$GHOSTTY"
 		echo "font-family = \"$family\""
+		# Repeating font-family appends a fallback for codepoints the primary
+		# lacks, which is how an unpatched font gets its icons without being
+		# patched. Empty for the patched families, which carry their own.
+		[ -n "$fallback" ] && echo "font-family = \"$fallback\""
 		echo "font-size = $size"
 		local feature
 		# Ghostty takes one font-feature per line rather than a list.
@@ -228,7 +232,7 @@ write_vscode_key() {
 
 cmd_switch() {
 	local key=$1 size_override=$2 force=$3
-	local entry size family features editor_family ligatures variations terminal_family
+	local entry size family features fallback editor_family ligatures variations terminal_family
 
 	entry=$(jq -e --arg k "$key" '.[$k] // empty' "$REGISTRY") ||
 		die "unknown font '$key'; run 'font' with no arguments to see the roster"
@@ -244,12 +248,14 @@ cmd_switch() {
 
 	family=$(jq -r '.terminal.family' <<<"$entry")
 	features=$(jq -r '.terminal.features' <<<"$entry")
+	# Absent on every patched family, so `// ""` rather than a required field.
+	fallback=$(jq -r '.terminal.fallback // ""' <<<"$entry")
 	editor_family=$(jq -r '.editor.family' <<<"$entry")
 	ligatures=$(jq -r '.editor.ligatures' <<<"$entry")
 	variations=$(jq -r '.editor.variations' <<<"$entry")
 	terminal_family=$(jq -r '.editor.terminalFamily' <<<"$entry")
 
-	write_ghostty "$family" "$size" "$features"
+	write_ghostty "$family" "$size" "$features" "$fallback"
 	write_vscode_key "$EDITOR_FAMILY_KEY" "$(jq -n --arg v "$editor_family" '$v')"
 	write_vscode_key "$EDITOR_LIGATURES_KEY" "$(jq -n --arg v "$ligatures" '$v')"
 	write_vscode_key "$EDITOR_VARIATIONS_KEY" "$(jq -n --arg v "$variations" '$v')"

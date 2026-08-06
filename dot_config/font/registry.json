@@ -142,5 +142,54 @@
 			"ligatures": "'calt'",
 			"terminalFamily": "Lilex Nerd Font"
 		}
+	},
+	"dank": {
+		"order": 90,
+		"tier": "c",
+		"label": "Dank Mono",
+		"size": 14,
+		"terminal": {
+			"family": "DankMono Nerd Font",
+			"features": "calt,liga"
+		},
+		"editor": {
+			"family": "'DankMono Nerd Font', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "",
+			"ligatures": "'calt', 'liga'",
+			"terminalFamily": "DankMono Nerd Font"
+		}
+	},
+	"monolisa": {
+		"order": 100,
+		"tier": "c",
+		"label": "MonoLisa",
+		"size": 14,
+		"terminal": {
+			"family": "MonoLisa",
+			"features": "dlig,liga",
+			"fallback": "Symbols Nerd Font Mono"
+		},
+		"editor": {
+			"family": "'MonoLisa', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "",
+			"ligatures": "'dlig', 'liga'",
+			"terminalFamily": "MonoLisa"
+		}
+	},
+	"operator": {
+		"order": 110,
+		"tier": "c",
+		"label": "Operator Mono Lig",
+		"size": 14,
+		"terminal": {
+			"family": "OperatorMonoLig Nerd Font Mono",
+			"features": "calt"
+		},
+		"editor": {
+			"family": "'OperatorMonoLig Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "",
+			"ligatures": "'calt'",
+			"terminalFamily": "OperatorMonoLig Nerd Font Mono"
+		}
 	}
 }

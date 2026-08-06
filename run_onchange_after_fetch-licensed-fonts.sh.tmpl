@@ -1,0 +1,100 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# Licensed fonts manifest hash: {{ include ".chezmoitemplates/licensed-fonts.txt" | sha256sum }}
+#
+# These are paid licenses on a public repo, so the bytes live in 1Password and
+# only the item titles are tracked here.
+#
+# Installs to a subdirectory rather than straight into ~/Library/Fonts, because
+# teardown needs one declarable path. macOS scans subdirectories, so the fonts
+# still register, and a handback can remove exactly these without touching the
+# brew-managed roster next to them. Licensed fonts belong to the person, not the
+# client machine, which is why this is `secret` and not `data`.
+#
+# teardown:secret ~/Library/Fonts/Licensed
+# Re-runs whenever the manifest changes.
+
+set -uo pipefail
+
+FONT_DIR="$HOME/Library/Fonts/Licensed"
+# Two accounts are signed in on this machine. Without pinning, `op` may resolve
+# against the work account, where none of these exist.
+OP_ACCOUNT="my.1password.com"
+OP_VAULT="Personal"
+
+# A machine without licensed fonts is a normal machine, not a broken one. This
+# script is the one deliberate exception to the fail-loud rule the rest of the
+# font feature follows: it must never take `chezmoi apply` down with it.
+skip() {
+  echo "Licensed fonts: $* — skipping."
+  exit 0
+}
+
+command -v op >/dev/null 2>&1 || skip "1Password CLI not installed"
+op account list --account "$OP_ACCOUNT" >/dev/null 2>&1 || skip "not signed in to $OP_ACCOUNT"
+
+manifest=$(
+  cat <<'MANIFESTEOF'
+{{ include ".chezmoitemplates/licensed-fonts.txt" }}
+MANIFESTEOF
+)
+
+items=$(echo "$manifest" | grep -vE '^\s*(#|$)' || true)
+[ -n "$items" ] || skip "manifest is empty"
+
+workdir=$(mktemp -d)
+# Fires on failure too, so a fetch that dies partway doesn't leave licensed font
+# bytes sitting in /tmp.
+trap 'rm -rf "$workdir"' EXIT
+
+mkdir -p "$FONT_DIR"
+installed=0
+skipped=0
+
+while IFS= read -r title; do
+  [ -n "$title" ] || continue
+  archive="$workdir/item.zip"
+
+  # Reading from /dev/null so `op` can't eat the manifest this loop is reading.
+  if ! err=$(op document get "$title" \
+    --vault "$OP_VAULT" --account "$OP_ACCOUNT" --output "$archive" 2>&1 >/dev/null </dev/null); then
+
+    # A vault that won't unlock and an item that isn't there both fail here, and
+    # calling the first one "not in vault" sends you looking for the wrong
+    # problem. Worse, the authorization path blocks for a minute per item, so
+    # three fonts spend three minutes failing before saying anything useful.
+    case $err in
+    *"authorization timeout"* | *"not signed in"* | *"session expired"*)
+      skip "1Password would not authorize (unlock the app and re-run \`chezmoi apply\`)"
+      ;;
+    esac
+
+    echo "  not in vault, skipped: $title"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  extract="$workdir/extract"
+  rm -rf "$extract"
+  mkdir -p "$extract"
+  if ! unzip -qo "$archive" -d "$extract" 2>/dev/null; then
+    echo "  could not unzip, skipped: $title"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  while IFS= read -r font; do
+    target="$FONT_DIR/$(basename "$font")"
+    # Skip anything already current. Re-copying would be harmless but this runs
+    # on every manifest change, and font files are large enough to notice.
+    if [ -f "$target" ] && [ ! "$font" -nt "$target" ]; then
+      continue
+    fi
+    cp "$font" "$target"
+    installed=$((installed + 1))
+  done < <(find "$extract" -type f \( -iname '*.otf' -o -iname '*.ttf' \))
+
+  rm -f "$archive"
+done <<<"$items"
+
+echo "Licensed fonts: $installed installed or updated, $skipped skipped."

@@ -46,7 +46,8 @@
 - Setup scripts use `set -e` for fail-fast, with two deliberate exceptions: the macOS-defaults script omits it (non-fatal `defaults write` errors), and external-tool installers (`brew bundle`, `code --install-extension`, `open raycast://`) guard each call with `|| true` and skip cleanly if the CLI is absent. _(run_onchange_install-vscode-extensions.sh.tmpl, run_once_after_configure-macos.sh)_
 
 ## Cross-machine sync
-- Capture local changes with `dotfiles-sync` (regenerates VS Code ext list, `chezmoi re-add`, commit + push); pull elsewhere with `chezmoi update`; spot drift with `dotfiles-doctor`. Packages and Raycast extensions are captured by hand. _(dot_local/bin/executable_dotfiles-sync)_
+- Capture local changes with `dotfiles-sync` (regenerates VS Code ext list, `chezmoi re-add`, commit + push); pull elsewhere with `chezmoi update`; spot drift with `dotfiles-doctor`; file a drifted package into a bundle with `dotfiles-apps --adopt`. Raycast extensions are still captured by hand. _(dot_local/bin/executable_dotfiles-sync, executable_dotfiles-apps)_
+- A tool that edits config on the user's behalf keeps repo-wide edits and machine-local edits on separate screens, even when the data looks the same. `.chezmoidata.toml` changes every machine and gets committed; `chezmoi.toml` changes only this one and never does. Merging them into one picker is how someone reassigns a package for everybody while meaning to change one laptop. _(dot_local/bin/executable_dotfiles-apps, decisionLog 2026-08-06)_
 
 ## chezmoi ignore + source-only data
 - `.chezmoiignore` matches TARGET paths (home-relative), not source paths. A source-name entry (`private_Library/…`, `dot_local/bin/executable_x`) silently no-ops — use the deployed path (`Library/…`, `.local/bin/x`) and verify with `chezmoi ignored`. _(.chezmoiignore, chezmoi ignored)_

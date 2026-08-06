@@ -45,6 +45,8 @@ packages = [
   { name = "chezmoi",              type = "brew", bundles = ["core"] },
   { name = "coreutils",            type = "brew", bundles = ["core"] },
   { name = "eza",                  type = "brew", bundles = ["core"] },
+  # dotfiles-apps refuses to run without it, and this entry is what keeps that honest.
+  { name = "fzf",                  type = "brew", bundles = ["core"] },
   { name = "gh",                   type = "brew", bundles = ["core"] },
   { name = "git-cliff",            type = "brew", bundles = ["core"] },
   { name = "git-delta",            type = "brew", bundles = ["core"] },

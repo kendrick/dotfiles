@@ -177,11 +177,45 @@ render_with() {
 	done
 }
 
-# Bundles are a refinement of the machine_role conditionals they replaced, so each role's
-# defaults have to land on the same package count the old template produced. These numbers
-# are the pre-migration render, captured before the conditionals came out.
-@test "each role's defaults render the package count its conditionals used to" {
-	[ "$(render_with work | grep -cE '^(tap|brew|cask|mas) ')" -eq 91 ]
-	[ "$(render_with client | grep -cE '^(tap|brew|cask|mas) ')" -eq 77 ]
-	[ "$(render_with personal | grep -cE '^(tap|brew|cask|mas) ')" -eq 84 ]
+# Bundles are a refinement of the machine_role conditionals they replaced, and the property
+# that makes the roles mean anything is that they nest: everything a client machine installs,
+# a personal machine also installs, and everything a personal machine installs, a work machine
+# also installs. A bundle that straddled a gate class would break the nesting, which is the
+# same failure the migration was checked against by rendering all three roles before and after
+# (91 / 77 / 84 entries, byte-identical). Asserting the shape rather than those counts, so
+# adding a package doesn't mean editing three magic numbers nobody will re-derive.
+@test "each role's packages are a superset of the narrower role's" {
+	local client personal work
+	client="$(render_with client | grep -E '^(tap|brew|cask|mas) ' | sort)"
+	personal="$(render_with personal | grep -E '^(tap|brew|cask|mas) ' | sort)"
+	work="$(render_with work | grep -E '^(tap|brew|cask|mas) ' | sort)"
+
+	# comm -23 prints lines only in the first set. Empty means fully contained.
+	[ -z "$(comm -23 <(echo "$client") <(echo "$personal"))" ]
+	[ -z "$(comm -23 <(echo "$personal") <(echo "$work"))" ]
+
+	# And each step actually adds something, or the roles have collapsed into one.
+	[ -n "$(comm -13 <(echo "$client") <(echo "$personal"))" ]
+	[ -n "$(comm -13 <(echo "$personal") <(echo "$work"))" ]
+}
+
+# A bundle no role's defaults name is a hole with no bottom: packages filed into it render
+# on no machine, `dotfiles-apps` offers it as a target anyway because it's in the catalog,
+# and nothing anywhere reports that the thing you just filed will never install.
+@test "every bundle in the catalog is reachable from some role's defaults" {
+	local reachable="" role
+	for role in work client personal; do
+		local cfg="$BATS_TEST_TMPDIR/$role.toml"
+		printf '[data]\n  machine_role = "%s"\n' "$role" >"$cfg"
+		reachable="$reachable
+$(chezmoi execute-template --source "$SRC" --config "$cfg" '{{ template "bundles" . }}' | jq -r '.[]')"
+	done
+	local b
+	while IFS= read -r b; do
+		[ -n "$b" ] || continue
+		grep -qxF "$b" <<<"$reachable" || {
+			echo "bundle '$b' is in the catalog but no role installs it" >&2
+			return 1
+		}
+	done < <(chezmoi execute-template --source "$SRC" '{{ .pkg.catalog | toJson }}' | jq -r '.[]')
 }

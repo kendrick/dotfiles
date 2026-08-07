@@ -113,6 +113,70 @@ STUB
 	assert_contains "could not install these Brewfile entries"
 }
 
+# brew fails in two phases and the case above only covers one. An entry that doesn't
+# exist dies in the batched pre-fetch at Homebrew's installer.rb:84-87, which returns
+# before the install phase runs, so no "Installing X has failed!" line is ever written
+# and the install-phase parser has nothing to match. The one line that phase does emit
+# names every entry that needed fetching, guilty or not — which is why the two innocent
+# fixtures below have to stay out of the summary. Found by the live apply for #17, not
+# by this suite, because every stub here spoke only the install-phase dialect.
+@test "install-packages: a fetch-phase failure names only the entry that doesn't exist" {
+	script="$(render_script run_onchange_install-packages.sh.tmpl)"
+	cat >"$STUBS/brew" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+trust) exit 0 ;;
+info)
+	case "$2" in
+	fixture-nonexistent-xyz) exit 1 ;;
+	*) exit 0 ;;
+	esac
+	;;
+bundle)
+	echo "Fetching fixture-nonexistent-xyz, fixture-real-one, fixture-real-two"
+	echo '`brew bundle` failed! Failed to fetch fixture-nonexistent-xyz, fixture-real-one, fixture-real-two' >&2
+	echo 'Error: No available formula with the name "fixture-nonexistent-xyz".' >&2
+	exit 1
+	;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	# Two-space prefix matches the summary's `sed 's/^/  /'` indent, so these assertions
+	# read the script's own report rather than brew's echoed batch line.
+	assert_contains "  fixture-nonexistent-xyz"
+	assert_not_contains "  fixture-real-one"
+	assert_not_contains "  fixture-real-two"
+	assert_not_contains "without naming a failed entry"
+}
+
+# The other fetch-phase outcome. Every entry resolves, so the registry is right and the
+# download is what broke — a locked network, a mirror hiccup. Nothing in the batch has
+# earned the blame, so the report names all of it rather than picking the first line.
+@test "install-packages: a fetch failure where every entry exists names the whole batch" {
+	script="$(render_script run_onchange_install-packages.sh.tmpl)"
+	cat >"$STUBS/brew" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+trust) exit 0 ;;
+info) exit 0 ;;
+bundle)
+	echo '`brew bundle` failed! Failed to fetch fixture-real-one, fixture-real-two' >&2
+	echo 'Error: Failed to download resource "fixture-real-one"' >&2
+	exit 1
+	;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "though all of them exist"
+	assert_contains "  fixture-real-one"
+	assert_contains "  fixture-real-two"
+	assert_not_contains "entries don't exist"
+}
+
 @test "install-packages: all items succeed prints no failure summary" {
 	script="$(render_script run_onchange_install-packages.sh.tmpl)"
 	cat >"$STUBS/brew" <<'STUB'

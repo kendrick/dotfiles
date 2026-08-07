@@ -40,8 +40,8 @@ Write comments in the voice and tone of a helpful technical writer who is also i
 
 ## Voice
 
-When I ask you to write something in my style or in my voice, read `~/.claude/VOICE.md` first and follow it. Open the file; don't work from a remembered summary of it. This applies to anything addressed to a person, emails above all.
+Before drafting anything addressed to a person—emails above all, but also DMs, letters, and notes—read `~/.claude/VOICE.md` and follow its process. The trigger is the artifact type, not my asking for "my voice": if you're drafting a message, the file applies. Open it fresh each time; don't work from a remembered summary.
 
-That's a separate job from the humanizer pass above. The humanizer strips AI tells out of any prose; VOICE.md is how I actually sound.
+That's a separate job from the humanizer pass above, and for messages it replaces it: VOICE.md drafts from verbatim samples of my sent mail and carries its own audit checklist, so don't run the humanizer on top—it would sand the voice back off.
 
 @RTK.md

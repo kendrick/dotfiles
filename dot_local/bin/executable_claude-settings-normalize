@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Strip machine-local keys out of the synced Claude settings after a re-add.
+
+`model` is the problem key. /model writes it into ~/.claude/settings.json by design
+("saves your choice as the default for new sessions"), settings.json is an encrypted
+chezmoi target, and dotfiles-sync runs a blanket `chezmoi re-add`. So every model
+switch rides into source and gets committed. That costs more than it looks: age
+ciphertext doesn't delta, so a one-line pin change rewrites all 9KB of the blob and
+parks another full copy in a public repo's history, permanently.
+
+It also isn't a setting worth sharing. Which model this box should default to is a
+machine question, the same way installPath was for the plugin manifests, and
+f5ab21b already settled that class of problem by normalizing live state down to
+intent. This is that fix applied to the one file that was left.
+
+Runs AFTER re-add, and edits source rather than the live file. That ordering is the
+whole point: strip the live copy instead and every sync would wipe the pin you just
+set. Left alone, live keeps your `/model` choice across restarts and only a manual
+`chezmoi apply` clears it, which is rare—the sync never applies.
+
+Doing nothing is the common case and costs one decrypt. To pin a model durably
+enough to survive an apply, use ANTHROPIC_MODEL instead; it outranks this setting
+and never touches a file.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+TARGET = os.path.expanduser("~/.claude/settings.json")
+
+# Keys that describe this machine rather than this person. Everything else in
+# settings.json (permissions, hooks, enabled plugins, marketplaces) is shared
+# intent and keeps syncing exactly as before.
+LOCAL_KEYS = ("model",)
+
+
+def run(cmd, **kw):
+    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+
+
+def decrypt(path):
+    result = run(["chezmoi", "decrypt", path])
+    return result.stdout if result.returncode == 0 else None
+
+
+def head_plaintext(repo, src):
+    """What the last commit holds, decrypted. None if it isn't committed yet.
+
+    chezmoi decrypt wants a path, so the blob has to land on disk first.
+    """
+    rel = os.path.relpath(src, repo)
+    blob = run(["git", "-C", repo, "show", f"HEAD:{rel}"])
+    if blob.returncode != 0:
+        return None
+    with tempfile.NamedTemporaryFile("w", suffix=".age", delete=False) as fh:
+        fh.write(blob.stdout)
+        tmp = fh.name
+    try:
+        return decrypt(tmp)
+    finally:
+        os.unlink(tmp)
+
+
+def main():
+    src = run(["chezmoi", "source-path", TARGET])
+    if src.returncode != 0:
+        print("settings.json isn't a chezmoi target; nothing to normalize.", file=sys.stderr)
+        return 0
+    src = src.stdout.strip()
+
+    repo = run(["chezmoi", "source-path"])
+    if repo.returncode != 0:
+        print("chezmoi not available; skipping settings normalize.", file=sys.stderr)
+        return 0
+    repo = repo.stdout.strip()
+
+    plain = decrypt(src)
+    if plain is None:
+        # No age key on this machine, which is a normal state mid-bootstrap. The
+        # encrypted config isn't deployed there either, so there's nothing to strip.
+        print("couldn't decrypt settings.json; skipping normalize.", file=sys.stderr)
+        return 0
+
+    try:
+        data = json.loads(plain)
+    except json.JSONDecodeError as exc:
+        print(f"settings.json in source isn't valid JSON: {exc}", file=sys.stderr)
+        return 0
+
+    removed = [key for key in LOCAL_KEYS if key in data]
+    if not removed:
+        return 0
+
+    for key in removed:
+        del data[key]
+    # indent=2 with a trailing newline is byte-identical to what the CLI writes, so a
+    # round-trip through here leaves every untouched key exactly as it was.
+    payload = json.dumps(data, indent=2) + "\n"
+
+    # re-add already rewrote the ciphertext to pull the pin in, so git sees this file
+    # as modified no matter what. If stripping lands us back on the committed
+    # plaintext, restoring the committed blob is what actually leaves no diff. age
+    # encrypts nondeterministically, so re-encrypting identical content would just
+    # hand the sync a bogus commit to make.
+    if payload == head_plaintext(repo, src):
+        checkout = run(["git", "-C", repo, "checkout", "--", src])
+        if checkout.returncode != 0:
+            print(f"failed to restore {src}: {checkout.stderr}", file=sys.stderr)
+            return 1
+        print(f"dropped {', '.join(removed)} from source (no net change)")
+        return 0
+
+    encrypted = run(["chezmoi", "encrypt"], input=payload)
+    if encrypted.returncode != 0:
+        print(f"failed to re-encrypt settings.json: {encrypted.stderr}", file=sys.stderr)
+        return 1
+    with open(src, "w") as fh:
+        fh.write(encrypted.stdout)
+    print(f"dropped {', '.join(removed)} from source")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

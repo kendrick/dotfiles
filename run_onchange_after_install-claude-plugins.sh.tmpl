@@ -25,20 +25,31 @@ if ! command -v claude &>/dev/null; then
   exit 0
 fi
 
+# What the CLI turned down. The rendered body below is a flat run of add_marketplace and
+# install_plugin calls rather than a loop, so the accumulator lives out here where both
+# functions can reach it and one refused plugin cannot take the other six down with it.
+failed=()
+
 # Public git clones, so no auth needed — only network. Idempotent: skip whatever is
 # already present so re-applies are cheap and a partial first run self-heals.
 add_marketplace() {
   local name="$1" repo="$2"
+  # 2>/dev/null survives on the probe, not on the install: `marketplace list` grumbles on a
+  # machine that has none registered yet, and "none yet" is the normal first-run state.
   claude plugin marketplace list 2>/dev/null | grep -q "$name" && return 0
   echo "Adding marketplace $name ($repo)..."
-  claude plugin marketplace add "$repo" 2>/dev/null || true
+  if ! claude plugin marketplace add "$repo"; then
+    failed+=("marketplace $name ($repo)")
+  fi
 }
 
 install_plugin() {
   local spec="$1"
   claude plugin list 2>/dev/null | grep -q "${spec%@*}" && return 0
   echo "Installing $spec..."
-  claude plugin install "$spec" 2>/dev/null || true
+  if ! claude plugin install "$spec"; then
+    failed+=("plugin $spec")
+  fi
 }
 
 {{/* Marketplaces a personal machine may install from. The bar is whether the repo is
@@ -50,8 +61,11 @@ install_plugin() {
      The name here is "kendrick", not "agent-guild": these entries match the marketplace
      name the CLI registers, and it takes that from the repo's own
      .claude-plugin/marketplace.json rather than from the repo or plugin name. So the
-     marketplace is kendrick and the plugin inside it is agent-guild@kendrick. Getting
-     this wrong fails silently, since add_marketplace below discards its errors.
+     marketplace is kendrick and the plugin inside it is agent-guild@kendrick. Getting this
+     wrong is still silent even now that add_marketplace reports what it could not add: a
+     wrong name just never matches the presence probe, so the add runs, succeeds, and
+     re-registers the same marketplace on every single apply. Only a non-zero `marketplace
+     add` gets named.
 
      No chrome-devtools-plugins entry for the same reason it isn't a marketplace at all:
      ChromeDevTools/chrome-devtools-mcp is the MCP server's own repo, and the plugin
@@ -76,4 +90,16 @@ install_plugin {{ $spec }}
 {{ else -}}
 echo "No chezmoi decryption key present — skipping plugin reinstall."
 {{ end -}}
-echo "Claude Code plugins ready."
+# Counted before expanding: bash 3.2 renders an empty array as one empty word, so an
+# unconditional summary would announce a nameless failure on every clean apply.
+if [ "${#failed[@]}" -gt 0 ]; then
+  echo "The claude CLI ran, but these did not install (its errors are above):"
+  printf '  %s\n' "${failed[@]}"
+else
+  echo "Claude Code plugins ready."
+fi
+
+# Exit 0 with failures named. A marketplace that was unreachable for thirty seconds must not
+# be able to abort an apply, and this script runs late enough that it would take the rest of
+# the run down with it.
+exit 0

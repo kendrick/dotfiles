@@ -10,23 +10,51 @@
 set -e
 
 if ! command -v open &>/dev/null; then
+  # This branch was a bare `exit 0`. Alone among the four installers it left no trace, so on
+  # a non-macOS box the script did not read as skipped — it read as absent.
+  echo "open command not found — skipping Raycast configuration."
   exit 0
 fi
 
-echo "Installing Raycast extensions..."
+echo "Requesting Raycast extension installs..."
+
+# The ceiling on what this script can honestly report. `open` hands the URL to launchd and
+# returns the moment macOS accepts it, well before Raycast has fetched, built, or rejected
+# anything — so a per-extension install outcome is not merely unchecked here, it is
+# unobservable. What a non-zero `open` does prove is that the handoff never happened: no
+# Raycast to receive the URL, or a URL it would not take. That, and only that, is collected.
+refused=()
 
 while IFS= read -r ext; do
   # Skip comments and empty lines
   [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
   echo "  → $ext"
-  open "raycast://extensions/install/$ext" 2>/dev/null || true
+  if ! open "raycast://extensions/install/$ext"; then
+    refused+=("$ext")
+  fi
   sleep 1
 done < <(cat <<'EXTEOF'
 {{ include "dot_config/raycast-extensions.txt" }}
 EXTEOF
 )
 
-# Raycast preferences
-defaults write com.raycast.macos raycastGlobalHotkey -string "Command-49"
+# The hotkey write sits between the loop and the summary, and `set -e` is on, so an
+# unwritable domain used to abort the script right here — exiting non-zero over a preference
+# and taking the list of refused URLs down with it, which is the one thing this script exists
+# to print. Consuming the status keeps the summary reachable; saying so keeps it from
+# becoming the next silent failure.
+if ! defaults write com.raycast.macos raycastGlobalHotkey -string "Command-49"; then
+  echo "Could not set Raycast's global hotkey; its preferences are unchanged."
+fi
 
-echo "Raycast configuration complete."
+# Guarded on the count: bash 3.2 turns an empty array into one empty word, and a heading
+# with a blank line under it is a failure report nobody can act on.
+if [ "${#refused[@]}" -gt 0 ]; then
+  echo "macOS would not hand these install URLs to Raycast (its errors are above):"
+  printf '  raycast://extensions/install/%s\n' "${refused[@]}"
+else
+  echo "Raycast install requests sent. Raycast picks them up in the background."
+fi
+
+# A URL Raycast never received is not grounds for stopping the apply, so: 0.
+exit 0

@@ -50,6 +50,8 @@ dot_local/bin/executable_awssso
 {{ if not (stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt")) }}
 .claude/settings.json
 .claude/VOICE.md
+.claude/voice-samples-work.md
+.claude/voice-samples-personal.md
 {{ end }}
 
 # The plugin manifests are never deployed, in either direction of the key check above.

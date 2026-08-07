@@ -59,9 +59,46 @@ if [ "$bundle_status" -ne 0 ]; then
     }
   ' "$bundle_log")
 
+  # The other phase. brew batch-fetches everything that needs downloading before it
+  # installs anything, and installer.rb:84-87 returns on a fetch failure — so the install
+  # phase never runs and none of the per-entry lines the awk above wants can exist. The
+  # only line this phase emits joins every entry that needed fetching, guilty or not: the
+  # #17 e2e saw six names for one bad formula. Parsing it would have blamed five packages
+  # whose sole crime was not being downloaded yet.
+  fetch_batch=$(awk '
+    {
+      line = $0
+      gsub(/\033\[[0-9;]*m/, "", line)
+      if (line ~ /Failed to fetch /) {
+        sub(/^.*Failed to fetch /, "", line)
+        gsub(/, /, "\n", line)
+        print line
+      }
+    }
+  ' "$bundle_log")
+
   if [ -n "$failed_entries" ]; then
     echo "Homebrew ran, but could not install these Brewfile entries (its errors are above):"
     printf '%s\n' "$failed_entries" | sed 's/^/  /'
+  elif [ -n "$fetch_batch" ]; then
+    # Re-derive rather than parse. Asking brew which of the batch actually resolves is what
+    # separates a typo in the registry from a download that failed, and it doesn't depend on
+    # the shape of an error string — the assumption that produced this bug in the first place.
+    # `brew info` answers for casks and formulae alike without downloading anything.
+    missing=$(while IFS= read -r entry; do
+      [ -n "$entry" ] || continue
+      brew info "$entry" >/dev/null 2>&1 || printf '%s\n' "$entry"
+    done <<<"$fetch_batch")
+
+    if [ -n "$missing" ]; then
+      echo "Homebrew ran, but these Brewfile entries don't exist (its errors are above):"
+      printf '%s\n' "$missing" | sed 's/^/  /'
+    else
+      # Every name resolves, so the registry is fine and the download isn't. Naming the whole
+      # batch is the honest answer here; singling one out would be a guess.
+      echo "Homebrew could not fetch these Brewfile entries, though all of them exist (its errors are above):"
+      printf '%s\n' "$fetch_batch" | sed 's/^/  /'
+    fi
   else
     # brew failed in a shape this script does not recognise. Saying so beats saying nothing,
     # which is the silence the whole change exists to end.

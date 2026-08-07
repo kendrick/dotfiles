@@ -27,5 +27,48 @@ echo "$brewfile" | awk '/^tap /{gsub(/"/,"",$2); print $2}' | while read -r tap;
   brew trust --tap "$tap" 2>/dev/null || true
 done
 
-# Allow failures (MAS apps may need interactive sudo auth)
-brew bundle --file=/dev/stdin <<<"$brewfile" || echo "Some Brewfile entries failed (MAS apps may need manual install)."
+# The guard this replaces was `|| echo "Some Brewfile entries failed"`, put there because a
+# MAS app can need interactive sudo and must not abort the apply. It worked, and it also
+# meant a count where a name belonged: on 2026-08-06 fzf joined the core bundle, brew never
+# installed it, and the run said the same thing it says on a machine that is merely waiting
+# on an App Store password. Keep the run's own output on screen and keep a copy to read the
+# names back out of.
+bundle_log=$(mktemp -t dotfiles-brew-bundle)
+trap 'rm -f "$bundle_log"' EXIT
+
+# tee rather than capture-then-print: a fresh machine spends tens of minutes in here and
+# needs to see it working. PIPESTATUS[0] is brew's status; $? would be tee's, always 0.
+brew bundle --file=/dev/stdin <<<"$brewfile" 2>&1 | tee "$bundle_log"
+bundle_status=${PIPESTATUS[0]}
+
+if [ "$bundle_status" -ne 0 ]; then
+  # brew names each failing entry as "<Verb> <entry> has failed!" on stderr, where Verb is
+  # Installing, Upgrading, or Tapping, and wraps it in red when stdout is a terminal — so
+  # strip SGR escapes first or an interactive apply matches nothing. brew's own closing
+  # line, "Homebrew Bundle failed! N Brewfile dependencies failed to install.", deliberately
+  # does not match this shape: it carries a count, and a count is what hid fzf.
+  failed_entries=$(awk '
+    {
+      line = $0
+      gsub(/\033\[[0-9;]*m/, "", line)
+      if (line ~ /^[A-Za-z]+ .+ has failed!$/) {
+        sub(/^[A-Za-z]+ /, "", line)
+        sub(/ has failed!$/, "", line)
+        print line
+      }
+    }
+  ' "$bundle_log")
+
+  if [ -n "$failed_entries" ]; then
+    echo "Homebrew ran, but could not install these Brewfile entries (its errors are above):"
+    printf '%s\n' "$failed_entries" | sed 's/^/  /'
+  else
+    # brew failed in a shape this script does not recognise. Saying so beats saying nothing,
+    # which is the silence the whole change exists to end.
+    echo "Homebrew ran and exited $bundle_status without naming a failed entry. Its output is above."
+  fi
+fi
+
+# Still 0, having named the failures. Stopping the apply here would strand every later
+# script over one unavailable formula; dotfiles-doctor is what carries the gap forward.
+exit 0

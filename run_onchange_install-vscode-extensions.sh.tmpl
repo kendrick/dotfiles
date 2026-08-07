@@ -16,11 +16,32 @@ fi
 
 echo "Installing VS Code extensions..."
 
+# This loop used to end `2>/dev/null || true`, which threw away the exit code and the
+# reason together: an extension pulled from the marketplace read exactly like a machine
+# with no VS Code on it. Let stderr through, and collect the ids `code` rejected.
+# `if !` is what consumes the failure, so one dead id neither aborts under `set -e` nor
+# costs the 42 extensions queued behind it.
+failed=()
+
 while IFS= read -r ext; do
   [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
-  code --install-extension "$ext" --force 2>/dev/null || true
+  if ! code --install-extension "$ext" --force; then
+    failed+=("$ext")
+  fi
 done <<'EXTEOF'
 {{ include "dot_config/vscode-extensions.txt" }}
 EXTEOF
 
-echo "VS Code extensions installed."
+# The count test is not decoration. bash 3.2 expands an empty array to a single empty word,
+# so an unconditional summary would print a heading with a blank line under it on a clean
+# run — a failure with no name attached, which is the bug wearing the fix's clothes.
+if [ "${#failed[@]}" -gt 0 ]; then
+  echo "VS Code ran, but could not install these extensions (its errors are above):"
+  printf '  %s\n' "${failed[@]}"
+else
+  echo "VS Code extensions installed."
+fi
+
+# Named the failures and still succeeded, on purpose: a stale extension id is not a reason
+# to abandon the rest of the apply.
+exit 0

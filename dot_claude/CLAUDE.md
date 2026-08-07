@@ -38,4 +38,10 @@ Comments that explain WHAT the code does are worthless when the code is well-nam
 
 Write comments in the voice and tone of a helpful technical writer who is also in a hurry; commonly-recognized abbreviations and acronyms are acceptable.
 
+## Voice
+
+When I ask you to write something in my style or in my voice, read `~/.claude/VOICE.md` first and follow it. Open the file; don't work from a remembered summary of it. This applies to anything addressed to a person, emails above all.
+
+That's a separate job from the humanizer pass above. The humanizer strips AI tells out of any prose; VOICE.md is how I actually sound.
+
 @RTK.md

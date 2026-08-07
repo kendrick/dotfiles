@@ -12,6 +12,9 @@
 
 SRC="${BATS_TEST_DIRNAME}/.."
 SCRIPT="$SRC/dot_local/bin/executable_dotfiles-apps"
+# Resolved before setup() puts the stub dir on PATH, so jq stays reachable once the
+# Homebrew directory it shares with the real fzf/chezmoi/brew is dropped (see setup()).
+REAL_JQ="$(command -v jq)"
 
 setup() {
 	unset XDG_CACHE_HOME
@@ -55,7 +58,17 @@ STUB
 
 	printf '#!/usr/bin/env bash\n:\n' >"$STUBS/brew"
 	chmod +x "$STUBS/fzf" "$STUBS/chezmoi" "$STUBS/brew"
-	export PATH="$STUBS:$PATH"
+
+	# jq isn't stubbed — no case here simulates it being absent — but it lives in the same
+	# Homebrew bin directory as the real fzf/chezmoi/brew, so it would vanish along with
+	# them once that directory is dropped from PATH below.
+	ln -sf "$REAL_JQ" "$STUBS/jq"
+
+	# $STUBS must be authoritative for the tools it stubs, or removing a stub (as "names the
+	# missing tool..." does for fzf) still resolves to the real binary this machine has
+	# installed. /usr/bin and /bin carry bash, git, and coreutils, none of which this suite
+	# ever stubs or removes.
+	export PATH="$STUBS:/usr/bin:/bin"
 
 	write_registry
 	write_config

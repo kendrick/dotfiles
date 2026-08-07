@@ -106,7 +106,12 @@ def main():
     # encrypts nondeterministically, so re-encrypting identical content would just
     # hand the sync a bogus commit to make.
     if payload == head_plaintext(repo, src):
-        checkout = run(["git", "-C", repo, "checkout", "--", src])
+        # `checkout HEAD --`, not `checkout --`. The bare form restores from the index,
+        # which is the wrong tree to compare against: a sync that died between `git add
+        # -A` and `git commit` leaves the pin staged, and restoring that would put it
+        # straight back while this reported no net change. Naming HEAD also resets the
+        # index entry, so a half-finished previous run can't leak into this one.
+        checkout = run(["git", "-C", repo, "checkout", "HEAD", "--", src])
         if checkout.returncode != 0:
             print(f"failed to restore {src}: {checkout.stderr}", file=sys.stderr)
             return 1

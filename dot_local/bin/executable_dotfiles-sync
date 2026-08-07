@@ -68,17 +68,6 @@ if ! chezmoi re-add 2>&1; then
   exit 1
 fi
 
-# ---- Phase: strip machine-local keys the re-add just pulled in ----
-# The blanket re-add above can't tell a shared setting from a machine-local one, and
-# /model writes its choice straight into settings.json. Undo that here rather than
-# before the re-add: stripping the live file instead would wipe the pin on every sync.
-echo "==> Normalizing Claude settings"
-if command -v claude-settings-normalize &>/dev/null; then
-  claude-settings-normalize || echo "    ! settings normalize failed, continuing"
-else
-  echo "    claude-settings-normalize not found, skipping"
-fi
-
 # ---- Phase: template drift (what re-add structurally can't capture) ----
 # re-add won't reverse-render a template, so a templated file an app rewrites in
 # $HOME slips past the capture above. Warn so it doesn't rot unnoticed.

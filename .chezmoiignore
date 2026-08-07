@@ -5,6 +5,7 @@ CLAUDE.md
 .gitignore
 .github
 _working-memory
+docs
 scripts
 tests
 

@@ -48,6 +48,7 @@ dot_local/bin/executable_awssso
 # it comes in on the next pass. The plugin reinstall script guards the same way.
 {{ if not (stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt")) }}
 .claude/settings.json
+.claude/VOICE.md
 {{ end }}
 
 # The plugin manifests are never deployed, in either direction of the key check above.

@@ -161,13 +161,11 @@ packages = [
   { name = "reader",      type = "cask", bundles = ["personal-apps"] },
 
   # ---- cloud ----
-  # deskflow and zappy are here because they're work-only, not because they're cloud tools.
-  # They rode along in the old `eq work` block; giving them their own bundle would be a
-  # tenth name for two casks.
+  # zappy is here because it's work-only, not because it's a cloud tool. It rode along in
+  # the old `eq work` block; giving it its own bundle would be a tenth name for one cask.
   { name = "aws-amplify",                 type = "brew", bundles = ["cloud"] },
   { name = "awscli",                      type = "brew", bundles = ["cloud"] },
   { name = "azure-cli",                   type = "brew", bundles = ["cloud"] },
   { name = "databricks/tap/databricks",   type = "brew", bundles = ["cloud"] },
-  { name = "deskflow",                    type = "cask", bundles = ["cloud"] },
   { name = "zappy",                       type = "cask", bundles = ["cloud"] },
 ]

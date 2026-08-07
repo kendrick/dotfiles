@@ -66,6 +66,11 @@ deps_section() {
 	bash "$SCRIPT" 2>&1 | sed -n '/== Config dependencies ==/,/^$/p'
 }
 
+# Same idea, for the Homebrew section instead of Config dependencies.
+homebrew_section() {
+	bash "$SCRIPT" 2>&1 | sed -n '/== Homebrew ==/,/^$/p'
+}
+
 # Casks in the fonts bundle, which is the shape every roster font has.
 write_packages() {
 	printf '%s\n' "$@" | jq -Rs 'split("\n") | map(select(length > 0))
@@ -78,6 +83,19 @@ write_bundles() {
 
 write_registry() {
 	cat >"$FIXTURE/dot_config/font/registry.json"
+}
+
+# The Homebrew section, not Config dependencies: a formula tracked in an enabled bundle
+# that `brew list` doesn't return. The stubbed `brew` in setup() is `:`, so nothing ever
+# reads as installed — the fixture only has to name a formula in the default "fonts"
+# bundle to land in the missing branch.
+@test "doctor: a tracked but uninstalled formula is reported" {
+	jq -n '[{name: "fixture-missing-formula", type: "brew", bundles: ["fonts"]}]' \
+		>"$FIXTURE/packages.json"
+	run homebrew_section
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"in a bundle you've enabled but not installed"* ]]
+	[[ "$output" == *"fixture-missing-formula"* ]]
 }
 
 # A roster entry that declares one cask per half, used as the shape the failure cases

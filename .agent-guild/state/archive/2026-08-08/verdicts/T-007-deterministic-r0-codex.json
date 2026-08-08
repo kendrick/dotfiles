@@ -1,0 +1,24 @@
+{
+  "task_id": "T-007",
+  "checker": "checker-courier",
+  "vendor": "openai",
+  "model": "gpt-5.6-terra",
+  "verdict": "blocked",
+  "findings": [
+    {
+      "clause_id": "V-2",
+      "severity": "major",
+      "description": "Codex lane timeout: courier unable to complete second opinion",
+      "evidence": "codex exec command timed out after 2 minutes. The far-side model started inspection (initial agent message received) but did not complete analysis of the three judgment questions before timeout. No final verdict was written. This does not reflect on the work's quality—timeout failures are infrastructure issues, not check failures."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "major",
+      "description": "Codex lane timeout: courier unable to complete second opinion",
+      "evidence": "codex exec command timed out after 2 minutes. No analysis returned."
+    }
+  ],
+  "timestamp": "2026-08-08T18:56:00Z",
+  "duration_ms": 120000,
+  "cost_usd": null
+}

@@ -1,0 +1,90 @@
+{
+  "task_id": "CON-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "V-2",
+      "severity": "major",
+      "description": "Answering your question 2 directly: no, part 1's `git status` is not the best available, and the gap it leaves is the one the clause cares about most. Measured both ways. **Pre-commit**, a `git checkout`-restoring script reverts a converted file to baseline, `git status --porcelain tests/` loses that file's ` M` entry, and part 1 catches it. **Post-commit**, on a clean tree, `git checkout` restores the committed (correct) content, status is byte-identical before and after, and part 1 passes the script — while a copy-aside script passes identically. So the coverage depends entirely on when the checker happens to run part 1, which nothing in the constitution fixes; run it after D-3 and the contract is untested. That leaves exactly this document's standing failure mode — a requirement in a clause's text that its check does not test — on the residue that matters after the job ends: a committed tool that eats a developer's uncommitted work. A decidable probe does exist and discriminates in both states: in a scratch worktree, append an unrelated line to a file the pass will mutate, run the script, and require that line to survive. A copy-aside restore preserves it; `git checkout` destroys it. Three lines, and it tests the contract as written rather than a side effect of it. I would fold this in before dispatch rather than after — it is cheap, it tightens rather than loosens, and it is the only finding this round that leaves a stated requirement unverifiable.",
+      "evidence": "Measured on a clone of this repo. Two toy scripts, one restoring by `cp` to a temp copy and one by `git checkout`, each mutating tests/apps.bats. POST-COMMIT (clean tree): `git status --porcelain tests/` before == after for **both** scripts, so part 1 passes the git-checkout one. PRE-COMMIT (conversions uncommitted): status before != after for the git-checkout script (the file's ` M` entry disappears as it reverts to baseline) and == for the copy-aside one, so part 1 catches it. The dirty-file probe, run post-commit: probe line SURVIVED under copy-aside, DESTROYED under git checkout. constitution.md:278 (the contract) and constitution.md:280 (part 1)."
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "minor",
+      "description": "A stale comment survives the fix and points at code that no longer exists. Lines 231-233 read \"`git checkout <path>` **below** restores the HEAD version... Before that, re-copy from the real tree instead.\" There is no `git checkout` below any more — all three restores are `cp` from `$REPO`. The operative sentence that follows it (\"NEVER `git checkout` to restore between plantings — see below\") is right, and the paragraph after the block explains the mechanism correctly, so nothing is misdirected in substance. But a checker reading the block top to bottom is told to look for a construct that isn't there. Reword to say why the `cp` is what restores here. This is the patched-neighbour residue the previous job's audits kept catching, in miniature.",
+      "evidence": "constitution.md:231-233 against constitution.md:238, :243, :248 (all three restores are `cp \"$REPO/tests/<file>\" tests/`) and constitution.md:253 (the explanatory paragraph, which is accurate)."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "minor",
+      "description": "Part 4 requires a script capability the clause never mandates, and the runtime figure no longer covers what the check asks for. Part 4 says \"re-run the script **scoped to that file**\", but nothing in V-2's text requires `tests/mutation-check.sh` to accept a file argument — part 1 invokes it bare, and part 3 says only \"re-run\". A worker building strictly to the text ships a script with no scoping, and a checker cannot run part 4 as written. There is a workable reading (\"re-run the pass and read the result for that file's sites\"), which is why this is minor rather than major. Related: the clause sizes the pass at \"roughly 6 minutes for all 53\", but parts 1, 3, and 4 each require a full pass, so the real check cost is about 18 minutes without scoping. Either mandate an optional file argument in the clause text — which also brings parts 3 and 4 down to seconds — or reword part 4 to drop the scoping.",
+      "evidence": "constitution.md:283 (`then re-run the script scoped to that file`) against constitution.md:264 and :280 (`bash tests/mutation-check.sh`, no argument), constitution.md:282 (part 3's bare `re-run`), and constitution.md:276 (`roughly 6 minutes for all 53`). Measured per-file runtimes make a jsonc-scoped run about a second against ~6 minutes for the full pass."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "minor",
+      "description": "Part 4's illustrative TAP block shows output from a different file than the one the clause now names. The comment reads `not ok 1 setup_file failed` and `bats warning: Executed 1 instead of expected 2 tests` — numbers from the two-case probe the r1 audit built. `tests/jsonc.bats`, which part 4 now names, has nine cases, so a real run opens with `1..9` and the warning counts differently. The load-bearing half is exact and reproduces on the named file: bats reports the harness failure and the case that was to be mutated never appears in TAP at all. Only the case counts are transplanted.",
+      "evidence": "constitution.md:283-290. Measured on the real file: `cp tests/jsonc.bats /tmp/agc-j/`, append an unterminated `@test`, `bats --formatter tap jsonc.bats` -> `1..9`, then `syntax error: unexpected end of file`, then `not ok 1 setup_file failed`; no mutated case appears."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "minor",
+      "description": "Hardening \"at least 52\" into \"exactly 52\" closed my r2 minor but traps the better implementation of the exception it depends on. Exception 2 requires `doctor.bats:244` to become \"an `if` testing both substrings that returns 1 when neither matches\" and does not forbid that `if` from using helpers — and using them is the sensible choice, since it reuses the one pair of assertion functions this job proves propagate. A checker counting \"assertions that call a shared helper\" against such an implementation gets 53 and reads the clause as violated; one counting \"assertions converted to a direct helper call\" gets 52. B-2 is checker-judgment, so an opus checker will most likely reason past it, but the clause introduces the number with \"since an off-by-one here misdirects every checker\", which invites a literal count. Phrase it as the conversion form rather than the call count: 52 assertions are converted to a direct helper call, and `doctor.bats:244` becomes an `if`, which may itself use helpers.",
+      "evidence": "constitution.md:191 (`So **exactly 52 assertions call a shared helper** — not \"at least 52\"`) against constitution.md:189 (exception 2, which constrains the shape but not the internals). tests/doctor.bats:244 at 61213fe is `[[ \"$output\" == *\"undeclared\"* || \"$output\" == *\"casks\"* ]]`."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "minor",
+      "description": "Part 1's \"unchanged\" has no stated referent. \"Confirm afterwards that `git status --porcelain tests/` is unchanged\" requires a before-value the checker was never told to capture, and pre-commit the after-value is a long list of modified and untracked paths that a checker could reasonably read either as expected uncommitted work or as leftover mutations. Say it outright: capture `git status --porcelain tests/` before the run and after, and require the two to be byte-identical.",
+      "evidence": "constitution.md:280. Measured pre-commit, the after-value on a correct run is seven ` M tests/*.bats` lines plus three `??` entries for the new files — indistinguishable from a leftover mutation without the before-value to compare against."
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "minor",
+      "description": "The block is not re-runnable after an interrupted run. `git worktree add /tmp/agc-lint HEAD` fails if that path survives a crash between the add and the `git worktree remove` at the end, and a checker retrying the check hits the failure rather than the check. A `git worktree remove /tmp/agc-lint --force 2>/dev/null || true` (or `rm -rf` plus `git worktree prune`) ahead of the add makes it idempotent. Inherited shape rather than new this round, and it fails loudly rather than silently.",
+      "evidence": "constitution.md:223 and :250. Confirmed while running the block: a second `git worktree add /tmp/agc-lint HEAD` against an existing path errors out; `git worktree prune` after an `rm -rf` clears it."
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "info",
+      "description": "The blocker is closed, verified end to end as literal shell against both a correct and a defective guard, in both commit states — which is the question you asked first. I built a simulated converted tree (all first-token sites stripped, plus the three new files), wrote two `lint.bats` cases — one scanning the full surface, one scanning `tests/*.bats` only, which is this clause's failing example word for word — and ran the block verbatim. Pre-commit, with the work uncommitted: the correct guard reports `not ok` for all three plantings; the defective guard reports `not ok` for planting 1 and **`ok` for plantings 2 and 3**, failing the check exactly as intended. Post-commit, after committing the same tree: byte-identical results. The `cp \"$REPO/tests/<file>\" tests/` restore is what makes the two states equivalent — post-commit the working tree equals HEAD, so the copy is a no-op difference. `REPO` is captured before the `cd`, so its relative sources resolve against the real tree.",
+      "evidence": "Measured in a clone at /tmp/agc-sim/repo. PRE-COMMIT, good guard: planting1/2/3 all `not ok`. PRE-COMMIT, `*.bats`-only guard: planting1 `not ok`, planting2 `ok`, planting3 `ok`. POST-COMMIT, `*.bats`-only guard: planting1 `not ok`, planting2 `ok`, planting3 `ok`. constitution.md:221-253."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "info",
+      "description": "Answering question 3: the one-way pointer is closed, and it did not become a duplicated requirement. The substance — the FAIL conditions a checker acts on — still lives in exactly one place, B-2's check list. What was added to B-2's text is an ownership statement that anchors to that list by reference (\"The two rubric conditions below\"), and what sits in V-2 is the matching disclaimer. That is a two-way pointer around a single source, not the shape the previous job's revision 5 was built to avoid, which was the same *contract* restated in three clauses so that every repair to one contradicted a neighbour. Here, deleting either paragraph would leave the requirement intact and only the routing unclear. B-2 also now explains why it holds the role rather than merely asserting it, which is what makes the pairing survive a future revision of either clause.",
+      "evidence": "constitution.md:193 (B-2's ownership paragraph, anchored to `The two rubric conditions below`) against constitution.md:194 (the check list, where the conditions actually live) and constitution.md:262 (V-2's disclaimer). archive/2026-08-07/constitution.md:11-13 for the failure mode being compared against."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "info",
+      "description": "Answering question 4: the two `git checkout` prohibitions do not collide. They govern different artifacts — V-1's is a rule for the checker's own harness between plantings, V-2's is a rule for the script's internals — and the shared reasoning is carried by a cross-reference (\"V-1 carries the same prohibition for the same reason\") rather than by restating either rule. Deleting one would not falsify the other. No other new contradiction surfaced: the surface is still defined only in B-1 and cited elsewhere, nothing on it is required by one clause and exempted by another, and the four-part header now agrees with its four items.",
+      "evidence": "constitution.md:278 and :233 against constitution.md:279. B-3's header at :203 says three and lists three; V-1's at :219 says two and lists two; V-2's at :279 now says four and lists four."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "Answering question 5: all four r2 minors are addressed, and the arithmetic reconciles everywhere it appears. B-2 now owns meaningfulness in its own text; part 4 names `tests/jsonc.bats`; the helper count is an equality; and the position-classification sentence now says what V-2's script does and does not have to do rather than overstating it. Numbers: the baseline table reads 54 sites / 53 assertions / 119 cases; B-2 reads 54 = 53 + 1, of the 53 one becomes an `if`, so 52 helper calls and 53 mutated; V-2 part 2's per-file requirement sums 11 + 20 + 12 + 2 + 5 + 3 = 53; V-2's failing example's \"seven sites in the two fastest files\" matches jsonc 2 + licensed-fonts 5; V-3's floors sum to 119. Every figure agrees with every other and with the tree at 61213fe. The single residue is the \"exactly 52\" phrasing recorded as a minor above, which is a wording question rather than an arithmetic one.",
+      "evidence": "constitution.md:112-121, :191, :281, :295, :299. Re-derived at 61213fe: 54 first-token sites (apps 11, doctor 20, font 12, install-failures 0, jsonc 2, licensed-fonts 5, packages 4), tests/packages.bats holding three assertions plus the `|| continue` guard at :146, and `/usr/bin/grep -c '^@test'` summing to 119 across the seven files."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "info",
+      "description": "Part 4's mechanism holds on the file the clause now names, and the choice of file is right: `tests/jsonc.bats` is the fastest at about a second and the pass must mutate it twice, so the probe is both cheap and non-vacuous. With an unterminated `@test` appended, bats emits the plan line, a syntax error, and `not ok 1 setup_file failed`, and the case that was to be mutated never appears in TAP — so an exit-status script scores the run a success and a TAP script cannot. That is the separation part 4 exists to make.",
+      "evidence": "Measured on the real tests/jsonc.bats copied to /tmp/agc-j with `\\n@test \"unterminated\" {\\n\\ttrue\\n` appended: `bats --formatter tap jsonc.bats` -> `1..9`, `syntax error: unexpected end of file`, `not ok 1 setup_file failed`, non-zero exit. constitution.md:283-292."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "The document is sound enough to build against. All four blockers found across three audits are closed and each was re-derived against its own failing example this round or last. Spec coverage is complete and unchanged: AC1 -> B-1 + B-2 + B-3, AC2 -> V-1, AC3 -> B-3 part 3, AC4 -> V-2, AC5 -> V-3. Every clause names a concrete check and a failing example I can state an artifact for; no two clauses contradict; the guarded surface is single-sourced; Protected content correctly declares no manifest. On your closing question — the remaining findings are post-PASS amendment material with one exception. The V-2 restore probe is worth folding in before dispatch, because it is three lines and it is the only finding that leaves a stated requirement unverifiable; the six minors can follow the previous job's pattern of amendments recorded in the revision history after PASS, since all of them tighten wording rather than change what gets built.",
+      "evidence": "spec.md:88-92 against constitution.md:164, :186, :204, :214, :264, :299. archive/2026-08-07/constitution.md:22-27 for the post-PASS amendment precedent (r4 passed with eight minor findings, all folded in afterwards, all the auditor's own)."
+    }
+  ],
+  "timestamp": "2026-08-08T19:05:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

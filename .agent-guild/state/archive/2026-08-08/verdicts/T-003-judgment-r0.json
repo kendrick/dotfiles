@@ -1,0 +1,66 @@
+{
+  "task_id": "T-003",
+  "checker": "checker-judgment",
+  "vendor": "anthropic",
+  "model": "claude-opus-5[1m]",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "No line in tests/font.bats has [[ or (( as its first non-whitespace token; the same grep returns all 12 baseline sites, so the check detects its own failing example rather than passing vacuously.",
+      "evidence": "$ /usr/bin/grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' tests/font.bats; echo \"EXIT=$?\"\nEXIT=1\n(no stdout; exit 1 = no match, not exit 2 = failed to run)\n\nSame pattern against `git show 61213fe:tests/font.bats` returns 12 lines, BASELINE_EXIT=0:\n  115:\t[[ \"$output\" == *\"active terminal family: $active_family\"* ]]\n  310:\t[[ \"$output\" == *\"registry.json\"* ]]\n  318:\t[[ \"$output\" == *\"jq\"* ]]\n  336:\t[[ \"$output\" == *\"editor.fontLigatures\"* ]]\n  344:\t[[ \"$output\" == *\"editor.fontLigatures\"* ]]\n  394:\t[[ \"$output\" == *\"Nonexistent Test Face\"* ]]\n  395:\t[[ \"$output\" == *\"tier a\"* ]]\n  405:\t[[ \"$output\" == *\"tier c\"* ]]\n  406:\t[[ \"$output\" == *\"1Password\"* ]]\n  407:\t[[ \"$output\" == *\"fetch\"* ]]\n  500:\t[[ \"$(jq -r '.monolisa.editor.ligatures' \"$HOME/.config/font/registry.json\")\" == *\"dlig\"* ]]\n  554:\t\t[[ \"$terminal_family\" == *\"$fallback\"* ]]\nRe-run after my mutation probes restored: EXIT=1 again."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "The [[:space:]] character classes inside the single-bracket test at baseline line 460 survive untouched at working-tree line 462, so the first-token rule was applied rather than a naive '\\[\\[' sweep.",
+      "evidence": "baseline tests/font.bats:460 and working tree tests/font.bats:462 are the same line, shifted +2 by the added `load`:\n\t\t[ \"$(grep -cE \"^[[:space:]]*\\\"${key//./\\\\.}\\\"[[:space:]]*:\" \"$settings\")\" -eq 1 ]\n$ /usr/bin/grep -n '\\[\\[:space:\\]\\]' tests/font.bats\n462:\t\t[ \"$(grep -cE \"^[[:space:]]*\\\"${key//./\\\\.}\\\"[[:space:]]*:\" \"$settings\")\" -eq 1 ]\nIt does not appear in the diff hunks at all, i.e. it was not edited."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "All ten single-argument $output conversions keep their needle byte-for-byte and their polarity (== to assert_contains, no negation introduced); no assertion inlines its own comparison and none was replaced by a condition that cannot fail.",
+      "evidence": "$ diff -u <baseline> tests/font.bats  (45 lines total; only the 12 sites plus a `load 'helpers'` line changed)\n-\t[[ \"$output\" == *\"active terminal family: $active_family\"* ]]\n+\tassert_contains \"active terminal family: $active_family\"\n-\t[[ \"$output\" == *\"registry.json\"* ]]      +\tassert_contains \"registry.json\"\n-\t[[ \"$output\" == *\"jq\"* ]]                  +\tassert_contains \"jq\"\n-\t[[ \"$output\" == *\"editor.fontLigatures\"* ]] (x2) + assert_contains \"editor.fontLigatures\" (x2)\n-\t[[ \"$output\" == *\"Nonexistent Test Face\"* ]] + assert_contains \"Nonexistent Test Face\"\n-\t[[ \"$output\" == *\"tier a\"* ]]              +\tassert_contains \"tier a\"\n-\t[[ \"$output\" == *\"tier c\"* ]]              +\tassert_contains \"tier c\"\n-\t[[ \"$output\" == *\"1Password\"* ]]           +\tassert_contains \"1Password\"\n-\t[[ \"$output\" == *\"fetch\"* ]]               +\tassert_contains \"fetch\"\nEvery needle is identical to the baseline's between the *\"...\"* wrapper. tests/helpers.bash:7-10 gives assert_contains a `haystack=\"${2-$output}\"` default, so the one-argument form is the exact $output subject the baseline used."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "The :115 needle stays double-quoted, so $active_family still interpolates rather than becoming a literal that could never match.",
+      "evidence": "$ /usr/bin/grep -n 'active terminal family' tests/font.bats\n117:\tassert_contains \"active terminal family: $active_family\"\nDouble quotes, not single. The case still passes in the full run (ok 44/44) with the interpolated value live; a single-quoted literal '$active_family' would not appear in the script's output."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Both computed-haystack sites pass their subject as the helper's second argument, so neither silently re-points at $output; :500's haystack expression is byte-identical to the baseline and the assertion is falsifiable against it.",
+      "evidence": "tests/font.bats:502 (baseline :500):\n\tassert_contains \"dlig\" \"$(jq -r '.monolisa.editor.ligatures' \"$HOME/.config/font/registry.json\")\"\nbaseline: [[ \"$(jq -r '.monolisa.editor.ligatures' \"$HOME/.config/font/registry.json\")\" == *\"dlig\"* ]]\nNeedle `dlig` and the jq expression both unchanged; second argument present.\nFalsifiability probe (needle -> ZZZABSENT, same haystack), bats --formatter tap -f 'MonoLisa names dlig explicitly':\n  1..1\n  not ok 1 MonoLisa names dlig explicitly in both halves\n  #   `assert_contains \"ZZZABSENT\" \"$(jq -r '.monolisa.editor.ligatures' ...)\"' failed\nThe live haystack is `'dlig', 'liga'`. Restored by copy-aside; cmp reports byte-identical."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "The :554 argument order is correct — assert_contains \"$fallback\" \"$terminal_family\" asserts the family contains the fallback, matching the baseline's [[ \"$terminal_family\" == *\"$fallback\"* ]] rather than the reversed claim.",
+      "evidence": "tests/font.bats:556:\n\t\tassert_contains \"$fallback\" \"$terminal_family\"\ntests/helpers.bash:7-10 fixes the semantics:\n  assert_contains() {\n  \tlocal needle=\"$1\" haystack=\"${2-$output}\"\n  \tgrep -qF -- \"$needle\" <<<\"$haystack\"\n  }\nSo arg1 is the needle ($fallback) and arg2 the haystack ($terminal_family): \"terminal_family contains fallback\", which is the baseline's meaning. Not reversed."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Mutation proves the :554 conversion actually fixed the loop-carried defect rather than only looking converted: an early failing iteration followed by a passing one now turns the case red, where the baseline [[ ]] in the identical position reports green.",
+      "evidence": "The fixture has only one key with a non-empty terminal.fallback (monolisa, order=100), so I injected an early failing key inside the test body to create the two-iteration case — jq '.mutantearly = {\"order\": 5, \"terminal\": {\"fallback\": \"ZZZABSENT\"}, \"editor\": {\"terminalFamily\": \"Some Family\"}}' into $HOME's per-test copy of registry.json (setup() re-copies it, so the repo fixture is never touched). mutantearly fails at order 5; monolisa passes later at order 100.\n\nHELPER form (the worker's conversion), bats --formatter tap -f 'names its icon fallback':\n  1..1\n  not ok 1 an unpatched font names its icon fallback in the terminal family too\n  # (from function `assert_contains' in file tests/helpers.bash, line 9,\n  #  in test file tests/font.bats, line 557)\n  #   `assert_contains \"$fallback\" \"$terminal_family\"' failed\n  BATS_EXIT=1\n\nCONTROL, identical mutation with the line reverted to the baseline [[ \"$terminal_family\" == *\"$fallback\"* ]]:\n  1..1\n  ok 1 an unpatched font names its icon fallback in the terminal family too\n  BATS_EXIT=0\n\nThe control is what makes this evidence: the same false early iteration is masked under [[ ]] and caught under the helper, so the conversion is the difference between the case testing every key and testing only the last. Restored from a copy-aside (cp, never git checkout); shasum d8076dbba0f7a1307bbe72244aa63bc0ab3a80fd matches pre-probe, cmp reports UNCHANGED_BY_CHECKER."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "The `[ -n \"$fallback\" ] || continue` guard on the line above :554 was left as single-bracket control flow, unconverted.",
+      "evidence": "tests/font.bats:551-558 (baseline 549-556):\n  @test \"an unpatched font names its icon fallback in the terminal family too\" {\n  \tfor key in $(keys_in_order); do\n  \t\tfallback=$(jq -r --arg k \"$key\" '.[$k].terminal.fallback // \"\"' \"$HOME/.config/font/registry.json\")\n  \t\t[ -n \"$fallback\" ] || continue\n  \t\tterminal_family=$(jq -r --arg k \"$key\" '.[$k].editor.terminalFamily' \"$HOME/.config/font/registry.json\")\n  \t\tassert_contains \"$fallback\" \"$terminal_family\"\n  \tdone\n  }\nThe guard line does not appear in any diff hunk as a -/+ pair; only the assertion beneath it changed."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Regression holds: tests/font.bats passes with 44 cases, none deleted, renamed, or skipped, and the diff stays in scope.",
+      "evidence": "$ bats --formatter tap tests/font.bats\n  1..44\n  BATS_EXIT=0\n  ok count: 44 | not ok: 0 | skipped: 0 | 12.801s total\n$ /usr/bin/grep -c '^@test' tests/font.bats -> 44 (baseline: 44)\n$ diff <(grep '^@test' baseline) <(grep '^@test' tests/font.bats) -> IDENTICAL_TITLES\n$ /usr/bin/grep -nE '^[[:space:]]*skip\\b' tests/font.bats -> exit 1, no output\n$ git diff --name-only -> tests/apps.bats tests/doctor.bats tests/font.bats tests/install-failures.bats tests/jsonc.bats tests/licensed-fonts.bats tests/packages.bats (plus untracked tests/helpers.bash)\n$ git status --porcelain | grep -E 'dot_local/|dot_config/font/' -> exit 1, none found\n$ git diff --stat -- dot_config/font/ -> empty; the registry fixtures are untouched."
+    }
+  ],
+  "timestamp": "2026-08-08T18:35:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

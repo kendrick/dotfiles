@@ -1,0 +1,60 @@
+{
+  "task_id": "T-005",
+  "checker": "checker-judgment",
+  "vendor": "anthropic",
+  "model": "claude-opus-5[1m]",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "No line in the three files has `[[` or `((` as its first non-whitespace token; the grep detects its own failing example, returning 2, 5 and 4 sites against the 61213fe baselines.",
+      "evidence": "$ /usr/bin/grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' tests/jsonc.bats tests/licensed-fonts.bats tests/packages.bats\n(no output)\nEXIT=1\n\nSame pattern against `git show 61213fe:tests/<f>.bats` (exit 0 each):\n  jsonc-baseline.bats:61,68 -> 2\n  licensed-fonts-baseline.bats:46,53,62,63,70 -> 5\n  packages-baseline.bats:117,119,120,146 -> 4\nExit 1 (no match), not 2, so the check ran; `type grep` confirms a ugrep shell-function shim exists, which is why /usr/bin/grep was used explicitly."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "The naive grep's extra hit at packages.bats:105 — a [[:space:]] POSIX class inside a single-bracket test, not a `[[` command — was left byte-identical to baseline.",
+      "evidence": "baseline `git show 61213fe:tests/packages.bats` line 105:\n\t[ \"$(grep -c '^[[:space:]]' <<<\"$output\")\" -eq 0 ]\nworking tree tests/packages.bats line 107 (baseline 105 + 2 for T-001's `load`):\n\t[ \"$(grep -c '^[[:space:]]' <<<\"$output\")\" -eq 0 ]\nIt appears in no hunk of `/usr/bin/diff -u` between the two files."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "jsonc.bats's 2 sites keep the same needle, haystack ($output by default) and polarity, converted to single helper calls with no inlined comparison.",
+      "evidence": "$ /usr/bin/diff -u <baseline> tests/jsonc.bats\n-\t[[ \"$output\" == *\"while parsing\"* ]]\n+\tassert_contains \"while parsing\"\n-\t[[ \"$output\" == *\"while parsing\"* ]]\n+\tassert_contains \"while parsing\"\nThe only other hunk is `+load 'helpers'` (T-001). Both needles non-empty, so neither condition is one that cannot fail."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "licensed-fonts.bats's 5 sites convert with polarity preserved, including the trap: :62 and :63 sit in the same case asserting opposite things about neighbouring strings, and :70 asserts the same \"not in vault\" needle as :63 with the opposite polarity. All three checked individually against baseline.",
+      "evidence": "$ /usr/bin/diff -u <baseline> tests/licensed-fonts.bats\n:46 -\t[[ \"$output\" == *\"not installed\"* ]]        +\tassert_contains \"not installed\"\n:53 -\t[[ \"$output\" == *\"not signed in\"* ]]       +\tassert_contains \"not signed in\"\n:62 -\t[[ \"$output\" == *\"would not authorize\"* ]] +\tassert_contains \"would not authorize\"\n:63 -\t[[ \"$output\" != *\"not in vault\"* ]]        +\tassert_not_contains \"not in vault\"   (!= -> not, polarity held)\n:70 -\t[[ \"$output\" == *\"not in vault\"* ]]        +\tassert_contains \"not in vault\"       (== -> contains, distinct case)\n:62 and :63 remain adjacent in the same @test, still asserting opposite things. Helper polarity probed directly (/bin/bash -c 'source tests/helpers.bash; ...'):\n  not_contains(present)=1  contains(present)=0  not_contains(absent)=0  contains(absent)=1"
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "packages.bats:117's needle kept its embedded double quotes via the required single-quoted form, and :119/:120 converted != to assert_not_contains without flipping polarity.",
+      "evidence": "$ /usr/bin/diff -u <baseline> tests/packages.bats\n:117 -\t[[ \"$output\" == *'brew \"age\"'* ]]   +\tassert_contains 'brew \"age\"'\n:119 -\t[[ \"$output\" != *\"databricks\"* ]]   +\tassert_not_contains \"databricks\"\n:120 -\t[[ \"$output\" != *\"font-lilex\"* ]]   +\tassert_not_contains \"font-lilex\"\nThe :117 argument is single-quoted, so `brew \"age\"` retains both interior double quotes."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "packages.bats:146 was converted, not deleted: it is present as a single-bracket `[ -n \"$cask\" ] || continue`, still inside the `while IFS= read -r cask` loop and still immediately above the `grep -qxF` test, so the loop's blank-line skip behaviour is preserved.",
+      "evidence": "baseline `git show 61213fe:tests/packages.bats:146`:\n\t\t\t[[ -n \"$cask\" ]] || continue\nworking tree tests/packages.bats:147-149:\n\t\twhile IFS= read -r cask; do\n\t\t\t[ -n \"$cask\" ] || continue\n\t\t\tif ! grep -qxF \"cask \\\"$cask\\\"\" <<<\"$rendered\"; then\nThe diff hunk is a one-line replacement (`-` then `+`), not a deletion, and the relative position to `grep -qxF` is unchanged."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Regression: the three files run 29 cases green with none deleted, renamed or skipped, and the diffs contain no change outside the 11 conversion sites plus T-001's `load` line.",
+      "evidence": "$ bats --formatter tap tests/jsonc.bats tests/licensed-fonts.bats tests/packages.bats\nBATS_EXIT=0\n1..29\nok lines: 29   not-ok lines: 0   skips: 0\n$ /usr/bin/grep -c '^@test' -> jsonc: 9, licensed-fonts: 7, packages: 13\n@test title lists diffed baseline vs working tree: IDENTICAL for all three files."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Scope holds: the working tree touches only files under tests/, with nothing under dot_local/; this task's three artifacts are among them and each contains only its own conversions.",
+      "evidence": "$ git diff --name-only\ntests/apps.bats\ntests/doctor.bats\ntests/font.bats\ntests/install-failures.bats\ntests/jsonc.bats\ntests/licensed-fonts.bats\ntests/packages.bats\n$ git status --porcelain also lists `?? tests/helpers.bash`. No path under dot_local/, .chezmoidata.toml, or any run_onchange_* template. The four non-T-005 .bats files belong to sibling tasks; T-005's three files show only the hunks quoted above."
+    }
+  ],
+  "timestamp": "2026-08-08T18:05:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

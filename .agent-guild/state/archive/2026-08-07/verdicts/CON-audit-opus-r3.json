@@ -1,0 +1,114 @@
+{
+  "task_id": "CON-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5",
+  "verdict": "fail",
+  "timestamp": "2026-08-07T03:20:00Z",
+  "duration_ms": null,
+  "cost_usd": null,
+  "findings": [
+    {
+      "clause_id": "V-1",
+      "severity": "blocker",
+      "description": "The table row expecting all three `one failure does not stop the rest` cases to FAIL at 1dec91c is false, and measurably so: every loop site already continues past a failing item at baseline, because `|| true` is exactly what makes it continue. A case written to B-3 requirement 1 (and to B-3's own failing example, which counts stub invocations) PASSES at baseline, so V-1's deterministic part-3 comparison fails the file, while a case written to satisfy the table must also assert B-2's collected-failure naming, duplicating the `present tool failing names the item` case. Whichever way the worker writes it, a blocker clause is violated. This is r2's C-15 finding recurring, and it contradicts V-1's claim that the table 'follow[s] from the Measured baseline table, not from assumption'.",
+      "evidence": "Measured on this machine: rendered install-vscode-extensions at 1dec91c with a `code` stub that logs and exits 1, PATH scrubbed to the stub dir plus /usr/bin:/bin -> script exit 0 and 43 of 43 extensions attempted. Rendered install-claude-plugins likewise with a failing `claude` stub -> script exit 0 and 7 of 7 marketplace add / plugin install calls attempted. configure-raycast has the identical `open ... || true` shape at run_onchange_configure-raycast.sh.tmpl:22. constitution.md:137 vs constitution.md:82 and constitution.md:88."
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "blocker",
+      "description": "Requirement 2 ('exit 0 anyway') has no check that can detect its own failing example. B-3's check delegates to `bats tests/install-failures.bats` plus the assertion that 'every one of V-1's eleven cases asserts `status -eq 0`', but V-1's check is an enumerated three-part deterministic procedure — @test count and titles, no `chezmoi source-path` plus SRC present, and the per-case baseline TAP comparison — and none of those three parts inspects the cases for a status assertion. B-3 also names no checker family, unlike every other behaviour clause. So a worker who makes the scripts `exit 1` after collecting failures and writes cases that assert only on output text passes B-1, B-2, V-1's table (baseline outcomes are unchanged by HEAD's exit status), V-2 (`run` captures a non-zero status without failing the case), and B-3's own check. That is verbatim B-3's second failing example, and the clause exists because the issue title invites exactly that mistake.",
+      "evidence": "constitution.md:86 ('check: `bats tests/install-failures.bats`, whose contents V-1 binds') against constitution.md:140-149 (V-1's three enumerated check parts); B-3's failing example at constitution.md:88."
+    },
+    {
+      "clause_id": "B-5",
+      "severity": "major",
+      "description": "The check depends on a fixture the constitution never requires. It says to 'run V-1's happy-path stubs with every item succeeding', but V-1's eleven mandated cases are four absent-tool, four present-tool-failing, and three keeps-going — none is an all-items-succeed case, and V-1 is declared the only clause that constrains the test file. B-5's live defect (an empty or headerless failure summary on a clean run) therefore has no mandated artifact to fire against: the checker either improvises stubs the constitution does not describe or reports blocked. This is the restructure losing a requirement a redundant clause was carrying.",
+      "evidence": "constitution.md:100 ('Then run V-1's happy-path stubs with every item succeeding') against V-1's case list at constitution.md:117-121."
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "minor",
+      "description": "The structural claim 'This is the only clause constraining `tests/install-failures.bats`' is false in the document's own text. B-5 requires happy-path stubs (see the finding above) and D-4 requires that any test executing the raycast script stub `defaults`. Neither constraint contradicts V-1 — D-4's is benign and enforced by D-4's own judgment check — but the no-redundancy invariant this revision exists to establish does not actually hold, and the one instance that matters (B-5) is a check pointing at an artifact V-1 does not mandate.",
+      "evidence": "constitution.md:115 against constitution.md:100 and constitution.md:230."
+    },
+    {
+      "clause_id": "D-1",
+      "severity": "minor",
+      "description": "'its eight `defaults write ... || true` guards' is wrong, for the third revision running (r1 and r2 both flagged it). The script carries eight `|| true` guards, of which six are on `defaults write`; the other two guard `osascript` and `killall`. The clause's check is the scope script and does not count guards, so nothing turns on it — but the document asserts every per-site claim was measured.",
+      "evidence": "run_once_after_configure-macos.sh: 8 lines match `|| true`, 6 match `defaults write.*|| true`; the outliers are :14 (`osascript -e 'tell application \"System Settings\" to quit' ... || true`) and :165 (`killall \"${app}\" &>/dev/null || true`). constitution.md:194."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "minor",
+      "description": "The causal account cites the wrong picker. The hang is at `dot_local/bin/executable_dotfiles-apps:144`, the fzf inside `cmd_move`, not `:131` inside `pick_bundles`: `main()` defaults `mode=\"move\"` and the failing case runs the script with no arguments. Everything else in the clause — the unscrubbed PATH at tests/apps.bats:58, the guard at :35-36, the 124 exit, the fix being confined to tests/apps.bats — is correct and was re-derived.",
+      "evidence": "Instrumented run: an fzf shim on PATH ahead of the real binary logs `--prompt=move>`, which is the call site at executable_dotfiles-apps:144; executable_dotfiles-apps:258 sets `local mode=\"move\"`. constitution.md:158."
+    },
+    {
+      "clause_id": "D-4",
+      "severity": "minor",
+      "description": "The `defaults read com.raycast.macos raycastGlobalHotkey` before/after probe cannot detect the failing example attributed to it. The rendered raycast script writes the literal value `Command-49`, which is the value the domain already holds, so an unstubbed test run leaves before and after identical and the probe passes while the user's preference was in fact rewritten. The clause is still protected — its judgment bullet catches an unstubbed `defaults write` under tests/ — but this bullet is inert by construction.",
+      "evidence": "`defaults read com.raycast.macos raycastGlobalHotkey` -> `Command-49`, which is the literal at run_onchange_configure-raycast.sh.tmpl:30. constitution.md:237."
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "minor",
+      "description": "install-claude-plugins is called a loop site with 'item' defined as 'one loop iteration', but the rendered script never iterates: the template emits a flat sequence of add_marketplace / install_plugin calls. The per-site enumeration ('one plugin or marketplace spec') resolves the ambiguity and the requirement stands, so this is description rather than substance — but r1 and r2 both flagged the same wording.",
+      "evidence": "Rendered under the real $HOME, run_onchange_after_install-claude-plugins.sh.tmpl emits 7 flat `add_marketplace`/`install_plugin` lines and no loop; constitution.md:82."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "minor",
+      "description": "Under-reach on discarded stderr. spec.md:48 and spec.md:86 single out `code --install-extension ... 2>/dev/null` as the worst of the four sites precisely because it throws away the error text as well as the exit code, and the convention B-5 cites at run_onchange_after_install-global-node-packages.sh.tmpl:32-36 argues stderr should be let through. No clause requires removing `2>/dev/null`: a conversion that names the failing item in its own summary while still swallowing the CLI's reason satisfies B-1 (which greps only for `|| true` / `|| echo`), B-2, and every other clause. Not an acceptance criterion, so this is under-reach against the spec's problem statement rather than a missed AC.",
+      "evidence": "spec.md:48, spec.md:86; B-1's check at constitution.md:56 keys on `\\|\\| (true|echo)` only."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "PASS on acceptance-criterion coverage. AC1 -> B-2.2 and B-1; AC2 -> B-2.1 with B-3.2 and V-1's absent-tool cases; AC3 -> B-2.3; AC4 -> B-3.1 with V-1's keeps-going cases; AC5 -> V-3; AC7 -> B-1 and D-1; AC8 -> V-2 with V-1 and D-4's stub requirement. AC6 was independently re-derived and remains a sound non-goal, not reinstated: dotfiles-sync never runs `chezmoi apply` (its phases are extension-list regeneration, plugin-manifest capture, re-add, drift report, commit, push) and truncates the log every run.",
+      "evidence": "dot_local/bin/executable_dotfiles-sync:23 (`: >\"$LOG\"  # truncate log each run`), :129 `git add -A`, :131-132 the `[auto-sync from ${HOST}]` commit, :155 `git push`; no `chezmoi apply` invocation anywhere in the script."
+    },
+    {
+      "clause_id": "baseline",
+      "severity": "info",
+      "description": "PASS — the Measured baseline table is accurate at 1dec91c on this machine, including the Raycast outlier that revisions 2 and 3 got wrong, and the two dependent facts under it. The tree is at 1dec91c with only the excluded .age file modified. The claude-plugins render measurement reproduces exactly (7 install calls under the real $HOME, 0 under a synthetic one), so V-1's render/execute separation rests on a true premise.",
+      "evidence": "install-packages :12 skip message, :31 `brew bundle ... || echo`; install-vscode-extensions :13, :21; configure-raycast :12-13 bare `exit 0`, :22; claude-plugins :24, :34, :41, key.txt gate at :62, else at :76. B-1's five command-keyed greps each return exactly one baseline hit and none matches the carved-out `brew trust ... || true` at install-packages:27."
+    },
+    {
+      "clause_id": "V-3",
+      "severity": "info",
+      "description": "PASS — the mutation was executed and is genuinely discriminating, which is what r2's C-5 blocker asked for. With the `cp` in place, `sed -i '' '58,68d'` leaves the doctor syntactically valid (`bash -n` clean) and all ten existing doctor.bats cases still report `ok`, so only a case that truly reaches the 'in a bundle you've enabled but not installed' branch flips to `not ok`. `git worktree add /tmp/agc-mut HEAD` works, producing a detached worktree.",
+      "evidence": "Executed against a scratch worktree: TAP output `1..10` with ok 1 through ok 10 after deleting dot_local/bin/executable_dotfiles-doctor:58-68, which is exactly the echo at :58 through the cask loop's `done` at :68."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "info",
+      "description": "PASS on every premise except the picker line above. `timeout 90 bats tests/apps.bats` exits 124 with stdin on /dev/null, hanging after ok 15 at the 'names the missing tool' case, so the check detects its own failing example. The six baseline @test counts are exact (apps 18, doctor 10, font 44, jsonc 9, licensed-fonts 7, packages 13). `grep -E '^\\+\\s*skip\\b'` behaves as intended under this machine's BSD grep, matching `+  skip` and not `+ skipper`. The 300s allowance has real headroom: the suite minus apps.bats runs in 29s, and the new file's worst case is roughly a minute given raycast's 27 extensions at `sleep 1` each.",
+      "evidence": "tests/apps.bats:57-58 (stub chmod then `export PATH=\"$STUBS:$PATH\"`), :256-258 (the case that removes the stub fzf), /opt/homebrew/bin/fzf present; measured suite timings."
+    },
+    {
+      "clause_id": "D-1",
+      "severity": "info",
+      "description": "PASS on the mechanism. The check-diff-scope.py invocation parses as written (--ignore is repeatable and may precede the positionals, `tests/` matches as a directory prefix), exits 0 against the current tree and 1 with the offending path named on stderr when an out-of-scope file appears. The antipatterns citations are exact: :71-75 is the deprecated-defaults entry and :77-82 is the companion decision not to reintroduce `set -e`.",
+      "evidence": "`python3 .agent-guild/scripts/check-diff-scope.py --ignore dot_claude/encrypted_private_settings.json.age ...` -> `OK: 1 path(s) in scope`, exit 0; with a probe file under dot_local/bin/ -> `check-diff-scope: out of scope: dot_local/bin/ZZZ-scope-probe`, exit 1."
+    },
+    {
+      "clause_id": "D-4",
+      "severity": "info",
+      "description": "PASS on the boltdb probe, including the cross-clause question it raises. `chezmoi execute-template` — which V-1 mandates on every case — does not touch ~/.config/chezmoi/chezmoistate.boltdb, so V-1's harness cannot trip D-4's mtime check. The file's mtime is 2026-08-06T20:26:14 local, before any task file can exist, so the comparison is well-founded. The operational precondition also holds: the auto-sync LaunchAgent is not loaded.",
+      "evidence": "boltdb mtime stable at 2026-08-06T20:26:14 across repeated renders; `launchctl print gui/$UID/com.k-arnett.dotfiles-auto-sync` exits 113 (not loaded)."
+    },
+    {
+      "clause_id": "B-5",
+      "severity": "info",
+      "description": "PASS on the bash 3.2 premise. Under /bin/bash 3.2.57 with `set -e` and no `-u`, an empty `\"${arr[@]}\"` expansion does not abort — it emits one bare blank line under the heading and continues, which is the unnamed-failure defect the clause describes. None of the four scripts sets `-u`; three set `-e` and install-packages sets neither.",
+      "evidence": "`/bin/bash -c 'set -e; arr=(); echo \"FAILED:\"; printf \"%s\\n\" \"${arr[@]}\"; echo END'` -> `FAILED:\\n\\nEND\\n`."
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "info",
+      "description": "PASS — both cited working-memory passages exist verbatim at the cited lines and both do contradict what this job builds. One citation elsewhere is imprecise but harmless: V-1 says `tests/doctor.bats:30-31` stubs `chezmoi source-path`, where :30 opens the stub heredoc and the `source-path)` arm is at :33.",
+      "evidence": "_working-memory/conventions.md:40 (the bats 'don't assert on log wording' bullet) and :46 (the Error Handling bullet naming run_onchange_install-vscode-extensions.sh.tmpl); tests/doctor.bats:30-42 stub body, :33 `source-path) echo \"$FIXTURE\" ;;`, :52 the `brew` stub as `:`; tests/licensed-fonts.bats:22 the execute-template render."
+    }
+  ]
+}

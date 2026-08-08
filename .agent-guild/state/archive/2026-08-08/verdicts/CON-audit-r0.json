@@ -1,0 +1,156 @@
+{
+  "task_id": "CON-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5",
+  "verdict": "fail",
+  "findings": [
+    {
+      "clause_id": "V-1",
+      "severity": "blocker",
+      "description": "The check reports clean against the clause's own stated failing example. V-1's failing example is \"a guard case that scans only `tests/*.bats` and never `tests/helpers.bash`\". V-1's mutation plants its canary only in `tests/jsonc.bats` — a `.bats` file. A guard that scans exactly `tests/*.bats` and never touches `helpers.bash` sees that canary, reports `not ok`, and passes both parts of the check while being verbatim the artifact the clause says must fail. The one place a bare `[[` disarms the whole suite at once is the one place the mutation never probes. The mutation needs a second canary appended to `tests/helpers.bash` (and, if V-1's surface really is \"anywhere under `tests/`\", a third in a non-`.bats` file there), each required to produce `not ok` independently.",
+      "evidence": "constitution.md:171 (failing example) against constitution.md:161-168 (the mutation block, which writes only to /tmp/agc-lint/tests/jsonc.bats and repeats with `(( 1 == 1 ))` in the same file). Confirmed by construction: `grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' tests/*.bats` at 61213fe returns 54 lines and would return 55 with the canary appended, so a *.bats-only guard fires on it."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "blocker",
+      "description": "The site cross-check cannot be run against a correct implementation, so the clause's only coverage guarantee is inoperable. V-2 tells the checker to take the script's mutated `file:line` output (produced against HEAD) and FAIL if any 61213fe baseline site is missing from it. Every baseline line number is guaranteed to have moved by then: B-3 mandates a `load` line in all seven pre-existing files (shifting every line in every file by at least one), B-2 restructures `doctor.bats:244` into a multi-line `if`, and D-2 adds comments to the test files. The two site sets are therefore not comparable by line number, and a literal checker FAILs an honest script while a pragmatic one waves the step through — which is the step that was supposed to catch V-2's own first failing example (a script that covers a subset and prints a confident summary). Either the script must emit baseline-anchored ids, or the cross-check must be re-anchored on something stable (case title plus needle, or a count per file).",
+      "evidence": "constitution.md:182 (`Cross-check that set against B-1's baseline list — git show 61213fe:<file> | grep -nE ... for each file — and FAIL if any baseline site other than packages.bats:146 is missing from it`) against constitution.md:142 (B-3: `every test file loads it with bats load`), constitution.md:135 (B-2's restructuring of doctor.bats:244), constitution.md:211 (D-2's added comments). Measured: 20 of doctor.bats's 54 sites sit below line 116, so a single added `load` at the top of the file displaces all 20."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "blocker",
+      "description": "The mutation's success condition is file-level exit status, which is the exact reasoning V-2's own failing example condemns one level up, and weaker than the acceptance criterion it implements. The clause requires the script to run \"the containing file\" and \"require a non-zero exit\", then names as a failing example a script \"that mutates every site but runs `bats tests/` and checks only that the *suite* went red, which stays true even when the mutated case itself passed\". Substituting \"file\" for \"suite\" does not repair that: a mutation that breaks the file's bash parsing, or that trips any other case in the same file, produces a non-zero file exit with the mutated case never failing. spec.md AC4 asks for \"confirming the test goes red\", singular, and the previous job's constitution had already learned this — its V-1 check reads \"The exit code alone is not the check — compare the TAP `ok`/`not ok` line for each case\". The load-bearing clause of this constitution dropped that.",
+      "evidence": "constitution.md:177 and :184 (the text and the failing example) against archive/2026-08-07/constitution.md:183. Reproduced on this machine: `bats tests/font.bats` exits non-zero if any one of its 44 cases fails, so file exit status cannot distinguish which case went red. spec.md:91."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "The guarded surface is defined in three clauses at three different scopes, and two of them can be satisfied while contradicting each other. B-1's text says \"there is no exempt position, no exempt file\", but its check globs `tests/*.bats tests/helpers.bash`, which exempts every other file under `tests/`. V-1 defines the guard's surface as \"anywhere under `tests/`, covering `helpers.bash` as well as the `.bats` files\". V-2 then mandates a new non-`.bats`, non-helpers file in that directory, `tests/mutation-check.sh`. A guard built to V-1's wording that flags a first-token `[[` in `mutation-check.sh` turns `bats tests/` red and fails V-3; a guard built to B-1's file list does not scan `mutation-check.sh` at all and a strict V-1 checker fails it. One clause has to own the surface, name it exactly, and say whether `tests/mutation-check.sh` is inside it.",
+      "evidence": "constitution.md:117 and :121 (B-1 text vs B-1 glob), constitution.md:156 (V-1: `anywhere under tests/`), constitution.md:177 (V-2 mandates tests/mutation-check.sh), constitution.md:192 (V-3 requires `bats tests/` to exit 0). `ls tests/` at 61213fe returns seven .bats files and nothing else, so both new files land inside the disputed region."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "major",
+      "description": "The tautology probe's expected outcome depends on a mutation strategy the clause never fixes, so it will FAIL correct scripts. The checker is told to replace a converted assertion with `assert_contains \"\"` and \"require the script to report that site as unmutable or failing\". Under polarity inversion — the strategy spec.md AC4 literally names (\"Verify by inverting each one\") — `assert_contains \"\"` becomes `assert_not_contains \"\"`, which returns 1, so the file goes red and the script correctly reports the site mutable. The checker then fails a script that did exactly what V-2's text asked for. Needle-substitution mutation behaves the same way. \"Unmutable\" is also undefined: recognising an arbitrary always-true assertion is not decidable, and the clause gives no rule (e.g. \"refuse to mutate an assertion with an empty needle\") that a worker could build to. Either pin the mutation strategy and pick a tautology that strategy provably cannot redden, or drop the probe and get the same assurance from the case-level TAP requirement.",
+      "evidence": "constitution.md:182 (`replace one converted assertion with a tautology (for instance an assert_contains \"\", which matches any haystack)`) against spec.md:91 and constitution.md:177. Verified under /bin/bash 3.2.57(1): `assert_not_contains() { case \"$2\" in *\"$1\"*) return 1;; esac; }` with an empty needle returns 1 for every haystack, because `*\"\"*` matches everything."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "major",
+      "description": "One of the 54 mandated conversions is required to change and no clause checks what it changed into. B-1 requires `tests/packages.bats:146` be converted; B-2's check reads \"each of the 53 converted assertions\", which excludes it; V-2 excludes it by name. A worker who deletes the line outright satisfies B-1 (no first-token `[[` remains), is outside B-2's 53 pairs, is outside V-2's 53 mutations, and V-3 stays green unless the fixture happens to produce an empty cask line. The required replacement form is also stated only in the descriptive Measured baseline (`[ -n \"$cask\" ] || continue`), not in any clause, so a checker has no normative text to hold it to. Simplest repair: make B-2's check read 54 pairs and say what the 54th must become.",
+      "evidence": "constitution.md:93 (`Every mutation requirement in V-2 counts 53, not 54`, and the required replacement text) against constitution.md:136 (B-2's check: `for each of the 53 converted assertions`) and constitution.md:117 (B-1: `including tests/packages.bats:146's || continue guard`). tests/packages.bats:146 is `\\t\\t\\t[[ -n \"$cask\" ]] || continue` inside a `while IFS= read -r cask` loop, confirmed at 61213fe."
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "major",
+      "description": "Nothing binds a converted call site to actually call a helper, and nothing requires `helpers.bash` to define the helpers. spec.md AC1 asks that all 54 be \"replaced with a helper whose failure propagates from any position ... following the assert_contains and assert_not_contains pattern\". B-1 only forbids a first-token `[[`; B-3's check only asks that `tests/helpers.bash` exist, that seven files `load` it, that install-failures.bats's local copies are gone, and that a probe the checker writes goes red. A worker who converts all 54 sites to inline `case`/`[ ]` and ships a `helpers.bash` holding only the two definitions install-failures.bats needs passes every clause while AC1's actual requirement goes unmet — and inline conversions are where the sloppy shapes live (`[ \"$output\" = *\"foo\"* ]` does no globbing in single brackets). B-3's own rationale (\"Seven copies of a helper is how the semantics drift apart\") and D-2's convention bullet (\"assert with the shared helpers\") both assume the call sites use them; no clause says so.",
+      "evidence": "spec.md:88 against constitution.md:117 (B-1's text), constitution.md:142-148 (B-3's text and three-part check). Confirmed: B-3's check part 1 tests only for the file's existence and `load` lines; part 2 tests only install-failures.bats; part 3 tests a probe the checker authors, not the suite's call sites."
+    },
+    {
+      "clause_id": "measured-baseline",
+      "severity": "major",
+      "description": "The naive-grep figure does not reproduce, and the correction it supports is incomplete. `grep -n '\\[\\[' tests/*.bats` returns **59** lines at 61213fe, not 57, and **five** of them are not `[[` commands, not three. The constitution's list omits `tests/install-failures.bats:68` and `:71` — the comment block documenting this very bug, which the constitution itself cites two clauses later as `:67-72`. The conclusion still holds (54 first-token sites, the issue's per-file table exact, `((` count zero — all three re-derived), but B-1's check hands a checker the sentence \"will report three false positives\" and that checker will see five. A stated measurement that does not reproduce is the failure mode the previous job's constitution wrote a whole section about.",
+      "evidence": "Measured at 61213fe with /usr/bin/grep (not the shell's ugrep shim): `grep -n '\\[\\[' tests/*.bats | wc -l` -> 59; `grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' tests/*.bats | wc -l` -> 54. The five non-first-token lines: tests/apps.bats:50 (regex in a `grep -oE`), tests/font.bats:460 (`[[:space:]]` inside `[ ]`), tests/install-failures.bats:68 (`# genuine errexit bug: a failing \\`[[ ]]\\` does not abort ...`), tests/install-failures.bats:71 (`# hand: \\`set -e; f() { [[ 1 -eq 2 ]]; echo reached; }; f\\` prints \"reached\" on`), tests/packages.bats:105 (`[[:space:]]` inside `[ ]`). constitution.md:85-91 against constitution.md:211."
+    },
+    {
+      "clause_id": "V-3",
+      "severity": "minor",
+      "description": "The skip-detection grep errors out rather than matching under the `grep` a Claude Code checker gets by default. `grep '^\\+\\s*skip\\b'` is intercepted by the harness's ugrep shim, which rejects the `\\s*` + `\\b` combination with \"error at position 5\" and exits 2 with nothing on stdout. A checker reading \"no output\" as \"no skip added\" reports clean on a check that never ran. It works under `/usr/bin/grep`. Pinning the pattern to POSIX classes (`^\\+[[:space:]]*skip([[:space:]]|$)`) or to `/usr/bin/grep` fixes it. The previous job's constitution carried the same pattern, so this is inherited rather than new.",
+      "evidence": "constitution.md:194. Measured: `printf '+\\tskip foo\\n' | grep '^\\+\\s*skip\\b'` -> `ugrep: error: error at position 5 ... invalid syntax`, exit 2. Same input through `/usr/bin/grep` -> matches, exit 0. `grep --version` -> `ugrep 7.5.0`, reached through a shell function that execs the Claude binary as ugrep."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "minor",
+      "description": "With `tests/helpers.bash` absent, B-1's check exits 2, not the \"exit 1, no output\" the clause states. grep treats the missing operand as an error and writes to stderr. A checker keying on \"nothing on stdout\" would pass a job that shipped no helpers file at all — the exact state B-3 exists to prevent. Stating the expected exit as \"1\" and only \"1\" is enough to close it, but the clause should say a 2 means blocked rather than pass.",
+      "evidence": "constitution.md:121-124. Measured at 61213fe: `grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' tests/*.bats tests/helpers.bash >/dev/null 2>&1; echo $?` -> 2, with helpers.bash not present."
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "minor",
+      "description": "The mutation does not require the guard to resolve its scan path relative to `BATS_TEST_DIRNAME`, which is the lesson the previous job's V-1 wrote down explicitly after the same harness shape misfired. `cd /tmp/agc-lint && bats --formatter tap tests/lint.bats` only proves something about the worktree if the guard scans the worktree. The failure direction happens to be safe here — a guard resolving an absolute repo path scans the converted, clean tree, reports `ok`, and FAILs the check — so this is a false-FAIL and diagnosis-cost risk rather than an escape. One sentence borrowed from archive V-1 closes it.",
+      "evidence": "constitution.md:161-168 against archive/2026-08-07/constitution.md:155 (`Script resolution is relative. The file locates the repo as SRC=\"${BATS_TEST_DIRNAME}/..\" ... Without this, the mutation step silently renders HEAD's scripts inside the baseline worktree and passes green`). The repo idiom already exists at tests/licensed-fonts.bats:12 and tests/doctor.bats:13."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "minor",
+      "description": "`doctor.bats:244`'s restructured disjunction has no stated mutation rule, and it is the one site where the obvious rule gives a wrong answer. B-2 requires both arms of `[[ \"$output\" == *\"undeclared\"* || \"$output\" == *\"casks\"* ]]` to survive into an `if`. A mutation that falsifies one arm leaves the other satisfied and the case green, so an honest script reports that site un-reddenable and exits non-zero. V-2 should say the disjunction site is mutated by falsifying every arm at once.",
+      "evidence": "constitution.md:135 (B-2's restructuring requirement) against constitution.md:177 (`produces a variant in which that one assertion's condition is false`). Verified at 61213fe: tests/doctor.bats:243-244 are `[[ \"$output\" == *\"victor\"* ]]` then the disjunction, inside the deps_section case whose fixture declares an undeclared cask, so at least one arm matches today."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "minor",
+      "description": "Heredoc-written stub scripts are a live hazard the absolute does not discuss. Ten places under `tests/` write executable stubs via heredoc; a stub body whose first token is `[[` would be a B-1 and V-1 violation with no assertion involved, and the stub runs in its own process where the errexit bug is irrelevant. None exists today, so this is prospective — but B-1 claims \"no exempt position, no exempt file\" and a worker writing a stub during conversion will hit it without warning. Worth one sentence either way (the absolute is defensible; silence is not).",
+      "evidence": "constitution.md:117. Heredoc stub writes at tests/apps.bats:30 and :39, tests/doctor.bats:30 and :260, tests/font.bats:31 and :42, tests/install-failures.bats:52, :99, :211, :271, :342, tests/licensed-fonts.bats:31. None currently contains a first-token `[[`, confirmed by the 54-site enumeration."
+    },
+    {
+      "clause_id": "V-3",
+      "severity": "minor",
+      "description": "The 119 total is stated in the clause text but no part of the check binds it. The check lists per-file greps and a suite exit code; `tests/lint.bats` is explicitly \"new and additional to those floors\", so summing the per-file floors is not the total either. The per-file floors do all the work, which is fine — but the sentence \"119 total, which is the measured figure\" reads as a requirement and is not one.",
+      "evidence": "constitution.md:188 against constitution.md:191-194. Measured at 61213fe: apps 18, doctor 11, font 44, install-failures 17, jsonc 9, licensed-fonts 7, packages 13 = 119, all seven exact."
+    },
+    {
+      "clause_id": "measured-baseline",
+      "severity": "minor",
+      "description": "One runtime figure drifts. tests/font.bats measures 11.5s here against the stated 12.3s; the other six land within 0.2s and the suite total (34.5s measured vs 34.7s stated) is exact enough. Nothing depends on the difference — V-2's two derived figures both re-derive from the stated table anyway.",
+      "evidence": "Measured at 61213fe, wall clock per file: apps 6.3s, doctor 6.8s, font 11.5s, install-failures 6.1s, jsonc 0.5s, licensed-fonts 1.5s, packages 1.9s. `timeout 300 bats tests/` -> exit 0, 119 cases, 34.5s. V-2's estimates re-derive: 53 mutations at per-file runtimes = 357s (~6 min, as stated); 53 * 34.7s = 1839s (~31 min, as stated)."
+    },
+    {
+      "clause_id": "measured-baseline",
+      "severity": "info",
+      "description": "PASS on everything else in the factual foundation. All five rows of the errexit table reproduce exactly on this machine's /bin/bash 3.2.57(1)-release, including the two findings the issue does not carry: `(( ))` is swallowed identically to `[[ ]]`, and `[ ]` propagates. The loop-carried masking section reproduces, and `tests/font.bats:554` really is that shape — a `[[ ]]` as the last statement of a `for` body over the whole font registry, with `[ -n \"$fallback\" ] || continue` two lines above it as the idiom the constitution cites for packages.bats:146. Declining to state a corrected vulnerable-assertion total is the right call and is the strongest reasoning in the document: the figure is not load-bearing anywhere, since B-1 converts all 54 regardless of position, and guessing would have created a number every later clause could drift against. The helper-propagation snippet reproduces both cases.",
+      "evidence": "Measured at 61213fe: `[[ 1 -eq 2 ]]` mid-body -> prints `reached`, exit 0. `(( 1 == 2 ))` mid-body -> prints `reached`, exit 0. `[ 1 -eq 2 ]` -> exit 1. `echo needle | grep -qF haystack` -> exit 1. A function returning 1 -> exit 1. Loop form: `for i in 1 2 3; do [[ $i -ge 3 ]]; done` -> exit 0 REACHED; same loop with `[ ]` -> exit 1. tests/font.bats:552 is `[ -n \"$fallback\" ] || continue`, :554 is `[[ \"$terminal_family\" == *\"$fallback\"* ]]`, both inside the for body. assert_contains mid-body -> exit 1, nothing printed; in a loop where a later iteration passes -> exit 1."
+    },
+    {
+      "clause_id": "measured-baseline",
+      "severity": "info",
+      "description": "PASS on every site and case count, and on every line citation I checked. 54 first-token sites with the exact per-file split the constitution and the issue both give; zero `((`; 119 cases with the exact per-file split; the suite exits 0 with none skipped; no test file calls `load` and there is no shared helper file. Every cited line lands where the constitution says: the helpers at tests/install-failures.bats:73-83, the bug comment at :67-72, the disjunction at doctor.bats:244, the polarity example at doctor.bats:140, the apps example at apps.bats:135, the `|| continue` guard at packages.bats:146. The `~162` single-bracket figure is right to within its tilde (a first-token count returns 168 on a crude pattern).",
+      "evidence": "Measured at 61213fe, /usr/bin/grep: first-token sites apps 11, doctor 20, font 12, install-failures 0, jsonc 2, licensed-fonts 5, packages 4 = 54; `grep -cE '^[[:space:]]*\\(\\(' tests/*.bats` -> 0 in all seven. `grep -c '^@test'`: apps 18, doctor 11, font 44, install-failures 17, jsonc 9, licensed-fonts 7, packages 13 = 119. `timeout 300 bats tests/` -> exit 0. `grep -n '^\\s*load ' tests/*.bats` -> no match. tests/doctor.bats:140 is `[[ \"$output\" != *\"terminal\"* ]]`; :244 is the `undeclared`/`casks` disjunction; tests/apps.bats:135 is the `bundles = [\"media\"]` containment test. Working tree clean at 61213fe; `python3 .agent-guild/scripts/check-diff-scope.py tests/ _working-memory/conventions.md _working-memory/decisionLog.md` -> `OK: 0 path(s) in scope`, exit 0."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "Every acceptance criterion maps to a clause, and no clause binds work the spec does not ask for. AC1 (no bare `[[ ]]`, all 54 replaced with a propagating helper) -> B-1 + B-3 + B-2, with the helper-usage gap recorded above as a major. AC2 (a check fails the suite on reintroduction) -> V-1. AC3 (the issue's probe reports `not ok` for both cases) -> B-3 check part 3, which is stronger than the spec's version because it also runs the `[[ ]]` variant to prove the probe discriminates. AC4 (every converted assertion still goes red when inverted) -> V-2, whose defects are the blockers above. AC5 (suite green, per-file floors, nothing skipped) -> V-3. The spec's three non-goals all survive into the constitution's non-goals intact.",
+      "evidence": "spec.md:88-92 against constitution.md:117, :133, :142-148, :177, :188. D-1/D-2/D-3 add scope, working-memory, and commit hygiene beyond the spec's criteria; D-2 is invited by spec.md:108 (`_working-memory/conventions.md carries the existing rules for it, and this belongs alongside them`) and D-1/D-3 are house standard."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "The four deliberate departures from the spec are each justified, and three of the four are correctly recorded. (1) Covering `(( ))`: justified — measured identically broken, zero conversion cost since no test uses it, and the guard closes a trap prospectively; recorded in the Measured baseline and in a non-goal. (2) Declining the \"24 vulnerable\" figure: justified and well argued — I reproduced the loop-carried masking that makes 24 an undercount, the figure appears nowhere in the spec's acceptance criteria, and refusing to guess a replacement is better practice than the alternative. (3) Binding 119 rather than 117, and install-failures 17 rather than 15: justified — the spec's own words are \"stay at or above\", 119 > 117, and the drift is #17's two added cases; recorded in the Case-count drift section. (4) Converting `packages.bats:146`: justified in principle (keeps B-1 an absolute zero, matches font.bats:552's existing idiom, and `||` genuinely consumes the failure so the errexit bug cannot reach it) but incorrectly recorded — its required replacement lives only in a descriptive section and no clause reviews the result, which is the B-2 major above.",
+      "evidence": "constitution.md:43 and :240 (departure 1), :46-62 (departure 2, reproduced independently), :95-97 and :188 (departure 3), :93 and :117 (departure 4). spec.md:80 (the 24 figure appears in Exposure, not in Acceptance Criteria), spec.md:92 (`stay at or above`)."
+    },
+    {
+      "clause_id": "cross-clause",
+      "severity": "info",
+      "description": "Ownership is clean on three of the four contracts the previous job's revision-5 restructuring was built to protect. What the helpers must be: B-3 alone. Which sites get mutated: V-2 alone. What the case-count floors are: V-3 alone (the Measured baseline table restates them descriptively, which is the same shape the previous constitution shipped and is not a drift risk). The fourth — what the guard must scan — is owned by nobody, and that is the B-1/V-1/V-2 blocker above. That is a narrower version of the failure that took four audits last time, not a recurrence of its full scope.",
+      "evidence": "constitution.md:142 (B-3 owns helpers), :177 (V-2 owns the mutated set), :188 (V-3 owns the floors) against :117, :121, :156, :177 (three scopes for the guarded surface). Cross-checked for the second half of the question: no two clauses require contradictory artifacts apart from the V-1/V-3 case in the blocker (a guard scanning all of tests/ that flags tests/mutation-check.sh turns `bats tests/` red)."
+    },
+    {
+      "clause_id": "D-1",
+      "severity": "info",
+      "description": "PASS. The scope invocation parses and runs as written, the tree is clean at the baseline so no `--ignore` is needed, and the clause correctly hands the post-commit form of the question to D-3 rather than letting it go vacuous — the fix the previous job's r4 audit produced, carried forward.",
+      "evidence": "`python3 .agent-guild/scripts/check-diff-scope.py tests/ _working-memory/conventions.md _working-memory/decisionLog.md` -> `OK: 0 path(s) in scope`, exit 0. `git status --porcelain` at 61213fe -> empty. constitution.md:203 against constitution.md:223."
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "info",
+      "description": "PASS. The rubric names four specific FAIL conditions, each with a describable violating artifact, and it is correctly routed to checker-judgment. The instruction to judge working memory on factual accuracy rather than tone matches the standing convention for `_working-memory/`. The cited comment register at tests/install-failures.bats:67-72 exists and is genuinely the right model — it explains the bug more precisely than the issue does.",
+      "evidence": "constitution.md:209-214. tests/install-failures.bats:67-72 reads `# bash 3.2 — /bin/bash, what bats itself runs these test bodies under — has a / # genuine errexit bug: a failing \\`[[ ]]\\` does not abort the function unless it / # is the function's literal last statement, ...`."
+    },
+    {
+      "clause_id": "D-3",
+      "severity": "info",
+      "description": "PASS. The push detection is the corrected form (`git rev-list` piped through `git branch -r --contains`, not `git log origin/main..HEAD`), the range excludes the baseline commit so the already-pushed 61213fe does not produce a false FAIL, and the auto-sync commit is correctly routed to `blocked` rather than counted against a worker. Carried forward intact from the previous job.",
+      "evidence": "constitution.md:219-227. `git rev-list 61213fe..HEAD | wc -l` -> 0 at job start; `git branch -r --contains 61213fe` names origin/main, confirming the mechanism fires on a pushed sha."
+    },
+    {
+      "clause_id": "protected-content",
+      "severity": "info",
+      "description": "PASS. \"None. No passage in this job has to ship verbatim, so there is no manifest.\" That is correct for this job — nothing in it is prose that must survive byte-for-byte — and the declaration is explicit rather than an omission.",
+      "evidence": "constitution.md:229-231."
+    }
+  ],
+  "timestamp": "2026-08-08T16:53:36Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

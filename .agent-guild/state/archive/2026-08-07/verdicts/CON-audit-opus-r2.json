@@ -1,0 +1,114 @@
+{
+  "task_id": "CON-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5",
+  "verdict": "fail",
+  "findings": [
+    {
+      "clause_id": "C-7",
+      "severity": "blocker",
+      "description": "The clause's own check command does not terminate at the baseline commit, so the blocker gate on acceptance criterion 8 is unrunnable, and the 900s allowance is derived from a measurably false premise about where the time goes.",
+      "evidence": "`bats tests/` at 1dec91c ran 23m53s without completing, then reproduced under a 100s cap (exit 124). Both runs blocked at tests/apps.bats:256 `names the missing tool rather than failing somewhere inside a pipeline`, at ~0% CPU, never reaching font.bats. Cause: tests/apps.bats:58 prepends $STUBS to PATH without scrubbing it, case 16 removes only the stub fzf, so `command -v fzf` still resolves /opt/homebrew/bin/fzf, the tool guard at dot_local/bin/executable_dotfiles-apps:35 passes, and the run blocks on the interactive picker at :131. Measured per-file: doctor 7s, jsonc 1s, licensed-fonts 1s, packages 2s, font 13s — total 24s. C-7's stated rationale, `font.bats and licensed-fonts.bats push the full suite past 300s`, is false by ~an order of magnitude, and C-7 provides no `blocked` provision for a pre-existing hang the way C-11 does for the auto-sync commit."
+    },
+    {
+      "clause_id": "C-2",
+      "severity": "blocker",
+      "description": "C-2 and C-15 contradict each other at the configure-raycast site: C-2 requires a skip message the baseline does not print, while C-15's table requires that case to pass against the baseline.",
+      "evidence": "C-2 (constitution.md:52) requires each script named by C-14 to print `a message saying it skipped` and asserts `This is today's behavior`. run_onchange_configure-raycast.sh.tmpl:12-13 is `if ! command -v open &>/dev/null; then exit 0; fi` — silent, no output. C-15's table (constitution.md:196) requires all four `absent tool skips clean` cases to PASS at 1dec91c. The raycast case cannot both assert C-2's message and pass at baseline. CON-audit-r1 flagged this rationale as minor; revision 3 left it and added the table that turns it into a hard contradiction between two blocker clauses."
+    },
+    {
+      "clause_id": "C-5",
+      "severity": "blocker",
+      "description": "The mutation snippet never puts the new case into the mutated worktree, so it cannot detect C-5's own failing example — demonstrated inert.",
+      "evidence": "Ran constitution.md:79-83 verbatim: `git worktree add /tmp/agc-mut HEAD`, `sed -i '' '58,68d' .../executable_dotfiles-doctor`, `bats --formatter tap tests/doctor.bats` in the worktree. Output was `1..10` with all ten `ok` — the worktree carries HEAD's doctor.bats, which does not contain the uncommitted new case. C-15's parallel snippet at constitution.md:205 does include `cp tests/install-failures.bats /tmp/agc-baseline/tests/`; C-5 omits the equivalent `cp`. C-5 also omits `--formatter tap` and the `exit code alone is not the check` instruction that C-15:206 carries, so even after the cp a checker reading the aggregate exit code cannot tell which case failed. (The mutation mechanic itself is sound: `sed '58,68d'` deletes exactly the branch, `bash -n` passes, and the ten existing cases do not touch it.)"
+    },
+    {
+      "clause_id": "C-15",
+      "severity": "blocker",
+      "description": "Two of the eleven mandated cases cannot be constructed under the harness C-15 itself mandates: rendering install-claude-plugins under a fake $HOME produces a script with no install call in it.",
+      "evidence": "C-15:188 requires each case to follow tests/doctor.bats's harness, which exports HOME=\"$BATS_TEST_TMPDIR/home\" at doctor.bats:21, and cites tests/licensed-fonts.bats:22, which renders inside setup() after the same override. run_onchange_after_install-claude-plugins.sh.tmpl:62 gates the entire body on `stat (joinPath .chezmoi.homeDir \".config\" \"chezmoi\" \"key.txt\")`. Rendered under a fake HOME, the output contains zero add_marketplace/install_plugin lines and ends `echo \"No chezmoi decryption key present — skipping plugin reinstall.\"`; rendered under the real HOME it emits 3 add_marketplace + 4 install_plugin. So `install-claude-plugins: present tool failing names the item` and `install-claude-plugins: one failure does not stop the rest` have no item that can fail: they fail at baseline for the wrong reason (satisfying the table vacuously) and cannot pass at HEAD, making C-7's green requirement unreachable. Nothing in the constitution authorizes the deviation — copying the user's real key.txt into the fake HOME, or rendering under the real HOME and decrypting the work-only manifests — or tells a checker whether to accept it."
+    },
+    {
+      "clause_id": "C-16",
+      "severity": "blocker",
+      "description": "C-16's check cannot verify the thing C-16 requires: running bats does not prove the eleven cases contain an exit-status assertion, and C-15's baseline table gives the clause no teeth either.",
+      "evidence": "C-16's check_method (constitution.md:218) is `bats tests/install-failures.bats` plus the requirement that every case assert `status -eq 0`. A case that omits the assertion passes bats identically, so the check is circular — it can only detect C-16's failing example if the artifact already satisfies C-16. C-15 binds titles and baseline outcomes but never requires the assertion, and all four scripts already exit 0 at baseline (install-packages:31, vscode:21, raycast:22, claude-plugins:34/41 all end in `|| true` or an `|| echo`), so no required case discriminates on exit status at either end of the mutation. C-16:217 states `nothing else in this constitution catches that`, which makes the hole total. The clause needs a file-level assertion count (e.g. grep for `status\" -eq 0` >= 11) it does not name."
+    },
+    {
+      "clause_id": "C-13",
+      "severity": "blocker",
+      "description": "The C-15 harness writes to the user's real preference domain every time a configure-raycast case runs, and C-13's closed command list does not cover it.",
+      "evidence": "run_onchange_configure-raycast.sh.tmpl:30 runs `defaults write com.raycast.macos raycastGlobalHotkey -string \"Command-49\"` unconditionally after the loop, on every path where `open` is present — which is every C-15 raycast case except `absent tool skips clean`. Verified that `defaults` ignores $HOME: `HOME=<fake> defaults write com.k-arnett.agc-audit-probe probeKey -string probeVal` left nothing in <fake>/Library/Preferences and created /Users/karnett/Library/Preferences/com.k-arnett.agc-audit-probe.plist, readable without the override (probe deleted afterward). C-13's judgment sub-check (constitution.md:161) enumerates a closed list — chezmoi apply/update, brew install, brew bundle, code --install-extension, claude plugin install, git push — with no `defaults`, and none of the three deterministic probes (.chezmoidata.toml diff, push check, boltdb mtime) can see a preferences write."
+    },
+    {
+      "clause_id": "C-4",
+      "severity": "major",
+      "description": "install-claude-plugins is called a loop site and 'item' is defined as one loop iteration, but the script does not iterate at runtime — a regression, since r1 flagged this and revision 3 made the wrong description more specific.",
+      "evidence": "C-4 (constitution.md:66) names three loop sites `where the script iterates and \"item\" means one loop iteration: ... one plugin or marketplace spec`. run_onchange_after_install-claude-plugins.sh.tmpl:64-75 uses Go-template `range`, which runs at render time; the rendered script is flat sequential calls (verified: 3 `add_marketplace` lines then 4 `install_plugin` lines, no shell loop). C-4's failing example — `the stub's invocation log shows only two calls` after a mid-loop failure — has no loop to map onto at that site. Compounding it, the script sets `set -e` at :21, so removing `|| true` from :34/:41 aborts at the first failure with no loop to continue past. CON-audit-r1 recorded this as minor; revision 3 kept the site and hardened the false claim."
+    },
+    {
+      "clause_id": "C-15",
+      "severity": "major",
+      "description": "The baseline table's stated reason for the three 'one failure does not stop the rest' cases is false, so a case written to C-4's own failing example passes at baseline and violates the table.",
+      "evidence": "C-15:198 justifies requiring those three cases to FAIL at baseline with `Collect-and-continue is what the conversion adds`. Continue is already baseline behavior at all three sites: run_onchange_install-vscode-extensions.sh.tmpl:19-24 and run_onchange_configure-raycast.sh.tmpl:18-27 both wrap the call in `... || true` inside a `while` loop, and claude-plugins' :34/:41 do the same. Only collect-and-report-at-the-end is added. A case asserting exactly C-4's failing example (all N items attempted) therefore PASSES at baseline, contradicting the table. Neither C-4 nor C-15 says the case must additionally assert the end-of-run collected report, so the two clauses are only jointly satisfiable via an inference the constitution never states."
+    },
+    {
+      "clause_id": "C-7",
+      "severity": "major",
+      "description": "The no-skip sub-check is still undecidable and now collides head-on with the case titles C-15 mandates.",
+      "evidence": "C-7:101 requires that `git diff 1dec91c..HEAD -- tests/` add no `skip` line, with no pattern given, routed to checker-deterministic. The four titles C-15:184 mandates are `<script>: absent tool skips clean` — added lines containing `skip`. A literal grep fails a decomposition that correctly satisfies C-15. Distinguishing bats' `skip` command from the word in a title needs an anchored pattern (e.g. `^[[:space:]]*skip\\b`) the clause does not supply. CON-audit-r1 flagged this sub-check as undecidable; revision 3 rewrote it without fixing decidability, and C-15's new titles turned the ambiguity into a concrete false positive."
+    },
+    {
+      "clause_id": "C-11",
+      "severity": "major",
+      "description": "C-11 names a post-commit scope command but lists no FAIL condition for it, and C-6 is declared vacuous post-commit, so a file committed out of scope is caught by nothing.",
+      "evidence": "C-11:137 lists `git diff --name-only 1dec91c..HEAD` `for post-commit scope, since C-6's script cannot read a commit range`, but the FAIL enumeration at :139 covers only dirty tree, remote-contained commits, trailers, hard-wrapped bodies, and diff-restating messages. Scope is absent, and C-11 does not restate C-6's allowlist. C-6:93 states its own check `must run before C-11's commit task`. So between C-6's run and the end of the job the scope invariant has no enforcing condition. CON-audit-r1 flagged this as minor; revision 3 kept the command and still omitted the condition."
+    },
+    {
+      "clause_id": "C-6",
+      "severity": "minor",
+      "description": "The guard count in the clause text is wrong: six of the eight `|| true` guards in the macOS-defaults script are on `defaults write` lines, the other two are not.",
+      "evidence": "`grep -n '|| true' run_once_after_configure-macos.sh` returns 8 hits: :129-134 are `defaults write` (six), :14 is `osascript -e 'tell application \"System Settings\" to quit'`, and :165 is `killall \"${app}\"`. C-6:92 says `its eight defaults write ... || true guards`. Rationale-only, the check is unaffected. Flagged in CON-audit-r1 and unrepaired in revision 3."
+    },
+    {
+      "clause_id": "C-15",
+      "severity": "minor",
+      "description": "The relative-resolution guarantee is only partial: chezmoi execute-template resolves template includes against the configured source dir, not the worktree, so the baseline run renders baseline script bodies with HEAD's included data.",
+      "evidence": "C-15:190 claims that resolving via `SRC=\"${BATS_TEST_DIRNAME}/..\"` prevents the mutation step from `silently test[ing] HEAD's scripts from inside the baseline tree`. Verified otherwise: appended a marker line to /private/tmp/agc-base/dot_config/raycast-extensions.txt inside a 1dec91c worktree, then rendered `{{ include \"dot_config/raycast-extensions.txt\" }}` from inside that worktree — the marker did not appear (grep -c = 0); `chezmoi source-path` resolves to /Users/karnett/.local/share/chezmoi regardless of cwd. Harmless for this job, since none of the included data files (dot_config/*-extensions.txt, the Brewfile template, the encrypted plugin manifests) is in C-6's allowlist and so none can diverge — but the clause overclaims what the rule buys."
+    },
+    {
+      "clause_id": "C-15",
+      "severity": "minor",
+      "description": "Nothing requires stubbing `sleep`, so the configure-raycast cases pay 27 seconds of wall clock each for no test value.",
+      "evidence": "run_onchange_configure-raycast.sh.tmpl:23 runs `sleep 1` per iteration, and dot_config/raycast-extensions.txt holds 27 non-comment entries. C-15 mandates three raycast cases that enter the loop, so ~81s of pure sleep unless the harness stubs `sleep` on PATH, which no clause requires. Interacts with C-7's already-broken time budget."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "PASS — every acceptance criterion in the spec maps to at least one clause, with no under-reach, and the AC6 non-goal was re-derived and still holds.",
+      "evidence": "spec.md:66-73 AC1->C-1, AC2->C-2, AC3->C-3, AC4->C-4, AC5->C-5, AC6->recorded non-goal, AC7->C-14 + C-6, AC8->C-7 + C-15 + C-13. AC6 re-derived independently: dot_local/bin/executable_dotfiles-sync has no `chezmoi apply` phase, and :23 is `: >\"$LOG\"  # truncate log each run`, so anything the installers wrote would be both unreachable and erased. C-14 also correctly closes r1's under-reach hole by binding C-1 through C-4's reach."
+    },
+    {
+      "clause_id": "C-14",
+      "severity": "info",
+      "description": "PASS — the off-by-one note, the brew trust carve-out, and the command-keyed grep are all correct as written.",
+      "evidence": "spec.md:50 does cite `:33,40`; those lines are the two `echo` statements, and the guarded calls are run_onchange_after_install-claude-plugins.sh.tmpl:34 (`claude plugin marketplace add \"$repo\" 2>/dev/null || true`) and :41 (`claude plugin install \"$spec\" 2>/dev/null || true`). run_onchange_install-packages.sh.tmpl:27 is `brew trust --tap \"$tap\" 2>/dev/null || true`, genuinely not an install call, correctly exempted."
+    },
+    {
+      "clause_id": "C-10",
+      "severity": "info",
+      "description": "PASS — both cited working-memory passages exist verbatim at the cited lines and both do contradict what this job builds.",
+      "evidence": "_working-memory/conventions.md:40 is the bats bullet ending `don't assert on log wording: what matters is what the run left on disk and whether it refused when it should have`; :46 is the Error Handling bullet naming `run_onchange_install-vscode-extensions.sh.tmpl` as the `|| true` exemplar. C-6's antipatterns citations also check out: :71-75 is `Don't re-add deprecated macOS defaults` and :77-82 is `Don't use set -e in the macOS-defaults script`, both dated 2026-03-24."
+    },
+    {
+      "clause_id": "C-6",
+      "severity": "info",
+      "description": "PASS on the mechanism — the check-diff-scope invocation parses and runs clean, and the C-13 boltdb probe is sound against the test harness.",
+      "evidence": "Ran C-6's command verbatim: `OK: 1 path(s) in scope`, exit 0; --ignore parses correctly ahead of the positionals, and .agent-guild/state/ is carved out at check-diff-scope.py:112. Baseline verified: 1dec91c == HEAD, `git log --oneline 1dec91c..HEAD` empty, `git status --porcelain` shows only the ignored .age file. Operational precondition verified: `launchctl print gui/$UID/com.k-arnett.dotfiles-auto-sync` fails, so the agent is unloaded; executable_dotfiles-sync:129 is `git add -A` as claimed. C-13's boltdb mtime held at 1786065974 across four `chezmoi execute-template` renders, so the mandated render step will not false-positive that probe. Protected content is `None` with no manifest, which is consistent."
+    }
+  ],
+  "timestamp": "2026-08-07T00:05:00Z",
+  "duration_ms": 2340000,
+  "cost_usd": null
+}

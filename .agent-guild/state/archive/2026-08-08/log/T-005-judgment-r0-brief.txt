@@ -1,0 +1,115 @@
+You are a judgment checker relaying a second opinion under the agent-guild dual-check regime. Task-ID: T-005, tier: judgment, retries: 0.
+
+The checker of record already passed this task. Your verdict is comparison data, not a second gate. Sample the judgment clause B-2—a reading question where substantive disagreement is plausible—rather than re-running all checks.
+
+TASK BACKGROUND
+
+Task T-005 converted 11 bare [[ ]] sites across three test files (tests/jsonc.bats, tests/licensed-fonts.bats, tests/packages.bats) to shared-helper calls. Ten are assertions; one is loop-control flow. The clause B-2 requires that all 11 conversions preserve needle, polarity, haystack, and loop semantics.
+
+EVIDENCE: File diffs against baseline commit 61213fe
+
+jsonc.bats:
+- Line 61 baseline: [[ "$output" == *"while parsing"* ]]
+- Line 61 working: assert_contains "while parsing"
+- Line 68 baseline: [[ "$output" == *"while parsing"* ]]
+- Line 68 working: assert_contains "while parsing"
+
+licensed-fonts.bats:
+- Line 46 baseline: [[ "$output" == *"not installed"* ]]
+- Line 46 working: assert_contains "not installed"
+- Line 53 baseline: [[ "$output" == *"not signed in"* ]]
+- Line 53 working: assert_contains "not signed in"
+- Line 62 baseline: [[ "$output" == *"would not authorize"* ]]
+- Line 62 working: assert_contains "would not authorize"
+- Line 63 baseline: [[ "$output" != *"not in vault"* ]]
+- Line 63 working: assert_not_contains "not in vault"
+- Line 70 baseline: [[ "$output" == *"not in vault"* ]]
+- Line 70 working: assert_contains "not in vault"
+
+packages.bats:
+- Line 117 baseline: [[ "$output" == *'brew "age"'* ]]
+- Line 117 working: assert_contains 'brew "age"'
+- Line 119 baseline: [[ "$output" != *"databricks"* ]]
+- Line 119 working: assert_not_contains "databricks"
+- Line 120 baseline: [[ "$output" != *"font-lilex"* ]]
+- Line 120 working: assert_not_contains "font-lilex"
+- Line 146 baseline: [[ -n "$cask" ]] || continue
+- Line 146 working: [ -n "$cask" ] || continue
+
+EVIDENCE: Helper definitions (tests/helpers.bash)
+
+assert_contains() {
+	local needle="$1" haystack="${2-$output}"
+	grep -qF -- "$needle" <<<"$haystack"
+}
+
+assert_not_contains() {
+	local needle="$1" haystack="${2-$output}"
+	case "$haystack" in
+	*"$needle"*) return 1 ;;
+	esac
+}
+
+EVIDENCE: Test run results
+
+All 29 test cases pass:
+- jsonc.bats: 9 cases, all ok
+- licensed-fonts.bats: 7 cases, all ok
+- packages.bats: 13 cases, all ok
+Exit code: 0
+
+EVIDENCE: Loop control context (packages.bats lines 143–151 working tree)
+
+while IFS= read -r cask; do
+	[ -n "$cask" ] || continue
+	if ! grep -qxF "cask \"$cask\"" <<<"$rendered"; then
+		echo "role $role does not install $cask" >&2
+		return 1
+
+The working tree shows the line is present, single-bracketed, and unchanged in relative position to the grep -qxF test that follows.
+
+JUDGMENT QUESTIONS
+
+Question 1: The Polarity Cluster
+
+Lines 62, 63, and 70 in licensed-fonts.bats form a polarity trap: lines 62 and 63 sit in the same test case asserting opposite things about adjacent strings, and line 70 uses the same needle ("not in vault") as line 63 with the opposite polarity (== instead of !=).
+
+Baseline:
+  Line 62: [[ "$output" == *"would not authorize"* ]]
+  Line 63: [[ "$output" != *"not in vault"* ]]
+  Line 70: [[ "$output" == *"not in vault"* ]]
+
+Working tree:
+  Line 62: assert_contains "would not authorize"
+  Line 63: assert_not_contains "not in vault"
+  Line 70: assert_contains "not in vault"
+
+Is the polarity correct at each of the three lines? That is: does each conversion preserve the baseline assertion's intent—that a test with == becomes assert_contains, that a test with != becomes assert_not_contains, and that the same needle with opposite polarity in line 70 versus line 63 is intentional and meaningful?
+
+Question 2: The Non-Assertion Loop Guard
+
+Line 146 is not an assertion but loop control: [[ -n "$cask" ]] || continue inside a while read loop. It was converted to single-bracket: [ -n "$cask" ] || continue.
+
+Under bash 3.2 errexit semantics, does a single-bracket [ -n "$cask" ] || continue genuinely preserve the loop's skip behaviour when $cask is empty, compared to the double-bracket [[ -n "$cask" ]] || continue? Is there any case—edge condition, quoting subtlety, or bash version quirk—where the two would differ in their effect on the loop flow?
+
+Question 3: Weakened Checks
+
+Is there any conversion in the set of 11 where the resulting assertion would still pass while checking something weaker or less specific than the baseline did? For example, would any helper call succeed in a case where the baseline [[ ]] would have failed?
+
+VALIDATION
+
+You are answering only the three judgment questions above, within the scope of B-2. Do not re-run B-1 (the grep for remaining [[ ]] sites)—that is a deterministic check, not a reading. Your task is to judge whether the conversions are correct according to the specification.
+
+Produce a verdict JSON that validates against the schema at .agent-guild/schemas/verdict.schema.json. The verdict must include:
+- task_id: "T-005"
+- checker: "checker-courier"
+- vendor: "openai"
+- model: "gpt-5.6-terra"
+- verdict: "pass" or "fail"
+- findings: An array of findings, each with clause_id (B-2), severity ("blocker" for fails on any question), description, and evidence.
+- timestamp: ISO 8601
+- duration_ms: null
+- cost_usd: null
+
+If you find any issue in the judgment questions, the verdict is "fail". If the conversions are sound and the three questions have substantive, correct answers, the verdict is "pass".
+

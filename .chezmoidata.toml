@@ -137,7 +137,6 @@ packages = [
   { name = "shottr",        type = "cask", bundles = ["media"] },
   { name = "spotify",       type = "cask", bundles = ["media"] },
   { name = "superwhisper",  type = "cask", bundles = ["media"] },
-  { name = "ColorSlurp",    type = "mas",  id = 1287239339, bundles = ["media"] },
   { name = "Presentify",    type = "mas",  id = 1507246666, bundles = ["media"] },
 
   # ---- office ----

@@ -5,7 +5,6 @@ battery-health
 brew
 browser-bookmarks
 color-picker
-colorslurp
 figma-files-raycast-extension
 fotmob
 gif-search

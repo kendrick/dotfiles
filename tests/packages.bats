@@ -10,6 +10,8 @@
 # So this file asserts the two halves separately: the data says what it has to say, and the
 # render turns it into a Brewfile that `brew bundle` and the installer can both act on.
 
+load 'helpers'
+
 SRC="${BATS_TEST_DIRNAME}/.."
 
 setup() {

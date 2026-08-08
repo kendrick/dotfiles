@@ -10,6 +10,8 @@
 # nothing in the older sections could see the gap because a hand-dropped font satisfies
 # neither side of an installed-versus-tracked comparison.
 
+load 'helpers'
+
 SRC="${BATS_TEST_DIRNAME}/.."
 SCRIPT="$SRC/dot_local/bin/executable_dotfiles-doctor"
 

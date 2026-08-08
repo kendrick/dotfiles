@@ -9,6 +9,8 @@
 # and each has to say something true about why. An honest message matters more
 # here than anywhere else in the feature, since nothing else will ever complain.
 
+load 'helpers'
+
 SRC="${BATS_TEST_DIRNAME}/.."
 SCRIPT="$SRC/run_onchange_after_fetch-licensed-fonts.sh.tmpl"
 

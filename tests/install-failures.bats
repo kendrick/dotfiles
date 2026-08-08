@@ -16,6 +16,8 @@
 # under a synthetic $HOME with stubs on PATH, so nothing here touches real
 # machine state.
 
+load 'helpers'
+
 SRC="${BATS_TEST_DIRNAME}/.."
 REAL_HOME="$HOME"
 
@@ -62,24 +64,6 @@ STUB
 stub_sleep() {
 	printf '#!/usr/bin/env bash\nexit 0\n' >"$STUBS/sleep"
 	chmod +x "$STUBS/sleep"
-}
-
-# bash 3.2 — /bin/bash, what bats itself runs these test bodies under — has a
-# genuine errexit bug: a failing `[[ ]]` does not abort the function unless it
-# is the function's literal last statement, so any assertion before the last
-# one in a multi-assertion @test silently stops gating anything. Confirmed by
-# hand: `set -e; f() { [[ 1 -eq 2 ]]; echo reached; }; f` prints "reached" on
-# this machine's /bin/bash. grep and case, used below, do not have that bug.
-assert_contains() {
-	local needle="$1" haystack="${2-$output}"
-	grep -qF -- "$needle" <<<"$haystack"
-}
-
-assert_not_contains() {
-	local needle="$1" haystack="${2-$output}"
-	case "$haystack" in
-	*"$needle"*) return 1 ;;
-	esac
 }
 
 # ---- install-packages ----

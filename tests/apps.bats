@@ -10,6 +10,8 @@
 # fzf is stubbed by a queue: one line of FZF_QUEUE per call, `|` separating the rows a
 # multi-select returns. That's the only way to drive a picker from a test.
 
+load 'helpers'
+
 SRC="${BATS_TEST_DIRNAME}/.."
 SCRIPT="$SRC/dot_local/bin/executable_dotfiles-apps"
 # Resolved before setup() puts the stub dir on PATH, so jq stays reachable once the

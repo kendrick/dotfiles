@@ -6,6 +6,8 @@
 # the formatter's, so they get tolerated silently. Comments are the user's, so a
 # file carrying them must fail rather than get quietly rewritten without them.
 
+load 'helpers'
+
 FILTER="${BATS_TEST_DIRNAME}/../dot_config/font/jsonc.jq"
 SETTINGS="${BATS_TEST_DIRNAME}/../private_Library/private_Application Support/Code/User/settings.json"
 

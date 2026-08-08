@@ -8,6 +8,8 @@
 # Prior art is the age-key work, which was verified this way by hand. This is
 # the same technique with the hand work taken out.
 
+load 'helpers'
+
 SCRIPT="${BATS_TEST_DIRNAME}/../dot_local/bin/executable_font"
 SRC="${BATS_TEST_DIRNAME}/.."
 

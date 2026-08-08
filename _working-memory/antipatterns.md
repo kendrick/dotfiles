@@ -14,6 +14,12 @@
 <!-- The last line is the agent-targeted lever. Be specific. "Don't suggest    -->
 <!-- moving X to Y" beats "don't suggest big refactors."                       -->
 
+## 2026-08-07 — Don't assume `brew bundle` reports failures in one shape
+**Tried:** Reading the failed Brewfile entries back out of brew's output by matching one message, `Installing <entry> has failed!`.
+**What broke:** It passed its own tests and failed the first real end-to-end run. brew emits five distinct failure strings across two phases (`installer.rb:85,112,213`, `parallel_installer.rb:250,309`), and the fetch phase returns before the install phase runs, so on a fetch abort none of the per-entry lines exist at all. The verb also varies (Installing, Upgrading, Tapping), so even within the install phase a literal match misses cases. `deskflow` had been aborting every package install on this machine for an unknown stretch while the parser found nothing to report.
+**Why we backed out:** The fetch phase emits one line naming every entry that needed downloading, guilty or not — six names for one bad formula in the observed case. There is nothing in it to parse. `1bc1fb5` re-derives instead, asking `brew info` which of the batch actually resolves, which answers the question without depending on any message shape.
+**Don't suggest:** Matching a literal verb in brew's failure lines. Parsing the `Failed to fetch` batch line to name a guilty entry, or blaming the first name in it. Treating `brew bundle`'s non-zero exit as a single failure mode. And don't touch this parsing without reading `/opt/homebrew/Library/Homebrew/bundle/installer.rb` first: assuming a shape is what produced both the original bug and its first fix's failure. _(decisionLog 2026-08-07; GitHub #17, #22)_
+
 ## 2026-08-06 — Don't dump packages over the registry, and don't hand-edit the rendered Brewfile
 **Tried:** Nothing new broke. This scopes the 2026-06-07 entry below, whose reasoning stopped being true when GitHub #4 landed.
 **What broke:** That entry says not to dump the Brewfile because it's a template with `machine_role` guards. There are no guards left. `.chezmoitemplates/Brewfile` holds no package names at all, and the Brewfile never exists on disk. The conclusion survives its reasoning: `brew bundle dump` produces a flat list, and which bundles a package belongs to is a judgement nothing in Homebrew's output encodes.

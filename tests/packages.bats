@@ -116,10 +116,10 @@ render_with() {
 @test "a package in a bundle you haven't enabled renders nowhere" {
 	run render_with work core
 	[ "$status" -eq 0 ]
-	[[ "$output" == *'brew "age"'* ]]
+	assert_contains 'brew "age"'
 	# Both halves matter: cloud off means no databricks, and no databricks tap either.
-	[[ "$output" != *"databricks"* ]]
-	[[ "$output" != *"font-lilex"* ]]
+	assert_not_contains "databricks"
+	assert_not_contains "font-lilex"
 }
 
 # The guard on resolving bundles with `hasKey` rather than `default`. An empty list is falsy
@@ -145,7 +145,7 @@ render_with() {
 		local rendered
 		rendered="$(render_with "$role")"
 		while IFS= read -r cask; do
-			[[ -n "$cask" ]] || continue
+			[ -n "$cask" ] || continue
 			if ! grep -qxF "cask \"$cask\"" <<<"$rendered"; then
 				echo "role $role does not install $cask" >&2
 				return 1

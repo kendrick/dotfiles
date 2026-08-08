@@ -60,14 +60,14 @@ read_jsonc() {
 	printf '{\n\t// keep me\n\t"a": 1,\n}\n' >"$BATS_TEST_TMPDIR/in.json"
 	run read_jsonc "$BATS_TEST_TMPDIR/in.json"
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"while parsing"* ]]
+	assert_contains "while parsing"
 }
 
 @test "refuses a file with block comments rather than stripping them" {
 	printf '{\n\t/* keep me */\n\t"a": 1,\n}\n' >"$BATS_TEST_TMPDIR/in.json"
 	run read_jsonc "$BATS_TEST_TMPDIR/in.json"
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"while parsing"* ]]
+	assert_contains "while parsing"
 }
 
 # Asserts the key parses out, not what it holds. `font` owns fontLigatures now

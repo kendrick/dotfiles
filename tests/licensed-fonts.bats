@@ -45,14 +45,14 @@ STUB
 	# installed the 1Password CLI.
 	PATH="$STUBS:/usr/bin:/bin" run fetch
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"not installed"* ]]
+	assert_contains "not installed"
 }
 
 @test "exits 0 when op is present but signed out" {
 	stub_op 1 'exit 1'
 	run fetch
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"not signed in"* ]]
+	assert_contains "not signed in"
 }
 
 @test "exits 0 and says so when the vault will not authorize" {
@@ -61,15 +61,15 @@ STUB
 	[ "$status" -eq 0 ]
 	# The distinction that matters: an unlock problem must not be reported as a
 	# missing item, or you go looking in the vault for something that's there.
-	[[ "$output" == *"would not authorize"* ]]
-	[[ "$output" != *"not in vault"* ]]
+	assert_contains "would not authorize"
+	assert_not_contains "not in vault"
 }
 
 @test "skips an item missing from the vault and keeps going" {
 	stub_op 0 'echo "not found" >&2; exit 1'
 	run fetch
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"not in vault"* ]]
+	assert_contains "not in vault"
 	# Every manifest entry is attempted; one absent font doesn't end the run.
 	[ "$(echo "$output" | grep -c 'not in vault')" -eq 3 ]
 }

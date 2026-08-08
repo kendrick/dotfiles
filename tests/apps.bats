@@ -134,22 +134,22 @@ registry_line() { grep "name = \"$1\"," "$FIXTURE/.chezmoidata.toml"; }
 	queue 'brew  owner/repo/x                       core' 'media'
 	run bash "$SCRIPT"
 	[ "$status" -eq 0 ]
-	[[ "$(registry_line 'owner/repo/x')" == *'bundles = ["media"]'* ]]
+	assert_contains 'bundles = ["media"]' "$(registry_line 'owner/repo/x')"
 }
 
 @test "several packages selected at once all move" {
 	queue 'cask  spotify   media|cask  1password   core' 'cloud'
 	run bash "$SCRIPT"
 	[ "$status" -eq 0 ]
-	[[ "$(registry_line spotify)" == *'["cloud"]'* ]]
-	[[ "$(registry_line 1password)" == *'["cloud"]'* ]]
+	assert_contains '["cloud"]' "$(registry_line spotify)"
+	assert_contains '["cloud"]' "$(registry_line 1password)"
 }
 
 @test "multiple target bundles are written as a list" {
 	queue 'cask  spotify   media' 'core|media'
 	run bash "$SCRIPT"
 	[ "$status" -eq 0 ]
-	[[ "$(registry_line spotify)" == *'bundles = ["core", "media"]'* ]]
+	assert_contains 'bundles = ["core", "media"]' "$(registry_line spotify)"
 }
 
 # Escaping the picker has to leave the file alone. A tool that writes on an empty selection
@@ -178,7 +178,7 @@ registry_line() { grep "name = \"$1\"," "$FIXTURE/.chezmoidata.toml"; }
 	queue 'cask  nonesuch   media' 'core'
 	run bash "$SCRIPT"
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"found 0"* ]]
+	assert_contains "found 0"
 }
 
 # ---- adopting untracked packages ----
@@ -189,7 +189,7 @@ registry_line() { grep "name = \"$1\"," "$FIXTURE/.chezmoidata.toml"; }
 	queue 'brew  yq' 'core'
 	run bash "$SCRIPT" --adopt
 	[ "$status" -eq 0 ]
-	[[ "$(registry_line yq)" == *'{ name = "yq", type = "brew", bundles = ["core"] },'* ]]
+	assert_contains '{ name = "yq", type = "brew", bundles = ["core"] },' "$(registry_line yq)"
 	# Appended inside the packages array, not after it.
 	[ "$(tail -1 "$FIXTURE/.chezmoidata.toml")" = "]" ]
 }
@@ -201,7 +201,7 @@ registry_line() { grep "name = \"$1\"," "$FIXTURE/.chezmoidata.toml"; }
 	before="$(cat "$FIXTURE/.chezmoidata.toml")"
 	run bash "$SCRIPT" --adopt
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"nothing untracked"* ]]
+	assert_contains "nothing untracked"
 	[ "$before" = "$(cat "$FIXTURE/.chezmoidata.toml")" ]
 }
 
@@ -273,18 +273,18 @@ TOML
 	rm "$STUBS/fzf"
 	run bash "$SCRIPT"
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"fzf"* ]]
+	assert_contains "fzf"
 }
 
 @test "rejects an unknown flag instead of guessing" {
 	run bash "$SCRIPT" --oops
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"unknown option"* ]]
+	assert_contains "unknown option"
 }
 
 @test "--help lists all three modes and exits clean" {
 	run bash "$SCRIPT" --help
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"--adopt"* ]]
-	[[ "$output" == *"--machine"* ]]
+	assert_contains "--adopt"
+	assert_contains "--machine"
 }

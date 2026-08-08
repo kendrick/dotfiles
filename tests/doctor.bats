@@ -96,8 +96,8 @@ write_registry() {
 		>"$FIXTURE/packages.json"
 	run homebrew_section
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"in a bundle you've enabled but not installed"* ]]
-	[[ "$output" == *"fixture-missing-formula"* ]]
+	assert_contains "in a bundle you've enabled but not installed"
+	assert_contains "fixture-missing-formula"
 }
 
 # A roster entry that declares one cask per half, used as the shape the failure cases
@@ -115,7 +115,7 @@ write_registry() {
 JSON
 	run deps_section
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"none"* ]]
+	assert_contains "none"
 }
 
 @test "names the key, the half and the cask when the registry is missing one" {
@@ -133,13 +133,13 @@ JSON
 }
 JSON
 	run deps_section
-	[[ "$output" == *"maple"* ]]
-	[[ "$output" == *"editor"* ]]
-	[[ "$output" == *"font-maple-mono"* ]]
-	[[ "$output" == *"font-symbols-only-nerd-font"* ]]
+	assert_contains "maple"
+	assert_contains "editor"
+	assert_contains "font-maple-mono"
+	assert_contains "font-symbols-only-nerd-font"
 	# The half that's satisfied must not be reported, or the section stops distinguishing
 	# a real gap from a fully-declared entry.
-	[[ "$output" != *"terminal"* ]]
+	assert_not_contains "terminal"
 }
 
 @test "a formula does not satisfy a cask dependency" {
@@ -155,7 +155,7 @@ JSON
 }
 JSON
 	run deps_section
-	[[ "$output" == *"font-victor-mono-nerd-font"* ]]
+	assert_contains "font-victor-mono-nerd-font"
 }
 
 # The near misses in this roster are plausible enough to install without noticing, so a
@@ -173,8 +173,8 @@ JSON
 }
 JSON
 	run deps_section
-	[[ "$output" == *"font-lilex"* ]]
-	[[ "$output" != *"none"* ]]
+	assert_contains "font-lilex"
+	assert_not_contains "none"
 }
 
 # Bundles are what makes a tracked cask still not arrive. Filing a font into a bundle this
@@ -193,8 +193,8 @@ JSON
 }
 JSON
 	run deps_section
-	[[ "$output" == *"victor"* ]]
-	[[ "$output" != *"none"* ]]
+	assert_contains "victor"
+	assert_not_contains "none"
 }
 
 @test "an empty list is fine on Tier C, which is fetched from 1Password" {
@@ -209,7 +209,7 @@ JSON
 }
 JSON
 	run deps_section
-	[[ "$output" == *"none"* ]]
+	assert_contains "none"
 }
 
 # The distinction the empty list has to carry: on Tier C it's an answer, anywhere else
@@ -226,8 +226,8 @@ JSON
 }
 JSON
 	run deps_section
-	[[ "$output" == *"cascadia"* ]]
-	[[ "$output" != *"none"* ]]
+	assert_contains "cascadia"
+	assert_not_contains "none"
 }
 
 @test "a half with no casks key at all is reported as undeclared" {
@@ -242,15 +242,26 @@ JSON
 }
 JSON
 	run deps_section
-	[[ "$output" == *"victor"* ]]
-	[[ "$output" == *"undeclared"* || "$output" == *"casks"* ]]
+	assert_contains "victor"
+	# The suite's only disjunction, and so the one assertion the helpers can't
+	# express — they take a single needle. `case` is the hand-written stand-in
+	# because its failure propagates from any position, which a bare `[[ ]]` here
+	# would not (tests/helpers.bash). Keep both arms: whichever one the doctor's
+	# wording happens to match today isn't the contract, and dropping the other
+	# narrows the assertion without turning anything red. tests/mutation-check.sh
+	# finds this block by these two needles rather than by line number, so
+	# renaming one means editing the harness in the same breath.
+	case "$output" in
+	*undeclared* | *casks*) ;;
+	*) return 1 ;;
+	esac
 }
 
 @test "skips rather than dies when there is no registry to read" {
 	write_packages "font-victor-mono-nerd-font"
 	run bash "$SCRIPT"
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"skipping"* ]]
+	assert_contains "skipping"
 }
 
 # The regression guard, and the reason the fixtures above aren't the whole file: it runs
@@ -270,5 +281,5 @@ STUB
 	chmod +x "$STUBS/chezmoi"
 	run deps_section
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"none"* ]]
+	assert_contains "none"
 }

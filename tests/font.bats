@@ -114,7 +114,7 @@ keys_in_order() {
 		'to_entries[] | select(.value.terminal.family == $f) | .key' \
 		"$HOME/.config/font/registry.json")
 	[ -n "$active_key" ]
-	[[ "$output" == *"active terminal family: $active_family"* ]]
+	assert_contains "active terminal family: $active_family"
 	echo "$output" | grep -q "^\* $active_key"
 }
 
@@ -309,7 +309,7 @@ keys_in_order() {
 	rm "$HOME/.config/font/registry.json"
 	run font victor
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"registry.json"* ]]
+	assert_contains "registry.json"
 }
 
 @test "an absent jq exits non-zero" {
@@ -317,7 +317,7 @@ keys_in_order() {
 	# The dependency check fires before the script needs anything else on PATH.
 	PATH="$STUBS:/bin" run font victor
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"jq"* ]]
+	assert_contains "jq"
 }
 
 @test "settings carrying comments are reported, not stripped, and nothing is written" {
@@ -335,7 +335,7 @@ keys_in_order() {
 	grep -v '"editor.fontLigatures"' "$VSCODE" >"$VSCODE.tmp" && mv "$VSCODE.tmp" "$VSCODE"
 	run font victor
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"editor.fontLigatures"* ]]
+	assert_contains "editor.fontLigatures"
 }
 
 @test "an anchor matching more than once exits non-zero" {
@@ -343,7 +343,7 @@ keys_in_order() {
 		"$VSCODE" >"$VSCODE.tmp" && mv "$VSCODE.tmp" "$VSCODE"
 	run font victor
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"editor.fontLigatures"* ]]
+	assert_contains "editor.fontLigatures"
 }
 
 @test "builds the family cache when it is missing" {
@@ -393,8 +393,8 @@ keys_in_order() {
 	cp "$VSCODE" "$BATS_TEST_TMPDIR/vscode.before"
 	run font absent
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"Nonexistent Test Face"* ]]
-	[[ "$output" == *"tier a"* ]]
+	assert_contains "Nonexistent Test Face"
+	assert_contains "tier a"
 	cmp "$GHOSTTY" "$BATS_TEST_TMPDIR/ghostty.before"
 	cmp "$VSCODE" "$BATS_TEST_TMPDIR/vscode.before"
 	[ ! -f "$HOME/chezmoi-calls" ]
@@ -404,9 +404,9 @@ keys_in_order() {
 	add_absent_entry c
 	run font absent
 	[ "$status" -ne 0 ]
-	[[ "$output" == *"tier c"* ]]
-	[[ "$output" == *"1Password"* ]]
-	[[ "$output" == *"fetch"* ]]
+	assert_contains "tier c"
+	assert_contains "1Password"
+	assert_contains "fetch"
 }
 
 @test "--force writes a font the cache says is absent" {
@@ -499,7 +499,7 @@ keys_in_order() {
 # correct-looking font with the ligatures silently inactive.
 @test "MonoLisa names dlig explicitly in both halves" {
 	[ "$(jq -r '.monolisa.terminal.features' "$HOME/.config/font/registry.json")" = "dlig,liga" ]
-	[[ "$(jq -r '.monolisa.editor.ligatures' "$HOME/.config/font/registry.json")" == *"dlig"* ]]
+	assert_contains "dlig" "$(jq -r '.monolisa.editor.ligatures' "$HOME/.config/font/registry.json")"
 }
 
 @test "every Tier C entry is fetchable by a manifest line" {
@@ -553,6 +553,6 @@ keys_in_order() {
 		fallback=$(jq -r --arg k "$key" '.[$k].terminal.fallback // ""' "$HOME/.config/font/registry.json")
 		[ -n "$fallback" ] || continue
 		terminal_family=$(jq -r --arg k "$key" '.[$k].editor.terminalFamily' "$HOME/.config/font/registry.json")
-		[[ "$terminal_family" == *"$fallback"* ]]
+		assert_contains "$fallback" "$terminal_family"
 	done
 }

@@ -19,6 +19,8 @@ Invariants, all asserted in `tests/packages.bats`: every bundle a package or tap
 
 Bundles are a refinement of the `machine_role` conditionals they replaced: each one sits entirely inside one of ungated / not-on-client / work-only, which is what lets the three role defaults reproduce the old per-role renders exactly (91 / 77 / 84 entries). _(.chezmoidata.toml, .chezmoitemplates/Brewfile, .chezmoitemplates/bundles; GitHub #4)_
 
+Not every consumer reads all three types. `dotfiles-doctor` selects on `.type == "brew"` and `.type == "cask"` only (`dot_local/bin/executable_dotfiles-doctor:40-46`), so a `mas` entry is declared, rendered, and installed, but never checked: an uninstalled App Store app produces no drift report under any heading. GitHub #24. The registry also has no way to say a package can't run on this machine's macOS version, which is why an entry like `zappy` fails every run rather than being skipped; GitHub #23 proposes a `min_macos` field filtered at render time.
+
 ## Enabled bundles (`.chezmoitemplates/bundles`)
 Resolves which bundles a machine has on and emits them as a JSON array, so the shell side can pass it straight to `jq --argjson`. Reads `bundles` from `[data]` if the key is present, else falls back to a per-role default. Two spellings matter: `hasKey . "bundles"` rather than `| default`, because an empty list is falsy in Go templates and `default` would silently restore the whole role default; and `get . "machine_role"` rather than `.machine_role`, because a direct dereference aborts when rendering against a fixture config. The role→bundles map is duplicated in `.chezmoi.toml.tmpl`, which needs it at prompt time; prompt functions only exist while the config renders. _(.chezmoitemplates/bundles, .chezmoi.toml.tmpl)_
 
@@ -123,7 +125,7 @@ Resolved 2026-08-05: hand-placed `Monaspace*VarVF[…].ttf` files were registeri
 
 The `Monaspace*Frozen-*.ttf` statics also in `~/Library/Fonts` register `Monaspace <style> Frozen`, a family the registry never names, so they don't collide. Left in place.
 
-The general shape is worth remembering, since it has now happened twice (Fantasque, decisionLog 2026-08-04): a hand-placed font silently defeats its own cask. `brew bundle` fails the collision without reporting it, and where the two copies differ in features, the registry can end up describing a font that isn't the one being used.
+The general shape is worth remembering, since it has now happened three times (Fantasque twice, decisionLog 2026-08-04 and 2026-08-08): a hand-placed font silently defeats its own cask. On 2026-08-08 twelve `FantasqueSansM*.ttf` files from April 2024 were still blocking `font-fantasque-sans-mono-nerd-font` from adopting; moving them aside let the cask install 3.5.0 and take ownership. The fix is always the same, which is the argument for automating it in #15. `brew bundle` fails the collision without reporting it, and where the two copies differ in features, the registry can end up describing a font that isn't the one being used.
 
 Every Nerd Font cask registers three families, the base name plus a ` Mono` and a ` Propo` suffix, which differ in glyph advance width rather than in features. Maple is the exception with one. Picking the wrong one changes spacing without erroring. _(system_profiler SPFontsDataType, 2026-08-05)_
 

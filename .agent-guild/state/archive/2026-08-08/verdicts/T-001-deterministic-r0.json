@@ -1,0 +1,66 @@
+{
+  "task_id": "T-001",
+  "checker": "checker-deterministic",
+  "vendor": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "B-3",
+      "severity": "blocker",
+      "description": "Both assertion helper functions are defined in tests/helpers.bash.",
+      "evidence": "Command: /usr/bin/grep -cE '^[[:space:]]*(function[[:space:]]+)?(assert_contains|assert_not_contains)[[:space:]]*(\\(\\))?[[:space:]]*\\{' tests/helpers.bash\nOutput: 2"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "blocker",
+      "description": "All seven pre-existing test files load the shared helpers.",
+      "evidence": "Command: /usr/bin/grep -l '^[[:space:]]*load ' tests/*.bats\nOutput:\ntests/apps.bats\ntests/doctor.bats\ntests/font.bats\ntests/install-failures.bats\ntests/jsonc.bats\ntests/licensed-fonts.bats\ntests/packages.bats"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "blocker",
+      "description": "Local helper definitions have been removed from install-failures.bats.",
+      "evidence": "Command: /usr/bin/grep -cE '^[[:space:]]*(function[[:space:]]+)?(assert_contains|assert_not_contains)[[:space:]]*(\\(\\))?[[:space:]]*\\{' tests/install-failures.bats\nExit code: 1 (no match found)"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "blocker",
+      "description": "Helper-based probe reports both cases as not ok, proving assertions fail correctly.",
+      "evidence": "Probe with assert_contains loaded:\n1..2\nnot ok 1 probe case 1: helper fails, then succeeds\nnot ok 2 probe case 2: helper fails in loop, later iteration passes"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "blocker",
+      "description": "Bare [[ ]] variant of probe reports both cases as ok, proving it demonstrates the bug.",
+      "evidence": "Probe with bare [[ ]] syntax:\n1..2\nok 1 probe case 1: [[ ]] fails, then succeeds\nok 2 probe case 2: [[ ]] fails in loop, later iteration passes"
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "No bare compound statements exist in tests/helpers.bash.",
+      "evidence": "Command: /usr/bin/grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' tests/helpers.bash\nExit code: 1 (no output)"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "blocker",
+      "description": "Test suite exits 0 with 119 cases and no skipped tests.",
+      "evidence": "Command: bats tests/\nExit code: 0\nTest range: 1..119"
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "No assertions were converted; all 54 bare [[ ]] sites remain unchanged.",
+      "evidence": "Command: /usr/bin/grep -cE '^[[:space:]]*(\\[\\[|\\(\\()' tests/*.bats\nTotal count: 54 (11+20+12+0+2+5+4)"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "blocker",
+      "description": "Only tests/helpers.bash and the seven pre-existing .bats files have been modified.",
+      "evidence": "git status --porcelain tests/: 7 modified .bats files and 1 new helpers.bash"
+    }
+  ],
+  "timestamp": "2026-08-08T17:48:10Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

@@ -1,0 +1,138 @@
+{
+  "task_id": "CON-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5",
+  "verdict": "fail",
+  "findings": [
+    {
+      "clause_id": "V-2",
+      "severity": "blocker",
+      "description": "The check still does not detect this clause's second stated failing example. Revision 2 moved the TAP requirement into the clause text — \"The script parses `bats --formatter tap` output and confirms the mutated case itself reports `not ok`\" — but gave the check no way to verify the text was followed. Walk the three parts against failing example 2 (\"one that mutates every site correctly but concludes from the file's exit status alone, so a mutation that introduces a syntax error counts as a success while the assertion it was probing was never evaluated\"): part 1, a script with a correct `assert_contains`/`assert_not_contains` form parser and an exit-status success criterion mutates all 53 and exits 0 — passes. Part 2, its per-file counts are exactly right — passes. Part 3, `true` matches no recognised form, so its parser errors and it exits non-zero — passes. All three parts green against the artifact the clause says must fail. This is the same shape as revision 1's blockers: the requirement is stated, the check cannot see it. A deterministic probe does exist and discriminates cleanly — in the scratch worktree plant a failure unrelated to any mutation (an unterminated `@test` is enough), re-run, and require the script to report that file's sites as un-reddened and exit non-zero. An exit-status script counts them all as successes; a TAP script sees the named case never reported `not ok`.",
+      "evidence": "constitution.md:239-244 (the three parts and the failing example) against constitution.md:236 (the text the parts do not verify). Reproduced: a two-case bats file loading helpers, with an unterminated `@test` appended and `assert_contains \"hello\"` inverted to `assert_not_contains \"hello\"` -> bats prints `not ok 1 setup_file failed`, `bats warning: Executed 1 instead of expected 2 tests`, and the file exits 1. The mutated case (`case A`) never appears in TAP output at all, so file exit status reports a success that per-case TAP correctly reports as a non-result."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "major",
+      "description": "The clause's account of its own reach is false in both directions, and the hole it names is now owned by no one. V-2 opens \"A conversion that always passes is the same bug wearing better syntax, and nothing else in this constitution would catch it: B-1 sees a converted line, B-2 sees a plausible needle, V-3 sees a green suite.\" Measured against revision 2's own fixed mutation rule, V-2 is the clause that cannot catch it: an always-true assertion inverts to an always-false one, which reddens, so the mutation reports success. That is not a defect in the rule — polarity inversion cannot distinguish a tautology from a live assertion by construction, and rejecting my revision 1 tautology probe was correct. The defect is the sentence. B-2's rubric does carry the FAIL condition (\"replaces a condition with one that cannot fail\"), so the constitution as a whole still covers this — but V-2's text tells its reader that B-2 will not, and B-2's checker is never told it is the sole line of defence on the job's central failure mode. V-2 should say it proves an assertion is *wired in*, not that it is *meaningful*, and hand meaningfulness to B-2 by name.",
+      "evidence": "constitution.md:224 against constitution.md:230 and constitution.md:168. Measured with the repo's own helper bodies: a case containing `assert_contains \"\"` reports `ok` (grep with an empty pattern matches every line), and the same case with V-2's mutation applied — `assert_not_contains \"\"` — reports `not ok`, because `case \"$h\" in *\"\"*` matches everything. So a site converted to an empty needle passes B-1, passes B-3, keeps V-3 green, and passes V-2's mutation pass cleanly."
+    },
+    {
+      "clause_id": "V-3",
+      "severity": "major",
+      "description": "The new grep hardening declares the passing case `blocked`, and it fires on every correct run. `grep -c` exits 1 whenever the count is 0 — that is the no-match case, not an error — so the specified pipeline on a clean tree prints `0` and exits 1. The clause then says \"a non-zero exit from `grep` itself is `blocked`, not a pass.\" A checker-deterministic following the letter reports `blocked` on exactly the outcome the clause is asking for, which under the guild contract means fix-the-check-and-re-dispatch: a loop that only the orchestrator can break. B-1's parallel sentence gets this right by naming exit 2 specifically, and so does the global note on `grep` (\"exit 1 means no match and exit 2 means the check failed to run\") — which V-3 cites by name in the same sentence it contradicts.",
+      "evidence": "constitution.md:254 against constitution.md:39 and constitution.md:151. Measured at 61213fe on a clean tree: `git diff 61213fe..HEAD -- tests/ | /usr/bin/grep -cE '^\\+[[:space:]]*skip\\b'` -> prints `0`, exit 1. Same pattern against a line that does match -> prints `1`, exit 0."
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "major",
+      "description": "The mutation harness assumes the work is already committed, and the previous job's `cp` lesson did not come across with the rest of the fix. `git worktree add /tmp/agc-lint HEAD` gives a tree at HEAD. If V-1's checker runs before D-3's commit — and nothing in the constitution orders them — then `tests/lint.bats`, `tests/helpers.bash`, and `tests/mutation-check.sh` do not exist in that worktree at all: `bats tests/lint.bats` errors instead of reporting `not ok`, planting 2 and 3 create untracked files rather than appending to real ones, and `git checkout tests/helpers.bash` fails on a path git does not know. A correct worker gets FAILed by a check that never ran. The archive constitution wrote this down explicitly for exactly this reason (\"note the `cp`, without which the worktree carries HEAD's unmodified doctor.bats and the step is inert\"). One sentence closes it: run this after the work is committed, or `cp` the three files into the worktree first and restore by re-copying rather than by `git checkout`.",
+      "evidence": "constitution.md:196-215 against archive/2026-08-07/constitution.md:211-219 (`git worktree add /tmp/agc-mut HEAD` followed by `cp tests/doctor.bats /tmp/agc-mut/tests/`) and archive/2026-08-07/constitution.md:177-181. At 61213fe, `ls tests/` returns seven `.bats` files and nothing else, so all three planting targets are files this job creates."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "major",
+      "description": "The helper-call count is off by one, in the clause that now owns the helper-call contract. 54 sites = 53 assertions + `tests/packages.bats:146`, per the Measured baseline's own \"53 assertions, plus one that is not.\" Of the 53 assertions, `doctor.bats:244` becomes an `if` rather than a helper call, so **52** call helpers, not 51. No reading reconciles the clause's sentence: taking \"these two\" as the two exceptions, 51 + 2 = 53 only if `packages.bats:146` is counted among the assertions, which contradicts the baseline; and 51 + 2 = 53 leaves the 54 sites one short. A checker redoing this arithmetic — which is the natural way to check \"every containment assertion calls a shared helper\" — will land on 52 and have to ask which number governs.",
+      "evidence": "constitution.md:167 (`That leaves 51 helper calls, plus these two, plus doctor.bats:244 counted among the 53 assertions V-2 mutates`) against constitution.md:97 (the table: 54 sites, 53 assertions), constitution.md:110, and constitution.md:164-165 (the two exceptions). Re-derived at 61213fe: 54 first-token sites; `tests/packages.bats` holds 4 sites of which :117, :119, :120 are assertions and :146 is the `|| continue` guard, confirming the table's packages column of 3."
+    },
+    {
+      "clause_id": "measured-baseline",
+      "severity": "minor",
+      "description": "The stated reason for declining a corrected vulnerable-assertion count is now stale. The baseline says a trustworthy figure \"needs block-aware parsing this job does not otherwise require\" — but revision 2's V-2 requires the mutation script to name the specific `@test` case containing each mutated line, which is exactly that parsing. The decision to decline the count is still right for the other reason given (B-1 converts all 54 regardless of position, so the number gates nothing); only the parsing half of the justification no longer holds.",
+      "evidence": "constitution.md:78 against constitution.md:226 and :236 (`requires that specific case to report not ok` / `confirms the mutated case itself reports not ok`)."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "minor",
+      "description": "The heredoc paragraph mandates work against a set that is empty at baseline, without saying so. \"Converting or rewording those is in scope\" reads as though there are heredoc-enclosed sites to convert; a heredoc-aware scan of all seven files finds none — every one of the 54 sites is ordinary test-body code. The rule itself is right and worth keeping as a forward constraint on stub bodies a worker writes during conversion; it just needs \"there are none at baseline\" attached, so a worker does not hunt for them and a checker does not expect them in the diff.",
+      "evidence": "constitution.md:144. Measured at 61213fe with a heredoc-tracking scan across tests/*.bats (tracking `<<`/`<<-` delimiters and their terminators): zero of the 54 first-token sites falls inside a heredoc body. Ten heredoc stub writes exist (tests/apps.bats:30, :39; tests/doctor.bats:30, :260; tests/font.bats:31, :42; tests/install-failures.bats:52, :99, :211, :271, :342; tests/licensed-fonts.bats:31), none containing a first-token `[[`."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "minor",
+      "description": "The first failing example's arithmetic does not land on any real pair of files. \"The eight sites in the two fastest files\" — the two fastest by the assertions column are jsonc 2 and licensed-fonts 5, which is seven; jsonc plus packages is five. Carried over from revision 1 and purely illustrative, and part 2's per-file counts catch the real version of this cheat regardless. Worth a number that reproduces, in a document whose revision history is a list of numbers that did not.",
+      "evidence": "constitution.md:244 against the assertions column at constitution.md:90-97 (apps 11, doctor 20, font 12, jsonc 2, licensed-fonts 5, packages 3) and the runtimes column (jsonc ~1s, licensed-fonts ~1s, packages ~2s)."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "minor",
+      "description": "Pinning `doctor.bats:244` by line number inside a script the clause calls \"committed and reusable\" makes the script silently wrong after any later edit above that line in `doctor.bats`. The failure direction is safe — a stale pointer means the site stops matching a recognised form, which the clause already turns into a hard error — so this costs a confusing failure rather than a false pass. Anchoring on the case title or on the two needles would survive the next edit.",
+      "evidence": "constitution.md:231 (`The script names this site explicitly rather than pattern-matching it`) against constitution.md:226 (`committed and reusable`). At 61213fe the site is tests/doctor.bats:244, `[[ \"$output\" == *\"undeclared\"* || \"$output\" == *\"casks\"* ]]`, the last statement of its case; B-3's mandated `load` line alone moves it to :245."
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "minor",
+      "description": "Part 1's definition grep is keyed to one spelling of a function definition. `^[[:space:]]*(assert_contains|assert_not_contains)[[:space:]]*\\(\\)` requires the `name() {` form on a single line; `function assert_contains() {` or a definition whose parens sit on a following line returns fewer than 2 and fails a perfectly good `helpers.bash`. Low risk, because the repo idiom already matches — `tests/install-failures.bats:73` and `:78` are both `name() {` — but the check is stricter than the requirement it stands for.",
+      "evidence": "constitution.md:178. tests/install-failures.bats:73 is `assert_contains() {` and :78 is `assert_not_contains() {`, both matching; the requirement in the clause text is only that helpers.bash \"defines at minimum assert_contains and assert_not_contains\"."
+    },
+    {
+      "clause_id": "V-3",
+      "severity": "minor",
+      "description": "Correcting my own revision 1 finding: the orchestrator is right, and my claim was overstated. Re-ran the identical BRE form five times this session — `printf '+\\tskip foo\\n' | grep '^\\+\\s*skip\\b'` — and it matched with exit 0 every time, same as `/usr/bin/grep`, and the `-cE` form the orchestrator tried matched too. The shim is real and still installed, and I did observe the compile error twice in the revision 1 session, so the hazard class is genuine; but it is intermittent and I could not reproduce it on demand, so it should be recorded as a precaution taken rather than a defect measured. Keep the hardening — `/usr/bin/grep` with POSIX classes costs nothing and removes a variable — but the r0 finding as I wrote it asserted more than I can now re-derive, and the constitution should not cite it as a measured failure.",
+      "evidence": "Measured this session: `printf '+\\tskip foo\\n' | grep '^\\+\\s*skip\\b'` -> matches, exit 0, five trials. `printf '+\\tskip foo\\n' | grep -cE '^\\+\\s*skip\\b'` -> prints 1, exit 0. `grep --version` -> `ugrep 7.5.0`, so the shim is still in place. Against the revision 1 session, where the same BRE form returned `ugrep: error: error at position 5 ... invalid syntax`, exit 2, twice."
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "info",
+      "description": "Blocker 1 is genuinely closed. The clause's failing example is \"a guard case that scans only `tests/*.bats` and never `tests/helpers.bash`\", and planting 2 now appends a `canary()` containing a first-token `[[` to `tests/helpers.bash` and requires `not ok` on its own. A `.bats`-only guard cannot see that planting, reports `ok`, and fails the check — so the check now catches the artifact its failing example describes, which is precisely what revision 1 could not do. Planting 3 extends the same logic to `mutation-check.sh`, and the `BATS_TEST_DIRNAME` requirement from my r0 minor is in the clause text.",
+      "evidence": "constitution.md:193-220. The three plantings target the three file kinds B-1's surface names, one at a time with a restore between, and the clause labels planting 2 as the one that catches its own failing example. The `(( 1 == 1 ))` repeat is retained for planting 1."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "info",
+      "description": "Blocker 2 is closed and the arithmetic re-derives. Per-file counts are stable under exactly the line shifts that made revision 1's baseline-line-number cross-check impossible, and the required distribution sums correctly: apps 11 + doctor 20 + font 12 + jsonc 2 + licensed-fonts 5 + packages 3 = 53. The packages column of 3 is right — that file's four sites are three assertions plus the `|| continue` guard. The clause also now states why line numbers were abandoned, which is the right way to keep a future revision from reintroducing them.",
+      "evidence": "constitution.md:241. Re-derived at 61213fe: `/usr/bin/grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' tests/packages.bats` -> :117, :119, :120, :146, of which :146 is `[[ -n \"$cask\" ]] || continue`. Per-file first-token counts: apps 11, doctor 20, font 12, install-failures 0, jsonc 2, licensed-fonts 5, packages 4 = 54 sites, 53 assertions."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "info",
+      "description": "Blocker 4 is closed, and putting `mutation-check.sh` on the surface introduced no contradiction I can find. The surface is now stated once, normatively, in B-1, with an explicit prohibition on any other clause restating it; V-1 and B-3 both cite it by reference and neither narrows it. Checked the side effects the change was most likely to have: the script needs the helper names as literal strings but never needs a first-token `[[`, so the rule is satisfiable; `tests/lint.bats` needs the pattern and B-1 says outright that the first-token rule is what keeps it from flagging itself; `bats tests/` collects only `*.bats`, so a shell script under `tests/` is never executed by V-3; `tests/` is inside D-1's allowlist, so the new file is in scope. Nothing on the surface is required by one clause and exempted by another. The exit-2-is-blocked handling closes my r0 minor about a missing `helpers.bash` reading as clean.",
+      "evidence": "constitution.md:136-153 against constitution.md:188 (V-1: `which B-1 defines and this clause does not restate`), constitution.md:176 (B-3 cites the surface), constitution.md:262 (D-1 allows tests/). Verified `bash` on this host resolves to /bin/bash 3.2.57(1)-release and there is no second bash on PATH, so B-1's stated rationale that `mutation-check.sh` runs under the same 3.2 holds for the invocation V-2 specifies."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "info",
+      "description": "Blocker 3's requirement landed correctly in the clause text, and the reasoning behind it is stated well enough that a future revision will not undo it: \"a mutation that breaks bash parsing, or that trips some other case in the same file, produces a non-zero exit while the mutated case never failed. That is the reasoning this clause's own failing example condemns, and revision 1 committed it.\" The gap is only that the check cannot verify compliance — the blocker above. Separately, the mutation rule is now genuinely fixed rather than left to the worker: helper-name swap for polarity, sentinel needles for the disjunction, and an unrecognised form as a hard error rather than a silent skip. That last one is the right call and is what makes part 3 decidable where revision 1's tautology probe was not.",
+      "evidence": "constitution.md:226-236. The `true` probe is decidable as claimed: `true` is not `assert_contains` or `assert_not_contains` and is not the named disjunction site, so any script with a real form parser must reach its unrecognised-form branch."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "info",
+      "description": "Both scope-changing majors from r0 landed properly, and each now sits in a clause with a FAIL condition behind it. The helper-call requirement is stated as a rule rather than an aspiration, with the reason a syntax-only ban is insufficient spelled out (\"Forbidding `[[` alone would be satisfied by inlining a bare `grep -qF` at all 53 sites\"), and `tests/packages.bats:146`'s required form moved out of descriptive prose into the clause, with an explicit FAIL for deleting it and a second failing example illustrating the deletion path. The Measured baseline now defers to B-2 on that form rather than restating it, which is the right direction of dependency.",
+      "evidence": "constitution.md:162-170 against constitution.md:110 (`Its required form is fixed by B-2, not by this descriptive section`). The cited precedent is real: tests/font.bats:552 is `[ -n \"$fallback\" ] || continue`, the identical idiom for the identical construct."
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "info",
+      "description": "B-3's two gaps are closed and its probe now discriminates, verified end to end. Part 1 requires `helpers.bash` to actually define both names rather than merely exist, and part 3 gained the half that proves the probe is measuring what it thinks: the `[[ ]]` variant must report `ok`. I built and ran both halves against the repo's own helper bodies and they behave exactly as the clause claims, which also confirms the new measured claim at constitution.md:130.",
+      "evidence": "Constructed a two-case bats file loading a helpers.bash carrying the repo's `assert_contains` (grep -qF) and `assert_not_contains` (case), each case calling a failing helper mid-body then `echo reached`: TAP reports `not ok 1` and `not ok 2`, with bats naming the helper and the failing line. The same two cases written with `[[ \"haystack\" == *\"absent\"* ]]` and `[[ \"haystack\" != *\"hay\"* ]]`: TAP reports `ok 1` and `ok 2`. Bats 1.14.0, /bin/bash 3.2.57(1)-release."
+    },
+    {
+      "clause_id": "D-1",
+      "severity": "info",
+      "description": "The new verification claim in D-1 reproduces exactly as written, including the wording about the offending path being named.",
+      "evidence": "`touch dot_local/bin/ZZZ-audit-probe` then `python3 .agent-guild/scripts/check-diff-scope.py tests/ _working-memory/conventions.md _working-memory/decisionLog.md` -> `check-diff-scope: out of scope: dot_local/bin/ZZZ-audit-probe`, exit 1. Probe removed; `git status --porcelain` clean again at 61213fe."
+    },
+    {
+      "clause_id": "V-3",
+      "severity": "info",
+      "description": "The 119 total is now bound rather than merely asserted — \"their sum is at least 119\" — which closes my r0 minor, and the clause correctly separates the seven pre-existing files' floor from `tests/lint.bats`, which is additional to it. The seven floors all re-derive.",
+      "evidence": "constitution.md:248-253. Measured at 61213fe: `/usr/bin/grep -c '^@test'` -> apps 18, doctor 11, font 44, install-failures 17, jsonc 9, licensed-fonts 7, packages 13, summing to 119. `timeout 300 bats tests/` -> exit 0, 119 cases, none skipped."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "All seven of my revision 1 minors are addressed, six cleanly. B-1's exit-2-is-blocked handling, V-1's `BATS_TEST_DIRNAME` requirement, V-2's disjunction mutation rule, B-1's heredoc paragraph, V-3's bound total, and the runtime figures (now approximate and explicitly checked by no clause) are all resolved. The seventh — hardening the `skip` grep — is resolved in substance but the hardening sentence introduced the `grep -c` exit-code defect recorded above as a major, and my own r0 claim behind it is corrected above. Spec coverage is unchanged from r0 and remains complete: AC1 -> B-1 + B-2 + B-3, now including the helper-call requirement that was missing; AC2 -> V-1; AC3 -> B-3 part 3; AC4 -> V-2; AC5 -> V-3.",
+      "evidence": "constitution.md:151, :190, :231, :144, :253, :99 against the r0 verdict at .agent-guild/state/verdicts/CON-audit-r0.md. spec.md:88-92."
+    },
+    {
+      "clause_id": "measured-baseline",
+      "severity": "info",
+      "description": "The corrected naive-grep figure is right, and the revision-2 section's account of how revision 1 got it wrong is accurate: 59 lines, five false positives, the two extra being the comment block at `tests/install-failures.bats:68` and `:71` that documents this bug. Everything else in the baseline that I re-derived in r0 still holds at `61213fe`, and the new `assertions` column is correct in every row.",
+      "evidence": "Re-derived: `/usr/bin/grep -n '\\[\\[' tests/*.bats | wc -l` -> 59; first-token -> 54; `((` -> 0 in all seven files. constitution.md:101-108."
+    }
+  ],
+  "timestamp": "2026-08-08T17:40:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

@@ -1,0 +1,138 @@
+{
+  "task_id": "CON-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5[1m]",
+  "verdict": "fail",
+  "findings": [
+    {
+      "clause_id": "C-5",
+      "severity": "blocker",
+      "description": "The mutation requirement is unsatisfiable and contradicts C-6 and C-7: the job never changes dotfiles-doctor, so any case that fails against the doctor at 1dec91c also fails at HEAD, and any case green at HEAD is green at baseline.",
+      "evidence": "constitution.md:52 requires the new case to fail at 1dec91c; C-6's allowlist (constitution.md:59) does not include dot_local/, so executable_dotfiles-doctor cannot be modified; C-7 (constitution.md:67) requires `bats tests/` to exit 0. Outcome(case @ baseline) == outcome(case @ HEAD) by construction."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "blocker",
+      "description": "No clause pins the converted scripts' exit status after a collected failure, so a worker may exit non-zero, abort `chezmoi apply`, and withhold run_onchange state — the outcome two of the spec's own non-goals exist to forbid — with every clause still passing.",
+      "evidence": "spec.md:58 ('The apply itself should not abort') and spec.md:79 ('not recording run_onchange state on failure ... fights the tool's model'). C-2 (constitution.md:30) fixes exit 0 only for the tool-absent branch; C-1, C-3, C-4 constrain output and iteration, never the final exit code."
+    },
+    {
+      "clause_id": "C-14",
+      "severity": "major",
+      "description": "The claude-plugins line citation is off by one, so the deterministic check points at two echo lines that carry no `|| true` and passes vacuously at that site; keying the check to baseline line numbers is also stale by construction once the file is rewritten.",
+      "evidence": "constitution.md:135 cites `run_onchange_after_install-claude-plugins.sh.tmpl:33,40`; the actual calls are at :34 (`claude plugin marketplace add ... || true`) and :41 (`claude plugin install ... || true`). Lines 33 and 40 are `echo` statements. Also unnamed: the legitimate survivor `brew trust --tap ... || true` at run_onchange_install-packages.sh.tmpl:27."
+    },
+    {
+      "clause_id": "C-15",
+      "severity": "major",
+      "description": "The mutation requirement is file-level only, so a file where one case is real and the rest are shams still fails at baseline and still satisfies C-1 and C-4 for all four sites.",
+      "evidence": "constitution.md:149-150 requires only that `bats tests/install-failures.bats` exit non-zero at 1dec91c. Per-case expectations are derivable and absent: the four C-2 cases must pass at baseline (C-2 calls it today's behavior, constitution.md:30), the four C-1 and three C-4 cases must fail there."
+    },
+    {
+      "clause_id": "C-15",
+      "severity": "major",
+      "description": "Nothing requires the test file to resolve the scripts relative to the test directory, so a file that locates them via `chezmoi source-path` or an absolute repo path renders HEAD's scripts inside the baseline worktree and the mutation step passes vacuously.",
+      "evidence": "constitution.md:152-157 copies only the test file into /tmp/agc-baseline. The harnesses it points at do it right — tests/doctor.bats:13 and tests/licensed-fonts.bats:11-12 use `SRC=\"${BATS_TEST_DIRNAME}/..\"` — but doctor.bats:30-31 also stubs `chezmoi source-path` to a fixture, so 'following the harness' does not settle it."
+    },
+    {
+      "clause_id": "C-1",
+      "severity": "major",
+      "description": "The required identifier is enumerated for three of the four sites; the Raycast site has none, yet C-15 mandates a `present tool failing names the item` case for it and C-12 forbids claiming any per-extension outcome. Two checkers can reach opposite verdicts on that case.",
+      "evidence": "constitution.md:23 names 'the formula or cask name for `brew`, the extension id for `code`, the plugin or marketplace spec for `claude`' — no raycast:// URL or extension slug. C-15 (constitution.md:144) requires the case for each of the four scripts; C-12 (constitution.md:111) bars reporting extension outcomes."
+    },
+    {
+      "clause_id": "C-13",
+      "severity": "major",
+      "description": "The fourth sub-check routes a reading-comprehension judgment to checker-deterministic: a grep cannot decide whether a hit is a stub definition or a real invocation, and the pattern is guaranteed to return hits because the required stubs contain those very strings.",
+      "evidence": "constitution.md:123 asks a checker-deterministic (haiku, script-only per .agent-guild/CLAUDE.md's routing table) to confirm the grep 'returns only stub definitions inside the test harness, never a real invocation'."
+    },
+    {
+      "clause_id": "C-11",
+      "severity": "major",
+      "description": "C-6, C-11, and C-13 all assume the guild is the only actor touching this repo's git and chezmoi state, but a LaunchAgent commits the whole working tree twice a day on this machine.",
+      "evidence": "~/Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist:11-25 fires dotfiles-sync at 16:00 and 22:00; dot_local/bin/executable_dotfiles-sync:128-131 runs `git add -A` then commits as '[auto-sync from $HOST]'; :66 runs `chezmoi re-add`. Commit af8fe49 ('merge: reconcile concurrent auto-syncs') is this already happening. Push is off by default (:147), so C-11's push check survives; message quality, commit atomicity, C-6's working-tree scope, and C-13's boltdb mtime do not."
+    },
+    {
+      "clause_id": "C-2",
+      "severity": "minor",
+      "description": "The rationale 'This is today's behavior' is false for the Raycast site, which exits 0 silently with no skip message, and ignores the claude-plugins script's second skip path.",
+      "evidence": "run_onchange_configure-raycast.sh.tmpl:12-14 exits 0 with no echo; run_onchange_after_install-claude-plugins.sh.tmpl:77 skips on a missing decryption key, which is not a CLI-absence skip. constitution.md:30 asserts otherwise."
+    },
+    {
+      "clause_id": "C-6",
+      "severity": "minor",
+      "description": "The count is wrong: six of the eight `|| true` guards in the macOS-defaults script are on `defaults write` lines; the other two guard `osascript` and `killall`.",
+      "evidence": "run_once_after_configure-macos.sh:129-134 are the six `defaults write ... || true`; :14 is `osascript`, :165 is `killall`. constitution.md:58 says 'its eight `defaults write ... || true` guards'."
+    },
+    {
+      "clause_id": "C-7",
+      "severity": "minor",
+      "description": "The no-skip sub-check is not decidable as written: the grep already returns four hits at baseline, so 'must show no `skip` added by this job' needs a baseline comparison the command does not perform.",
+      "evidence": "constitution.md:67; `grep -rn 'skip' tests/ | wc -l` returns 4 at 1dec91c."
+    },
+    {
+      "clause_id": "C-11",
+      "severity": "minor",
+      "description": "The post-commit scope command is listed with no matching FAIL condition, and C-6's working-tree check goes vacuous once the work is committed, so an out-of-scope committed path has nothing catching it.",
+      "evidence": "constitution.md:103 lists `git diff --name-only 1dec91c..HEAD` 'for post-commit scope'; the FAIL list at constitution.md:105 names a dirty tree, a pushed commit, a trailer, hard wrapping, and a diff-restating message — no scope criterion."
+    },
+    {
+      "clause_id": "C-15",
+      "severity": "minor",
+      "description": "The `<script>` token in the required case titles is unbound, so a deterministic title grep cannot know which spelling to match.",
+      "evidence": "constitution.md:143-145 gives titles as `<script>: absent tool skips clean` etc.; constitution.md:150 requires 'every required title above appears'."
+    },
+    {
+      "clause_id": "C-4",
+      "severity": "minor",
+      "description": "install-claude-plugins is called a loop site but does not iterate; the template emits sequential add_marketplace/install_plugin calls. The per-site definition of 'item' still resolves the ambiguity, so the clause holds.",
+      "evidence": "run_onchange_after_install-claude-plugins.sh.tmpl:66 and :73 are generated call lines, not a loop; constitution.md:44 says 'the three loop sites ... where the script iterates'."
+    },
+    {
+      "clause_id": "C-8",
+      "severity": "info",
+      "description": "PASS — the replacement failing example was re-derived and genuinely fails: on this machine's bash 3.2 an empty `\"${arr[@]}\"` under `set -e` without `-u` prints a bare blank line under the heading and continues, which is the spurious unnamed failure C-3 forbids.",
+      "evidence": "GNU bash 3.2.57(1)-release (arm64-apple-darwin23); `set -e; failed=(); printf '  %s\\n' \"${failed[@]}\"` emits `Failed to install:\\n  \\n` and reaches the next statement. Under `set -u` the same line aborts with 'failed[@]: unbound variable'."
+    },
+    {
+      "clause_id": "C-6",
+      "severity": "info",
+      "description": "PASS on the repaired parts — check-diff-scope.py has no commit-range option, the --ignore escape hatch works, the guild's own state is carved out, and the corrected antipatterns citation says what C-6 says it says.",
+      "evidence": "check-diff-scope.py --help shows only [--ignore PATH] and positional ALLOWED; :112 always permits .agent-guild/state/; the full C-6 command exits 0 today with 'OK: 1 path(s) in scope'. _working-memory/antipatterns.md:71-75 is the 2026-03-24 deprecated-defaults entry ('no-ops or error on Sequoia+ Apple Silicon'), :77-82 the companion set -e decision."
+    },
+    {
+      "clause_id": "C-10",
+      "severity": "info",
+      "description": "PASS — both cited passages exist verbatim at the cited lines and both do contradict what this job builds.",
+      "evidence": "_working-memory/conventions.md:40 forbids asserting on log wording; :46 prescribes the `|| true` guard citing run_onchange_install-vscode-extensions.sh.tmpl as the example."
+    },
+    {
+      "clause_id": "C-11",
+      "severity": "info",
+      "description": "PASS on the push-detection repair — the range excludes the baseline, so only this job's commits are tested, and the mechanism demonstrably discriminates.",
+      "evidence": "`git branch -r --contains HEAD` reports origin/HEAD and origin/main for the already-pushed baseline; `git rev-list 1dec91c..HEAD` is empty, so no job commit is yet contained anywhere."
+    },
+    {
+      "clause_id": "baseline",
+      "severity": "info",
+      "description": "PASS — the re-pin is correct and the baseline is clean.",
+      "evidence": "git rev-parse HEAD = 1dec91cb34c04a9d41c434451c581929a8741d88; `git rev-list 1dec91c..HEAD` is empty; `git status --porcelain` shows only ` M dot_claude/encrypted_private_settings.json.age`, the path C-6 and C-11 exempt by name."
+    },
+    {
+      "clause_id": "non-goals",
+      "severity": "info",
+      "description": "PASS — acceptance criterion 6 remains unsatisfiable for the stated reasons; the non-goal reasoning was re-derived and holds.",
+      "evidence": "dot_local/bin/executable_dotfiles-sync contains no `chezmoi apply` (only source-path, re-add, status, execute-template) and truncates the log at :23; com.k-arnett.dotfiles-auto-sync.plist:7-10 runs dotfiles-sync alone."
+    },
+    {
+      "clause_id": "C-15",
+      "severity": "info",
+      "description": "PASS on the core mutation mechanic — the baseline worktree does supply the script bodies, so a trivially-passing file is caught, and the render is equivalent across the two trees.",
+      "evidence": "tests/licensed-fonts.bats:11-22 feeds `$SRC/<script>.tmpl` to `chezmoi execute-template` on stdin; includes resolve from the real source dir, whose data files C-6's allowlist keeps unchanged, so only the script logic differs between /tmp/agc-baseline and HEAD."
+    }
+  ],
+  "timestamp": "2026-08-07T01:47:34Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

@@ -1,0 +1,72 @@
+{
+  "task_id": "T-008",
+  "checker": "checker-judgment",
+  "vendor": "anthropic",
+  "model": "claude-opus-5[1m]",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "D-2",
+      "severity": "major",
+      "description": "conventions.md names both [[ ]] and (( )) and states the mechanism: failure discarded unless the construct is the enclosing function's literal last statement, a semicolon is no escape, and a loop keeps only the last iteration's result.",
+      "evidence": "_working-memory/conventions.md:24 \u2014 \"Under `set -e`, a failing `[[ ]]` or `(( ))` doesn't abort. The failure is discarded unless the construct is the enclosing function's literal last statement, so `f() { [[ 1 -eq 2 ]]; echo reached; }` prints `reached` and exits 0. A semicolon is no escape either (`true; [[ 1 -eq 2 ]]; echo reached` prints it too), which is why the rule is \\\"never use either as a statement\\\" rather than \\\"never start a line with one\\\". Loops are where it hides longest: `for i in 1 2 3; do [[ $i -ge 3 ]]; done` exits 0, so only the last iteration's result survives. `[ ]`, `grep`, and a function returning non-zero all propagate from every one of those positions.\""
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "major",
+      "description": "Every mechanism claim in the two working-memory files re-derived on this machine's /bin/bash 3.2.57 and reproduced exactly, including the (( )) row and the loop-masking row.",
+      "evidence": "$ /bin/bash --version | head -1 -> GNU bash, version 3.2.57(1)-release (arm64-apple-darwin23)\n$ /bin/bash -c 'set -e; f() { [[ 1 -eq 2 ]]; echo reached; }; f; echo \"exit=$?\"' -> reached / exit=0\n$ /bin/bash -c 'set -e; f() { true; [[ 1 -eq 2 ]]; echo reached; }; f; echo \"exit=$?\"' -> reached / exit=0\n$ /bin/bash -c 'set -e; f() { for i in 1 2 3; do [[ $i -ge 3 ]]; done; }; f; echo \"loop exit=$?\"' -> loop exit=0\n$ /bin/bash -c 'set -e; f() { (( 1 == 2 )); echo reached; }; f; echo \"exit=$?\"' -> reached / exit=0\n$ /bin/bash -c 'set -e; f() { [ 1 -eq 2 ]; echo \"BAD reached\"; }; f; echo unreachable' -> no output, status=1"
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "major",
+      "description": "The rule is written in its correct, role-based form ('never use either as a statement'), not the narrow line-start form the reworked guard superseded; the decisionLog records the first-token draft's defect explicitly.",
+      "evidence": "_working-memory/decisionLog.md:14 \u2014 \"**The rule is about role, not position.** `true; [[ 1 -eq 2 ]]; echo reached` prints `reached` [...] so \\\"don't start a line with `[[`\\\" was never the rule and \\\"never use either as a statement\\\" is. The guard's first draft was a first-token grep and passed a planted `true; [[ 1 -eq 2 ]]` clean, which is how that got noticed; it now looks for a compound in command position generally.\""
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "major",
+      "description": "The description of tests/lint.bats matches the guard as it now stands, not an earlier draft: the live pattern matches a compound after ; && || { then do else, and deliberately does not match an if/while condition.",
+      "evidence": "tests/lint.bats:50 pattern = '(^[[:space:]]*|;[[:space:]]+|&&[[:space:]]+|\\|\\|[[:space:]]+|\\{[[:space:]]+|\\bthen\\b[[:space:]]+|\\bdo\\b[[:space:]]+|\\belse\\b[[:space:]]+)(\\[\\[|\\(\\()'\nProbe of that exact pattern over a six-line fixture (if-cond, while-cond, 'true; [[ ]]', line-start '[[ ]]', line-start '(( ))', zero-space 'true;[[ ]]'):\n  3:true; [[ 1 -eq 2 ]]\n  4:[[ 1 -eq 2 ]]\n  5:(( 1 == 2 ))\nLines 1-2 (if/while conditions) correctly unmatched; line 6 is the zero-space form ruled an accepted limitation in T-006, and neither working-memory file claims it is caught.\nMatching prose at _working-memory/conventions.md:42 \u2014 \"A compound used as an `if` or `while` condition is left alone on purpose: the branch consumes its exit status, so the bug can't reach it there.\""
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "major",
+      "description": "Every figure quoted in the two files matches the constitution's Measured baseline, re-counted from the working tree rather than taken on report: 54 sites, 53 assertions, packages.bats's cask guard as the 54th, 24 as the issue's undercount, ~162 single-bracket assertions, twelve font.bats assertions.",
+      "evidence": "Baseline per-file first-token count, git show 61213fe:tests/<f> | /usr/bin/grep -cE '^[[:space:]]*(\\[\\[|\\(\\()':\n  apps 11, doctor 20, font 12, jsonc 2, licensed-fonts 5, packages 4, install-failures 0 -> total 54\nBaseline packages sites: 117,119,120 are assertions; 146 is `[[ -n \"$cask\" ]] || continue` -> 53 assertions + 1 loop guard\nCurrent surface: /usr/bin/grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' tests/*.bats tests/helpers.bash tests/mutation-check.sh -> no output, exit=1\nCurrent helper-call sites (the script's own enumeration pattern) apps 11, doctor 19, font 12, jsonc 2, licensed-fonts 5, packages 3 = 52, plus doctor.bats's restructured `case` disjunction = 53, matching \"inverts each of the 53 assertions\" at conventions.md:43\ntests/packages.bats:148 -> `[ -n \"$cask\" ] || continue`, matching the form quoted at conventions.md:41\n@test counts: apps 18, doctor 11, font 44, install-failures 17, jsonc 9, licensed-fonts 7, packages 13 = 119; +lint.bats 1 = 120 \u2014 no figure in either file contradicts this"
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "major",
+      "description": "decisionLog.md carries a dated 2026-08-08 entry for this job, at the top of a newest-first log and in the file's declared Context/Decision/Alternatives format.",
+      "evidence": "_working-memory/decisionLog.md:3 \"<!-- Append-only. Most recent at top. -->\"; :10 \"## 2026-08-08 \u2014 Assertions go through shared helpers, because bash 3.2 throws away a failing `[[ ]]`\"; :11 **Context:** ... ; :17 **Alternatives considered:** ... ; the next entry down is :19 \"## 2026-08-08 \u2014 Gate OS-incompatible packages instead of deleting them\""
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "major",
+      "description": "The decisionLog's two hardest-to-verify claims \u2014 the heredoc coverage hole and the assignment/errexit defect in the guard's first draft \u2014 are corroborated by the artifacts as they now stand.",
+      "evidence": "tests/font.bats:33 and :44 use `cat >\"$STUBS/chezmoi\" <<-'STUB'` (the tab-indentable terminator form named at decisionLog.md:15), and font.bats has exactly 12 assertions, matching \"twelve assertions were quietly never mutated\"\ntests/mutation-check.sh:126-134 handles the `<<-` case explicitly\ntests/lint.bats:62 `raw=\"$(/usr/bin/grep -nE \"$pattern\" \"$f\" 2>&1)\" && rstatus=0 || rstatus=$?` is the corrected form decisionLog.md:16 describes\ntests/mutation-check.sh:215 locates the disjunction by needle (`grep -E '^[0-9]+:.*\\*undeclared\\*.*\\*casks\\*'`), which is what the doctor.bats comment asserts about it"
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "major",
+      "description": "Every comment this job added carries information the code cannot: the helpers header records the hand-run measurement and why grep/case were chosen, the doctor.bats block explains why a `case` replaces the suite's only disjunction and why both arms must survive, and lint.bats's comments explain the pattern's self-match trap and the if/while carve-out. None restates what a line does.",
+      "evidence": "tests/helpers.bash:1-12 \u2014 \"`(( ))` behaves identically, and a semicolon is no escape [...] Worst of all is a loop: `for i in 1 2 3; do [[ $i -ge 3 ]]; done` exits 0, so one passing iteration erases every failure before it, and no statement has to follow the assertion for that to happen.\"\ntests/doctor.bats:245-252 \u2014 \"Keep both arms: whichever one the doctor's wording happens to match today isn't the contract, and dropping the other narrows the assertion without turning anything red. tests/mutation-check.sh finds this block by these two needles rather than by line number, so renaming one means editing the harness in the same breath.\"\ntests/lint.bats:40-49 \u2014 explains why each separator in the pattern requires a literal space, which is what keeps the pattern text from matching its own line\ntests/mutation-check.sh:25-27, :153-161, :276-282 \u2014 why restore is a backup copy and never `git checkout`, why the column-0 `}` boundary is safe, why judgment is by TAP and not exit status\nRemoved comment: the register-setting block formerly at tests/install-failures.bats:67-72 was not lost \u2014 `git diff -- tests/install-failures.bats` shows it moving out with the local helper definitions, and tests/helpers.bash:1-12 carries it forward with the `(( ))`, semicolon, and loop findings added"
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "minor",
+      "description": "Two wording imprecisions, neither contradicting a measured figure nor meeting a FAIL condition, recorded so the record is complete.",
+      "evidence": "_working-memory/conventions.md:41 says the cask guard \"stayed single-bracket\", while it was `[[ -n \"$cask\" ]]` at 61213fe (git show 61213fe:tests/packages.bats:146) and became `[ -n \"$cask\" ]`; decisionLog.md:12 states the history correctly (\"it became single-bracket for consistency, not for safety\"), and the current form and its reason are right in both.\n_working-memory/conventions.md:42 says lint.bats catches a bare compound \"in command position anywhere\", which is true of every form real shell code writes but not of the zero-space `true;[[ x ]]` accepted as a limitation in T-006. Neither file claims that form is caught."
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "minor",
+      "description": "Scope holds: the working tree carries changes only under _working-memory/ (the two files D-2 covers) and tests/, and nothing is committed past the baseline.",
+      "evidence": "$ git rev-parse HEAD -> 61213feb12e572bd90fd102072f186b32d750222 (the baseline; no commits added)\n$ git status --porcelain ->\n M _working-memory/conventions.md\n M _working-memory/decisionLog.md\n M tests/apps.bats\n M tests/doctor.bats\n M tests/font.bats\n M tests/install-failures.bats\n M tests/jsonc.bats\n M tests/licensed-fonts.bats\n M tests/packages.bats\n?? tests/helpers.bash\n?? tests/lint.bats\n?? tests/mutation-check.sh"
+    }
+  ],
+  "timestamp": "2026-08-08T19:47:22Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

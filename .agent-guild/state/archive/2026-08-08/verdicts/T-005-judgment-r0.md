@@ -1,0 +1,27 @@
+---
+task: T-005
+checker: checker-judgment
+vendor: anthropic
+model: claude-opus-5[1m]
+verdict: PASS
+checked_at: 2026-08-08T18:05:00Z
+duration_ms: None
+cost_usd: None
+---
+
+<!-- GENERATED FILE—do not hand-edit. Rendered by render-verdict.py
+from the verdict JSON, the record of record. Edit the JSON and
+re-render instead. -->
+
+## Per-clause results
+
+| clause | severity | description | evidence |
+| ------ | -------- | ------------ | -------- |
+| B-1 | blocker | No line in the three files has `[[` or `((` as its first non-whitespace token; the grep detects its own failing example, returning 2, 5 and 4 sites against the 61213fe baselines. | $ /usr/bin/grep -nE '^[[:space:]]*(\\[\\[\|\\(\\()' tests/jsonc.bats tests/licensed-fonts.bats tests/packages.bats (no output) EXIT=1 Same pattern against `git show 61213fe:tests/<f>.bats` (exit 0 each): jsonc-baseline.bats:61,68 -> 2 licensed-fonts-baseline.bats:46,53,62,63,70 -> 5 packages-baseline.bats:117,119,120,146 -> 4 Exit 1 (no match), not 2, so the check ran; `type grep` confirms a ugrep shell-function shim exists, which is why /usr/bin/grep was used explicitly. |
+| B-1 | blocker | The naive grep's extra hit at packages.bats:105 — a [[:space:]] POSIX class inside a single-bracket test, not a `[[` command — was left byte-identical to baseline. | baseline `git show 61213fe:tests/packages.bats` line 105: [ "$(grep -c '^[[:space:]]' <<<"$output")" -eq 0 ] working tree tests/packages.bats line 107 (baseline 105 + 2 for T-001's `load`): [ "$(grep -c '^[[:space:]]' <<<"$output")" -eq 0 ] It appears in no hunk of `/usr/bin/diff -u` between the two files. |
+| B-2 | blocker | jsonc.bats's 2 sites keep the same needle, haystack ($output by default) and polarity, converted to single helper calls with no inlined comparison. | $ /usr/bin/diff -u <baseline> tests/jsonc.bats - [[ "$output" == *"while parsing"* ]] + assert_contains "while parsing" - [[ "$output" == *"while parsing"* ]] + assert_contains "while parsing" The only other hunk is `+load 'helpers'` (T-001). Both needles non-empty, so neither condition is one that cannot fail. |
+| B-2 | blocker | licensed-fonts.bats's 5 sites convert with polarity preserved, including the trap: :62 and :63 sit in the same case asserting opposite things about neighbouring strings, and :70 asserts the same "not in vault" needle as :63 with the opposite polarity. All three checked individually against baseline. | $ /usr/bin/diff -u <baseline> tests/licensed-fonts.bats :46 - [[ "$output" == *"not installed"* ]] + assert_contains "not installed" :53 - [[ "$output" == *"not signed in"* ]] + assert_contains "not signed in" :62 - [[ "$output" == *"would not authorize"* ]] + assert_contains "would not authorize" :63 - [[ "$output" != *"not in vault"* ]] + assert_not_contains "not in vault" (!= -> not, polarity held) :70 - [[ "$output" == *"not in vault"* ]] + assert_contains "not in vault" (== -> contains, distinct case) :62 and :63 remain adjacent in the same @test, still asserting opposite things. Helper polarity probed directly (/bin/bash -c 'source tests/helpers.bash; ...'): not_contains(present)=1 contains(present)=0 not_contains(absent)=0 contains(absent)=1 |
+| B-2 | blocker | packages.bats:117's needle kept its embedded double quotes via the required single-quoted form, and :119/:120 converted != to assert_not_contains without flipping polarity. | $ /usr/bin/diff -u <baseline> tests/packages.bats :117 - [[ "$output" == *'brew "age"'* ]] + assert_contains 'brew "age"' :119 - [[ "$output" != *"databricks"* ]] + assert_not_contains "databricks" :120 - [[ "$output" != *"font-lilex"* ]] + assert_not_contains "font-lilex" The :117 argument is single-quoted, so `brew "age"` retains both interior double quotes. |
+| B-2 | blocker | packages.bats:146 was converted, not deleted: it is present as a single-bracket `[ -n "$cask" ] \|\| continue`, still inside the `while IFS= read -r cask` loop and still immediately above the `grep -qxF` test, so the loop's blank-line skip behaviour is preserved. | baseline `git show 61213fe:tests/packages.bats:146`: [[ -n "$cask" ]] \|\| continue working tree tests/packages.bats:147-149: while IFS= read -r cask; do [ -n "$cask" ] \|\| continue if ! grep -qxF "cask \\"$cask\\"" <<<"$rendered"; then The diff hunk is a one-line replacement (`-` then `+`), not a deletion, and the relative position to `grep -qxF` is unchanged. |
+| B-2 | blocker | Regression: the three files run 29 cases green with none deleted, renamed or skipped, and the diffs contain no change outside the 11 conversion sites plus T-001's `load` line. | $ bats --formatter tap tests/jsonc.bats tests/licensed-fonts.bats tests/packages.bats BATS_EXIT=0 1..29 ok lines: 29 not-ok lines: 0 skips: 0 $ /usr/bin/grep -c '^@test' -> jsonc: 9, licensed-fonts: 7, packages: 13 @test title lists diffed baseline vs working tree: IDENTICAL for all three files. |
+| B-2 | blocker | Scope holds: the working tree touches only files under tests/, with nothing under dot_local/; this task's three artifacts are among them and each contains only its own conversions. | $ git diff --name-only tests/apps.bats tests/doctor.bats tests/font.bats tests/install-failures.bats tests/jsonc.bats tests/licensed-fonts.bats tests/packages.bats $ git status --porcelain also lists `?? tests/helpers.bash`. No path under dot_local/, .chezmoidata.toml, or any run_onchange_* template. The four non-T-005 .bats files belong to sibling tasks; T-005's three files show only the hunks quoted above. |

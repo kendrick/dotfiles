@@ -1,6 +1,12 @@
 # Local-only active context (working-memory-kit)
 _working-memory/activeContext.md
-.agent-guild/state/
+
+# Live guild state is per-machine and mutable: task statuses flip on every
+# dispatch, verdicts are transient, and two sessions running at once would
+# collide here. Archived runs are the opposite, immutable history worth
+# carrying, so they travel while the working state stays local.
+.agent-guild/state/*
+!.agent-guild/state/archive/
 
 # Python bytecode. render-verdict.py pulls validate-verdict.py in through importlib
 # (the hyphen makes it un-importable the normal way), and an importlib load writes a

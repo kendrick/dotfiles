@@ -1,0 +1,48 @@
+{
+  "task_id": "T-007",
+  "checker": "checker-deterministic",
+  "vendor": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "V-2",
+      "severity": "blocker",
+      "description": "Part 1: bash tests/mutation-check.sh exits 0, names 53 distinct file:line sites, and git status before/after identical",
+      "evidence": "mutation-check: all 53 sites turned their case red when inverted\n--- summary, by file ---\ntests/apps.bats: 11\ntests/doctor.bats: 20\ntests/font.bats: 12\ntests/jsonc.bats: 2\ntests/licensed-fonts.bats: 5\ntests/packages.bats: 3\ntotal: 53"
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "blocker",
+      "description": "Part 1a: In scratch worktree, marker line appended to tests/jsonc.bats survived the script's restore, proving copy-aside restore not git checkout",
+      "evidence": "Marker '# scratch marker' successfully appended to tests/jsonc.bats, script ran with scoped file, and marker persisted after completion. This confirms restore uses cp, not git checkout."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "blocker",
+      "description": "Part 2: Site counts by file match specification exactly: apps 11, doctor 20, font 12, jsonc 2, licensed-fonts 5, packages 3 = 53",
+      "evidence": "--- summary, by file ---\ntests/apps.bats: 11\ntests/doctor.bats: 20\ntests/font.bats: 12\ntests/jsonc.bats: 2\ntests/licensed-fonts.bats: 5\ntests/packages.bats: 3\ntotal: 53"
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "blocker",
+      "description": "Part 3: Script correctly rejects unrecognized form (bare 'true') and exits non-zero",
+      "evidence": "mutation-check: found a converted-assertion site in a form this script does not recognise:\n  tests/jsonc.bats:63\nmutation-check: recognised forms are assert_contains/assert_not_contains calls, and doctor.bats's undeclared/casks disjunction. Fix the site above or exclude it by name.\nExit code: 1"
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "blocker",
+      "description": "Part 4: Script judges by TAP output, not exit status. With unterminated @test block, bats fails but mutated cases never appear in TAP; script correctly reports failure",
+      "evidence": "site [1/2] tests/jsonc.bats:63 test=\"refuses a file with line comments rather than stripping them\" -> DID NOT REPORT not ok — dead assertion or broken mutation\nsite [2/2] tests/jsonc.bats:70 test=\"refuses a file with block comments rather than stripping them\" -> DID NOT REPORT not ok — dead assertion or broken mutation\nmutation-check: one or more sites did not turn red — see FAILs above\nExit code: 1"
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "No bare [[ or (( as first non-whitespace token found anywhere in tests/mutation-check.sh",
+      "evidence": "/usr/bin/grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' tests/mutation-check.sh exits 1 with no output (exit 1 is the passing case)"
+    }
+  ],
+  "timestamp": "2026-08-08T00:00:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

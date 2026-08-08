@@ -1,0 +1,78 @@
+{
+  "task_id": "T-002",
+  "checker": "checker-judgment",
+  "vendor": "anthropic",
+  "model": "claude-opus-5[1m]",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "All four sites are converted: each of the clause's five greps returns nothing, and the working-tree diff carries all four paths. The permitted `brew trust` guard survives and is correctly not matched by any of the five patterns.",
+      "evidence": "All five greps exit 1 with no output:\n  grep -nE 'brew bundle.*\\|\\| (true|echo)' run_onchange_install-packages.sh.tmpl -> rc=1\n  grep -nE 'code --install-extension.*\\|\\| (true|echo)' run_onchange_install-vscode-extensions.sh.tmpl -> rc=1\n  grep -nE 'open \"raycast://.*\\|\\| (true|echo)' run_onchange_configure-raycast.sh.tmpl -> rc=1\n  grep -nE 'claude plugin marketplace add.*\\|\\| (true|echo)' run_onchange_after_install-claude-plugins.sh.tmpl -> rc=1\n  grep -nE 'claude plugin install.*\\|\\| (true|echo)' run_onchange_after_install-claude-plugins.sh.tmpl -> rc=1\n$ git diff --name-only\n  run_onchange_after_install-claude-plugins.sh.tmpl\n  run_onchange_configure-raycast.sh.tmpl\n  run_onchange_install-packages.sh.tmpl\n  run_onchange_install-vscode-extensions.sh.tmpl\nSurviving permitted guard, run_onchange_install-packages.sh.tmpl:27: `brew trust --tap \"$tap\" 2>/dev/null || true`"
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Requirement 1 (tool absent) holds at all four sites, including the raycast site that was a bare silent `exit 0` at baseline; each names the missing tool, says it skipped, and exits 0.",
+      "evidence": "Rendered scripts executed under /bin/bash 3.2.57 with the tool removed from PATH:\n  packages, brew absent  -> \"Homebrew not found — skipping package install.\"      EXIT=0\n  vscode, code absent    -> \"VS Code CLI not found — skipping extension install.\" EXIT=0\n  raycast, open absent   -> \"open command not found — skipping Raycast configuration.\" EXIT=0 (stub log never created: no install call reached)\n  claude, claude absent  -> \"claude CLI not found — skipping plugin install.\"     EXIT=0\nSource of the new raycast branch: run_onchange_configure-raycast.sh.tmpl:12-17"
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Requirement 2 (present tool, item failed) holds: every failure summary carries its site's own identifier — brew entry name, extension id, marketplace name+repo and plugin spec, and the refused raycast URL.",
+      "evidence": "packages, stubbed brew emitting ANSI-wrapped \"Installing fzf has failed!\" / \"Installing slack has failed!\" plus brew's own count line:\n  Homebrew ran, but could not install these Brewfile entries (its errors are above):\n    fzf\n    slack\n  (the count line \"Homebrew Bundle failed! 2 Brewfile dependencies failed to install.\" correctly did NOT match; SGR escapes stripped cleanly by the awk at run_onchange_install-packages.sh.tmpl:50-60)\nvscode, 2 ids stubbed to fail:\n  VS Code ran, but could not install these extensions (its errors are above):\n    dbaeumer.vscode-eslint\n    esbenp.prettier-vscode\nclaude, 1 marketplace + 1 plugin stubbed to fail:\n  The claude CLI ran, but these did not install (its errors are above):\n    marketplace kendrick (kendrick/agent-guild)\n    plugin miro@claude-plugins-official\nraycast, 2 URLs stubbed to be refused by `open`:\n  macOS would not hand these install URLs to Raycast (its errors are above):\n    raycast://extensions/install/brew\n    raycast://extensions/install/zoom"
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Requirement 3 (the two read differently) holds: applying the convergent test, each pair splits on \"<tool> not found — skipping\" versus \"<tool> ran, but could not\", so a reader seeing one line alone can name the case without an exit code.",
+      "evidence": "Skip vs failure, per site, quoted from the executed runs:\n  packages: \"Homebrew not found — skipping package install.\"        | \"Homebrew ran, but could not install these Brewfile entries...\"\n  vscode:   \"VS Code CLI not found — skipping extension install.\"   | \"VS Code ran, but could not install these extensions...\"\n  claude:   \"claude CLI not found — skipping plugin install.\"       | \"The claude CLI ran, but these did not install...\"\n  raycast:  \"open command not found — skipping Raycast configuration.\" | \"macOS would not hand these install URLs to Raycast...\"\nNeither side borrows the other's phrasing: \"skipping\" appears in no failure line, \"ran, but could not\"/\"would not hand\" in no skip line."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Requirement 4 (a clean run says nothing about failures) holds at all four sites: no summary, no bare heading, no zero-count, and no stray blank line from an empty array.",
+      "evidence": "Clean runs, all stubs returning 0:\n  packages -> \"Homebrew Bundle complete! 92 dependencies now installed.\" only; 0 blank lines; EXIT=0\n  vscode   -> \"Installing VS Code extensions...\" / \"VS Code extensions installed.\"; 0 blank lines; 43 code calls made; EXIT=0\n  raycast  -> ends \"Raycast install requests sent. Raycast picks them up in the background.\"; grep -nE 'could not|failed|refused|0 failed|would not hand' returned nothing; 0 blank lines; EXIT=0\n  claude   -> ends \"Claude Code plugins ready.\"; grep -cE 'did not install|failed' = 0; 0 blank lines; EXIT=0"
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "Requirement 5 (the reason survives) holds: no `2>/dev/null` remains on any install call whose failure the script reports, and each failing tool's stderr reached the run's output alongside the named item.",
+      "evidence": "$ grep -n '2>/dev/null' on each converted template — only three occurrences survive, none on a reported install call:\n  run_onchange_install-packages.sh.tmpl:27  brew trust --tap \"$tap\" 2>/dev/null || true            (tap pre-trust, not an install; B-1 permits it)\n  run_onchange_after_install-claude-plugins.sh.tmpl:39  claude plugin marketplace list 2>/dev/null | grep -q  (presence probe; its failure is never reported)\n  run_onchange_after_install-claude-plugins.sh.tmpl:48  claude plugin list 2>/dev/null | grep -q               (presence probe; same)\n  run_onchange_install-vscode-extensions.sh.tmpl:19 is the string inside a comment, not code.\nMeasured stderr survival — each failing stub's message appeared on the run's stderr:\n  vscode:  \"STUBERR: extension 'dbaeumer.vscode-eslint' not found in marketplace\"\n  raycast: \"STUBERR: LSOpenURLsWithRole() failed for raycast://extensions/install/brew\"\n  claude:  \"STUBERR: repository 'kendrick/agent-guild' not found\"\n  packages: brew's own output stays on screen via `tee` (run_onchange_install-packages.sh.tmpl:41)"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "blocker",
+      "description": "Each multi-call site collects and reports once at the end, continuation is preserved, and no script could be made to exit non-zero in any of the eleven scenarios executed — including a total-failure run at every site.",
+      "evidence": "Single end-of-run summary per site, confirmed by output shape above; per-item chatter is only the attempt trace, never a per-item verdict.\nContinuation and exit status, worst case at each multi-call site:\n  vscode, every extension failing  -> 43 code invocations logged, 43 ids named, EXIT=0\n  raycast, every URL refused AND `defaults` stubbed to rc=1 -> 27 open invocations logged, 27 URLs named, EXIT=0\n  claude, all 7 calls failing -> 7 invocations logged, all 7 named (3 marketplaces + 4 plugins), EXIT=0\npackages is exempt (one `brew bundle`) and still names entries; it also exits 0 on an unrecognised brew failure shape:\n  \"Homebrew ran and exited 1 without naming a failed entry. Its output is above.\"  EXIT=0\nStatic sweep for a non-zero exit path across all four templates: grep -nE 'exit [1-9]' returns nothing; every script ends `exit 0`.\nThe orchestrator-flagged path specifically: `defaults` stubbed to fail with one URL refused still printed \"Could not set Raycast's global hotkey; its preferences are unchanged.\" followed by the refused-URL summary, EXIT=0. run_onchange_configure-raycast.sh.tmpl:46-48 consumes the status with `if !` rather than letting `set -e` abort before the summary."
+    },
+    {
+      "clause_id": "B-4",
+      "severity": "major",
+      "description": "The raycast site claims only what it can observe: it reports `open` refusing a URL and never a per-extension install outcome, and a comment records why it can go no further.",
+      "evidence": "run_onchange_configure-raycast.sh.tmpl:21-25 records the ceiling: \"`open` hands the URL to launchd and returns the moment macOS accepts it, well before Raycast has fetched, built, or rejected anything — so a per-extension install outcome is not merely unchecked here, it is unobservable.\"\nEvery line the script can print, checked against B-4:\n  :19 \"Requesting Raycast extension installs...\" — a request, not an outcome\n  :31 \"  → $ext\" — attempt trace\n  :53 \"macOS would not hand these install URLs to Raycast\" — a handoff refusal, which is exactly what B-2 requirement 2 scopes this site to\n  :56 \"Raycast install requests sent. Raycast picks them up in the background.\" — explicitly disclaims the outcome\nNo line resembling B-4's failing example (\"Installed 12 Raycast extensions.\") exists. The one other outcome the script names, :47 \"Could not set Raycast's global hotkey; its preferences are unchanged.\", is a `defaults write` result — synchronous and directly observable, and not an extension install outcome — so it is outside what B-4 forbids."
+    },
+    {
+      "clause_id": "B-5",
+      "severity": "blocker",
+      "description": "bash 3.2 safety holds: every array expansion sits inside its own count guard, and no associative array, `${var^^}`, or `set -u` appears.",
+      "evidence": "$ grep -n '\\[@\\]' on the four templates — six hits, three count tests and three expansions, each expansion immediately inside its own guard:\n  run_onchange_install-vscode-extensions.sh.tmpl:38  if [ \"${#failed[@]}\" -gt 0 ]; then\n  run_onchange_install-vscode-extensions.sh.tmpl:40    printf '  %s\\n' \"${failed[@]}\"\n  run_onchange_configure-raycast.sh.tmpl:52  if [ \"${#refused[@]}\" -gt 0 ]; then\n  run_onchange_configure-raycast.sh.tmpl:54    printf '  raycast://extensions/install/%s\\n' \"${refused[@]}\"\n  run_onchange_after_install-claude-plugins.sh.tmpl:95  if [ \"${#failed[@]}\" -gt 0 ]; then\n  run_onchange_after_install-claude-plugins.sh.tmpl:97    printf '  %s\\n' \"${failed[@]}\"\n$ grep -nE 'exit [1-9]|set -u|declare -A|\\$\\{[A-Za-z_]+\\^\\^' on all four -> (none)\nThe empty-accumulator path was executed rather than inferred: all four clean runs under GNU bash 3.2.57(1)-release printed 0 blank lines, so the defect B-5's failing example describes does not occur.\nNo accumulator leans on errexit through `|| true`; each uses `if ! <cmd>; then arr+=(...); fi`. `install-packages` uses `${PIPESTATUS[0]}` (:42) rather than `$?` through the `tee`, and it correctly carried brew's exit 1 in the measured failure run."
+    },
+    {
+      "clause_id": "B-6",
+      "severity": "major",
+      "description": "Every added comment carries information the code cannot: the incident, the tool's output format, a bash 3.2 constraint, or the reason a reader must not \"fix\" the exit status. None is deletable without loss.",
+      "evidence": "Reviewed all eighteen added/amended comment blocks in `git diff` of the four templates. Representative load-bearing ones:\n  install-packages:32-33 records the incident the job exists for — \"on 2026-08-06 fzf joined the core bundle, brew never installed it, and the run said the same thing it says on a machine that is merely waiting on an App Store password.\"\n  install-packages:40 preempts the exact footgun in the line below it — \"PIPESTATUS[0] is brew's status; $? would be tee's, always 0.\"\n  install-packages:45-49 documents brew's output format, the SGR wrapping, and why the count line is deliberately excluded — none of which the awk can state itself.\n  configure-raycast:41-45 explains why `defaults write` is wrapped: under `set -e` it \"used to abort the script right here — exiting non-zero over a preference and taking the list of refused URLs down with it.\" I reproduced exactly that failure path and confirmed the wrap is what prevents it.\n  install-claude-plugins:37-38 explains why two `2>/dev/null` survive: \"survives on the probe, not on the install: `marketplace list` grumbles on a machine that has none registered yet.\"\n  install-claude-plugins:28-30 explains why the accumulator is global rather than function-local: \"a flat run of add_marketplace and install_plugin calls rather than a loop, so the accumulator lives out here where both functions can reach it.\"\n  Each of the three `exit 0` comments guards against the misreading the issue title invites, e.g. install-packages:72-73 \"Stopping the apply here would strand every later script over one unavailable formula.\"\nThe three near-duplicate bash 3.2 empty-array comments (vscode:35-37, raycast:50-51, claude:93-94) are not redundant within any single file, which is where a reader encounters them. Register matches the existing headers (e.g. install-packages:3-5). The one what-style comment in range, configure-raycast:29 \"# Skip comments and empty lines\", is pre-existing context in the diff, not added by this task."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "minor",
+      "description": "Informational, scope: the working tree carries exactly the four templates this task owns, plus three paths belonging elsewhere, and no commits exist yet in the 1dec91c..HEAD range.",
+      "evidence": "$ git status --porcelain\n M dot_claude/encrypted_private_settings.json.age   (predates the job; D-1 excludes it by name)\n M run_onchange_after_install-claude-plugins.sh.tmpl\n M run_onchange_configure-raycast.sh.tmpl\n M run_onchange_install-packages.sh.tmpl\n M run_onchange_install-vscode-extensions.sh.tmpl\n M tests/apps.bats      (other task)\n M tests/doctor.bats    (other task)\n$ git rev-list 1dec91c..HEAD  -> empty, so the work is uncommitted and D-3's commit checks are not yet live. No path outside D-1's allowlist appears."
+    }
+  ],
+  "timestamp": "2026-08-07T00:00:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

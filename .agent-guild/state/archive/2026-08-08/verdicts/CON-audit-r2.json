@@ -1,0 +1,102 @@
+{
+  "task_id": "CON-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5",
+  "verdict": "fail",
+  "findings": [
+    {
+      "clause_id": "V-1",
+      "severity": "blocker",
+      "description": "The `cp` fixed the missing-files problem and the restore sequence became the new hole: run verbatim before D-3's commit, plantings 2 and 3 pass vacuously, and the check once again reports clean against its own stated failing example. The mechanism, measured end to end: the worktree is at HEAD, which pre-commit is the **baseline**, where `tests/jsonc.bats` still carries its two bare `[[` sites. The `cp` overwrites that with the converted copy, so planting 1 is honest. Then `git checkout tests/jsonc.bats` restores the baseline file — putting two first-token `[[` back into a `.bats` file for the rest of the run. From planting 2 onward a guard that scans only `tests/*.bats` — this clause's failing example, word for word — reports `not ok` because of those two baseline sites, not because it saw the `helpers.bash` canary. Planting 3 is poisoned the same way, and worse: `git checkout tests/helpers.bash` errors with `pathspec did not match` and leaves planting 2's canary in place, so planting 3's `not ok` is over-determined twice. All three plantings pass for a guard that never looks outside `*.bats`. The clause's own comment names this hazard and then offers \"re-copy from the real tree instead — or run this whole check after D-3\" as prose alternatives while the executable block still says `git checkout`; a checker-deterministic runs the block. Fix: replace all three `git checkout` lines with a re-copy from the real tree (or snapshot into the worktree before planting and restore from that), so the sequence is correct regardless of commit state.",
+      "evidence": "constitution.md:210-241 against constitution.md:244 (the failing example). Measured at 61213fe: `git worktree add /tmp/agc-lint HEAD` then `/usr/bin/grep -cE '^[[:space:]]*(\\[\\[|\\(\\()' /tmp/agc-lint/tests/jsonc.bats` -> 2. After copying a converted jsonc.bats in -> 0. After `git checkout tests/jsonc.bats` inside the worktree -> `Updated 1 path from the index`, and the count is **2 again**. Separately, `printf 'x\\n' > tests/helpers.bash; git checkout tests/helpers.bash` -> `error: pathspec 'tests/helpers.bash' did not match any file(s) known to git`, exit 1, and the planted content survives."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "major",
+      "description": "The check header says \"three parts\" and lists four. Part 4 is this entire round's blocker fix and, by the clause's own words, the only part that catches failing example 2 — \"**only part 4 catches that one**, which is why it exists.\" A checker-deterministic told there are three parts has documented licence to stop at three, run 1 through 3, and pass an exit-status script. This is the precise defect the previous job's r4 audit found in its B-2 (\"announces `Three requirements` and then lists four\") and graded minor there; here the miscounted part is the one the round was written to add, which is why it is not minor. One word.",
+      "evidence": "constitution.md:263 (`- **check**: checker-deterministic, three parts:`) against constitution.md:264, :265, :266, :267 (items 1, 2, 3, 4) and constitution.md:279 (`only part 4 catches that one`). B-3's parallel header at constitution.md:192 says three and lists three; V-1's at :208 says two and lists two — V-2 is the only one that drifted."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "major",
+      "description": "The script's restore mechanism is unspecified, and part 1 runs it against the live working tree — the same `git checkout`-before-commit hazard this round fixed one clause up, left unaddressed one clause down. V-2 says only that the script \"restores the file before the next.\" A worker who implements that as `git checkout <file>` — the obvious reading, and the one V-1's own block models — destroys the conversions the moment the script runs on an uncommitted tree, reverting each mutated file to baseline. Parts 3 and 4 say \"in a scratch worktree\"; part 1 says `bash tests/mutation-check.sh` with no such qualifier, so the default invocation is against the real `tests/`. Two sentences close it: the script snapshots each file to a temp copy of its own and restores from that, never from git, because it must be correct on an uncommitted tree; and part 1 names where it runs.",
+      "evidence": "constitution.md:262 and constitution.md:264 against constitution.md:219-221 (V-1's new note: \"`git checkout <path>` below restores the HEAD version, which is only a valid reset once the work is committed\"). Demonstrated above: `git checkout tests/jsonc.bats` in a worktree at the baseline reverts a converted file to its two-bare-`[[` original."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "minor",
+      "description": "The handoff from V-2 is one-way, so the guarantee it now carries can be trimmed away without anything noticing. V-2 states outright that \"**B-2 owns meaningfulness**\" and defers to it by name; B-2's text says nothing about holding that role, and the requirement lives only as one item in its check's FAIL list (\"replaces a condition with one that cannot fail\"). A future revision tightening B-2's rubric drops that item and V-2's reference dangles with no clause left covering a conversion that always passes. This is the one-way-dependency shape the previous job's revision-5 restructuring was written to prevent. One sentence in B-2's text — that it is the only clause that catches a condition which cannot fail, and V-2 depends on it for that — makes the pairing survive a revision.",
+      "evidence": "constitution.md:248 (`B-2 owns meaningfulness — its reading of 53 before/after pairs is what catches a needle that cannot fail`) against constitution.md:175-182 (B-2's text, which never mentions it) and constitution.md:183 (the FAIL list, where it lives)."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "minor",
+      "description": "Part 4 does not name where to plant, and one plausible choice makes it inert. \"A file the pass will mutate\" is the right constraint and correctly excludes `tests/install-failures.bats`, whose assertion count is zero — but a checker who plants there sees the script never open that file and learns nothing. Naming `tests/jsonc.bats` outright makes the probe unambiguous and cheap: 2 assertions, about a second per run.",
+      "evidence": "constitution.md:267 against the assertions column at constitution.md:105-112 (install-failures 0, jsonc 2 at ~1s)."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "minor",
+      "description": "\"52 assertions call a shared helper\" is a floor rather than an equality, and a checker counting helper calls could reasonably read it as exact. `doctor.bats:244`'s restructured `if` is exempted from the helper rule, not forbidden from using helpers — an implementation reading `if assert_not_contains \"undeclared\" && assert_not_contains \"casks\"; then return 1; fi` satisfies both the exception and the propagation requirement while producing 53 helper-calling assertions. \"At least 52\" removes the ambiguity without weakening anything.",
+      "evidence": "constitution.md:182 (`So **52 assertions call a shared helper**, and all 53 are mutated by V-2`) against constitution.md:180 (exception 2, stated as a permitted alternative form rather than a prohibition on helper use)."
+    },
+    {
+      "clause_id": "measured-baseline",
+      "severity": "minor",
+      "description": "The rewritten vulnerable-count paragraph is right in substance and slightly too absolute in one phrase. \"V-2's script... only has to recognise and invert an assertion's *form*, never reason about where it sits\" — the script does have to identify the enclosing `@test`, because part 4 and the clause text both require it to name the case and read that case's TAP line. The distinction the paragraph is drawing is still sound and worth keeping: identifying which case encloses a line is far weaker than classifying a site's position within its block and loop, which is what a trustworthy vulnerable-count needs. Only \"never reason about where it sits\" overstates it.",
+      "evidence": "constitution.md:93 against constitution.md:250 (`requires **that specific case** to report `not ok``) and constitution.md:260 (`confirms the mutated case itself reports `not ok``)."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "info",
+      "description": "Part 4 is the right probe and it discriminates, re-verified. An exit-status script scores the planted run a success; a TAP script finds no `not ok` line for the case it named and must report failure. With that part counted, parts 1 through 4 now catch both stated failing examples: the subset-coverage script is caught by part 1's distinct-site count and part 2's per-file distribution, and the exit-status script is caught by part 4. The only thing standing between a checker and that coverage is the miscounted header recorded above.",
+      "evidence": "Re-derived: a two-case bats file with an unterminated `@test` appended and one assertion inverted -> TAP prints `not ok 1 setup_file failed` and `bats warning: Executed 1 instead of expected 2 tests`, file exits 1, and the case that was to be mutated never appears in TAP output. constitution.md:267-276."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "info",
+      "description": "The opening paragraph is now accurate, and the guarantee it hands off is genuinely carried by the clause it names. V-2 no longer claims reach it does not have: it says what it proves (the assertion is wired in), states that polarity inversion cannot distinguish a tautology by construction, cites the measurement, and names B-2. B-2's rubric does carry it twice over — a tautology like `assert_contains \"\"` trips both \"changes the needle\" and \"replaces a condition with one that cannot fail\", and B-2's before/after reading against `git show 61213fe:<file>` is the right instrument for it. No gap was created by the move; the only residue is the one-way pointer recorded as a minor.",
+      "evidence": "constitution.md:248 against constitution.md:183. The tautology measurement the clause now cites reproduces: a case containing `assert_contains \"\"` reports `ok`, and the same case mutated to `assert_not_contains \"\"` reports `not ok`."
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "info",
+      "description": "The `cp` itself is correct and does not introduce an ordering problem. It runs from the repo root before the `cd`, so its relative sources resolve against the real tree; naming `tests/lint.bats` explicitly and again via `tests/*.bats` is a harmless duplicate operand; and copying the whole `.bats` glob rather than just the three new files is the right call, since the guard scans all of them. The `cd - && git worktree remove` teardown works from the repo root. What broke is the restore between plantings, not the setup.",
+      "evidence": "constitution.md:211-217 and :238. Verified: `cp` with a repeated source operand succeeds; `git worktree remove /tmp/agc-lint --force` from the repo root succeeds and leaves `git status --porcelain` clean at 61213fe."
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "info",
+      "description": "The widened definition pattern is correct and does not over-match, closing my r1 minor cleanly. Tested against all four spellings a worker might plausibly use and against a call site.",
+      "evidence": "`/usr/bin/grep -cE '^[[:space:]]*(function[[:space:]]+)?(assert_contains|assert_not_contains)[[:space:]]*(\\(\\))?[[:space:]]*\\{'`: against a file using `assert_contains() {` plus `function assert_not_contains {` -> 2, exit 0. Against a file using `function assert_contains() {` plus indented `assert_not_contains ()   {` -> 2, exit 0. Against the call line `\\tassert_contains \"victor\"` -> 0, exit 1."
+    },
+    {
+      "clause_id": "V-3",
+      "severity": "info",
+      "description": "The grep semantics are now right and consistent with B-1. Switching to `-q` and stating that exit 1 is the passing case, with exit 2 alone reserved for `blocked`, resolves the contradiction the r1 audit found; the parenthetical about `-c` printing `0` while exiting 1 is a useful note on why the earlier version misfired rather than a leftover.",
+      "evidence": "constitution.md:289 against constitution.md:166 and constitution.md:54. Verified: `/usr/bin/grep -qE '^\\+[[:space:]]*skip\\b'` -> exit 1 on no match, exit 0 on a match."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "The arithmetic reconciles everywhere it appears. B-2's new explicit statement (54 sites = 53 assertions + `packages.bats:146`; of the 53, `doctor.bats:244` becomes an `if`; so 52 call helpers and all 53 are mutated) agrees with the baseline table's sites/assertions columns and with V-2 part 2's per-file requirement, which sums correctly: 11 + 20 + 12 + 2 + 5 + 3 = 53. The corrected failing example also lands now — the two fastest files really do hold seven assertions (jsonc 2 + licensed-fonts 5), where revision 2 said eight and no pair of files produced it.",
+      "evidence": "constitution.md:182, :103-112, :265, :279. Re-derived at 61213fe: 54 first-token sites; tests/packages.bats holds :117, :119, :120 as assertions and :146 as the `|| continue` guard, giving the table's packages column of 3."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "All five r1 minors are addressed, and the r0 withdrawal is recorded the right way. The vulnerable-count paragraph now distinguishes position classification from form recognition instead of claiming the parsing is unneeded; B-1's heredoc rule is marked prospective with the empty baseline set stated and verified; V-2's disjunction is located by `@test` name and needles rather than by line number; \"eight sites\" is now seven; B-3's definition grep accepts both spellings. The withdrawn `grep` finding is recorded as \"a precaution taken, not a defect measured\" with an explicit instruction that no checker cite it as one, which is exactly the right disposition — the hardening is free and the claim behind it was not reproducible.",
+      "evidence": "constitution.md:93, :159, :255, :279, :193, :22 against the r1 verdict at .agent-guild/state/verdicts/CON-audit-r1.md."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "info",
+      "description": "No new contradictions from this round's edits beyond the two majors above. Checked in both directions: the surface is still defined only in B-1 and only cited elsewhere; nothing on it is required by one clause and exempted by another; B-3's part-2 wording (\"finds nothing (exit 1)\") now matches V-3's and B-1's exit-code convention rather than contradicting it; and B-1's heredoc paragraph, now marked prospective, no longer implies conversion work that does not exist. Spec coverage is unchanged and complete: AC1 -> B-1 + B-2 + B-3, AC2 -> V-1, AC3 -> B-3 part 3, AC4 -> V-2, AC5 -> V-3.",
+      "evidence": "constitution.md:151-159, :191, :194, :203, :289. spec.md:88-92."
+    }
+  ],
+  "timestamp": "2026-08-08T18:20:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

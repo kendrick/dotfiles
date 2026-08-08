@@ -1,0 +1,108 @@
+{
+  "task_id": "DEC-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5",
+  "verdict": "fail",
+  "findings": [
+    {
+      "clause_id": "V-2 (T-001, T-003, T-004)",
+      "severity": "blocker",
+      "description": "V-2's own condition is 'bats tests/ terminates and exits 0 WITH THE NEW COVERAGE IN PLACE', and no task ever runs the full suite with the new coverage in place: V-2 is cited only on T-001, whose check runs before tests/install-failures.bats and T-004's doctor case exist, and no later task runs bats tests/ again. This is r0 blocker 1 in the opposite direction — the repair added a HEAD run of the new file alone, which is not the suite. Spec acceptance criterion 8 ('bats tests/ passes, with new coverage') is therefore never verified by any check in this decomposition.",
+      "evidence": "T-001.md:9-13 check_method (`timeout 300 bats tests/`) is V-2's only carrier, and T-003 (deps [T-001,T-002]) runs after it; T-003.md:10-11 runs only `bats tests/install-failures.bats`; T-004.md:10-13 runs only `bats tests/doctor.bats`; T-005.md:9-25 and T-006.md:9-19 run no bats at all. constitution.md:190 'terminates and exits 0 with the new coverage in place'; spec.md:73 AC8."
+    },
+    {
+      "clause_id": "D-4 (T-006, T-003)",
+      "severity": "blocker",
+      "description": "The D-4 split dropped the clause's entire checker-judgment half. D-4 requires that every occurrence of `chezmoi apply`, `chezmoi update`, `brew install`, `brew bundle`, `code --install-extension`, `claude plugin install`, `defaults write`, or `git push` under tests/ is a stub definition or a stubbed invocation and never a call reaching the real tool — explicitly routed to checker-judgment because 'a grep alone cannot decide this'. T-006 now disclaims it ('repo-state half only — the test-artifact half is checked on T-003'), and T-003 carries only the `defaults`-stub bullet. Nothing checks the judgment bullet. This is the r0 blocker-2 pattern (a blocker clause's half silently dropped between two tasks) recurring in the very split made to repair it, and the assertion in T-006 that T-003 covers 'the test-artifact half' misdescribes what T-003 actually checks. It also cannot simply be moved to T-003 as written: T-003's checker is checker-deterministic, and the clause names this bullet checker-judgment.",
+      "evidence": "constitution.md:273-274 'checker-judgment, because it is reading comprehension rather than a grep result: Every occurrence of ... under `tests/` is a stub definition or a stubbed invocation'; T-006.md:15-19 'D-4 (deterministic, repo-state half only — the test-artifact half is checked on T-003...)'; T-003.md:23-26 carries only `grep -n 'defaults' tests/install-failures.bats` plus a `defaults read` comparison."
+    },
+    {
+      "clause_id": "D-4 (T-003)",
+      "severity": "major",
+      "description": "T-003's D-4 check_method adds a test the clause names as invalid and presents it as proof. It requires that '`defaults read com.raycast.macos raycastGlobalHotkey` is unchanged after the suite runs', while constitution.md:271 states the opposite in as many words: 'A before/after value comparison does not work here: the script writes `Command-49`, which is already the stored value, so an unstubbed run is indistinguishable from a stubbed one by reading the key. The proof has to be that the real `defaults` was never reached, not that the value survived.' I re-derived it: `defaults read com.raycast.macos raycastGlobalHotkey` returns `Command-49` right now. A checker following T-003 can pass D-4's second failing example ('a new test executes the rendered raycast script without stubbing `defaults`') on the strength of a comparison that cannot fail.",
+      "evidence": "T-003.md:25-26 'and `defaults read com.raycast.macos raycastGlobalHotkey` is unchanged after the suite runs'; constitution.md:271; measured: `defaults read com.raycast.macos raycastGlobalHotkey` -> Command-49."
+    },
+    {
+      "clause_id": "V-2 (T-001)",
+      "severity": "major",
+      "description": "V-2's no-added-skip guard is structurally vacuous wherever it is cited. T-001's check_method reproduces the clause's commit-range form, `git diff 1dec91c..HEAD -- tests/` adds no line matching `^\\+\\s*skip\\b`, but HEAD IS 1dec91c for the entire job — nothing commits until T-006 — so that range is empty and the grep passes no matter what the worker wrote. Nothing re-runs it after T-006 commits (D-3's post-commit range check covers scope, not skip lines). V-2's failing example is 'apps.bats is made to terminate by deleting the offending case'; the deletion variant is caught by the @test count, but the skip variant — which leaves the count at 18 and still lets `bats tests/` exit 0 — is undetectable at the only moment this check runs.",
+      "evidence": "Measured: `git rev-parse --short HEAD` -> 1dec91c; `git diff 1dec91c..HEAD -- tests/` produces no output while `git status --porcelain` shows ` M tests/apps.bats`, ` M tests/doctor.bats`. T-001.md:12-13; constitution.md:200, 202."
+    },
+    {
+      "clause_id": "V-2 (T-001, T-004)",
+      "severity": "major",
+      "description": "V-2 requires a per-file @test floor for all six pre-existing test files (apps 18, doctor 10, font 44, jsonc 9, licensed-fonts 7, packages 13). T-001's check_method carries only the apps count, and V-2 is cited on no other task, so five of the six floors are checked nowhere. This is not hypothetical for doctor.bats: T-004 modifies it, and T-004's check_method contains only V-3's two parts — the 'must still have at least 10, none skipped' instruction lives in T-004's prose, not in what its checker runs. `bats tests/doctor.bats` passing says nothing about how many cases remain.",
+      "evidence": "constitution.md:199 lists all six baseline counts; T-001.md:11-12 carries only `grep -c '^@test' tests/apps.bats`; T-004.md:10-15 check_method has no count check; T-004.md:78-79 states the requirement in prose only. Measured at 1dec91c: apps 18, doctor 10, font 44, jsonc 9, licensed-fonts 7, packages 13."
+    },
+    {
+      "clause_id": "D-3 (T-006)",
+      "severity": "major",
+      "description": "T-006's restatement of D-3's cleanliness check drops both qualifiers the clause carries, producing a check that is guaranteed to fire falsely. The clause reads '`git status --porcelain`, disregarding `dot_claude/encrypted_private_settings.json.age`' and FAILs only 'on a dirty tree in this job's paths'. T-006's check_method reduces this to '`git status --porcelain` for cleanliness'. That file is modified in the working tree now and stays modified by design — T-006's own prose tells the worker to leave it untouched — so a checker executing the check_method as written FAILs T-006 and sends its worker into rework for obeying its instructions.",
+      "evidence": "constitution.md:253, 256; T-006.md:13 '`git status --porcelain` for cleanliness'; T-006.md:50-51 'Leave it uncommitted and untouched'; measured `git status --porcelain` -> ' M dot_claude/encrypted_private_settings.json.age'."
+    },
+    {
+      "clause_id": "B-2, B-5 (T-003 checker family)",
+      "severity": "major",
+      "description": "The r0 blocker-2 repair moved judgment work onto a deterministic checker. B-2 and B-5 are both blocker clauses the constitution declares checker-judgment, and T-003 — whose checker is checker-deterministic (haiku, 'they only run scripts' per the routing table) — is now asked to 'read the output of the four `all items succeed` cases and FAIL on any failure summary, heading, or zero-count' (B-2 req 4), to 'FAIL on an empty or headerless failure summary' (B-5), and to confirm a grep 'shows a recording stub on PATH for every case executing the raycast script' (D-4). Deciding whether a line of test output constitutes a failure summary, a bare heading, or a zero-count is rubric application, not script output. The routing rule is directional: opus running a grep is fine, haiku rendering judgment is not.",
+      "evidence": "constitution.md:98 (B-2 'check: checker-judgment'), :126 (B-5 'check: checker-judgment'); T-003.md:8 `checker: checker-deterministic` with T-003.md:16-24 assigning those three judgments; CLAUDE.md routing table, haiku row: 'all deterministic checks (they only run scripts)'."
+    },
+    {
+      "clause_id": "B-2, B-5, D-4 (rework routing)",
+      "severity": "major",
+      "description": "Three deferred clause halves now FAIL on a task whose worker cannot remediate them, and no task says what the checker should do about it. B-2 requirement 4 and B-5's output half are checked on T-003, but the defect they detect ('the script printed a bare heading on a clean run') lives in T-002's scripts; the retry ladder would re-dispatch T-003's test-writing worker against a defect in another task's artifact. D-4's repo-state half is checked on T-006, but a `chezmoi apply` that moves the boltdb mtime would have been run by T-002's or T-003's worker. T-003 explains why the deferral exists ('because it needs these cases to exist') but not what a FAIL means; T-006 says nothing. One sentence per site — name the owning task in the diagnosis rather than reworking this one — closes it.",
+      "evidence": "T-003.md:16-22 defers B-2 req 4 and B-5's second half without naming the owning task for a FAIL; T-006.md:15-19 for D-4's repo-state half; CLAUDE.md retry ladder step 2 ('re-dispatch the same executor')."
+    },
+    {
+      "clause_id": "B-1 (T-002)",
+      "severity": "minor",
+      "description": "T-002 restates B-1's first condition as '`git diff --name-only` shows all four paths', dropping the clause's `1dec91c..HEAD` range. Dropping it is the right instinct — the range is empty until T-006 commits — but the bare form reads only unstaged changes, so a worker who `git add`s its work makes the command return nothing and the check FAILs a correct conversion. `git diff --name-only HEAD` or `git status --porcelain` would be range-correct at this moment. The five greps still detect B-1's failing example on their own, which is why this is minor and not more.",
+      "evidence": "T-002.md:10-11; constitution.md:68. Measured: all five B-1 greps return exactly one hit at 1dec91c (install-packages:31, vscode:21, raycast:22, claude-plugins:34 and :41)."
+    },
+    {
+      "clause_id": "B-5 (T-002)",
+      "severity": "minor",
+      "description": "T-002's B-5 check_method restores the associative-array and `${var^^}` conditions (the r0 repair) but omits the `set -e` and `set -u` greps the clause names alongside `[@]`. Those two are how a checker judges the rest of the clause: whether an unguarded expansion aborts, and whether an accumulator depends on errexit behaving through `|| true`. Three of the four scripts carry `set -e` today, so the question is live rather than theoretical.",
+      "evidence": "constitution.md:126 'grep the changed scripts for `[@]`, `set -e`, and `set -u`'; T-002.md:20-22 greps only for `[@]`, `declare -A`, `${var^^}`. Measured: `set -e` at install-vscode-extensions:10, configure-raycast:10, install-claude-plugins:21."
+    },
+    {
+      "clause_id": "D-3 (T-006)",
+      "severity": "minor",
+      "description": "T-006's check_method omits D-3's blocked-not-failed rule: 'A commit whose message begins `[auto-sync from` is not a worker's and means the LaunchAgent ran despite the precondition: report `blocked`, not a worker failure.' T-006's prose tells the worker to stop and report, but the checker's instructions do not, so the checker would record a worker FAIL for a machine-authored commit and burn a retry. Commit af8fe49 is this having already happened once.",
+      "evidence": "constitution.md:256 final sentence; T-006.md:9-15 check_method; T-006.md:83-86 states the rule to the worker only."
+    },
+    {
+      "clause_id": "V-1 (T-003)",
+      "severity": "minor",
+      "description": "Carried from r0, unrepaired. T-003's check_method requires 'every required title appears', but neither T-003 nor V-1 writes the fifteen title strings out. Both give a pattern plus a table whose script prefixes are shortened (install-packages, install-vscode-extensions, install-claude-plugins, configure-raycast) from the filenames. The mapping is derivable, but the deriving is done by a haiku checker-deterministic, and 'derive fifteen exact strings from a pattern and a table' is the kind of step that produces a near-miss grep reported as clean. Fifteen literal strings in the task file would cost nothing.",
+      "evidence": "T-003.md:12 'every required title appears'; T-003.md:42-49 gives patterns; constitution.md:145-149."
+    },
+    {
+      "clause_id": "B-3 (T-002)",
+      "severity": "minor",
+      "description": "Carried from r0, unrepaired, and T-002's worker is dispatched against it right now. T-002 tells the worker to read `run_onchange_after_restore-agent-skills.sh.tmpl:87` first as 'the closest thing to the target shape'. Re-derived: that line is an inline per-call `|| echo` that names the SOURCE rather than the failing item and reports at the point of failure rather than collecting. It is a good model for B-2's naming and a bad model for B-3's collect-and-report-once, which T-002 imposes twenty lines later. The task never says where the exemplar stops applying.",
+      "evidence": "run_onchange_after_restore-agent-skills.sh.tmpl:87 `npx --yes skills add \"$src\" -g -y \"${a_args[@]}\" \"${s_args[@]}\" || echo \"    some skills from $src failed (a name may have changed upstream)\"`; T-002.md:61-62 vs T-002.md:84-89."
+    },
+    {
+      "clause_id": "D-1 (T-005)",
+      "severity": "minor",
+      "description": "The D-1 move to T-005 is the right repair and I verified it works — check-diff-scope.py reads `git status --porcelain --untracked-files=all` unioned with `git diff --name-only`, so it catches new untracked files too, and it exits 0 against the tree as it stands. One gap remains: T-005's deps are [T-002, T-003] only, so nothing in the DAG guarantees T-001's and T-004's work is in the tree when D-1 runs, nor that no later T-004 rework lands after it. A scope violation arriving from either would escape D-1 (blocker) and be caught only by D-3 (major), at reduced severity. Adding T-001 and T-004 to T-005's deps closes it.",
+      "evidence": "T-005.md:29 `deps: [T-002, T-003]`; check-diff-scope.py:96-97; measured: T-005's exact command exits 0 with 'OK: 7 path(s) in scope'."
+    },
+    {
+      "clause_id": "r0 repairs verified",
+      "severity": "info",
+      "description": "Both r0 blockers are closed on their own terms. Blocker 1: T-003's check_method now leads with `bats tests/install-failures.bats` passing at HEAD, and T-003's deps [T-001, T-002] put it after the conversion, so the file genuinely runs against the converted scripts — B-3's constitutional check is no longer orphaned. Blocker 2: T-002 now names both deferrals explicitly and T-003 picks up both, with B-2 and B-5 added to its clauses and B-5's associative-array and `${var^^}` conditions restored; I diffed B-2's five requirements and B-5's two halves across the two task files and found nothing further missing. D-1's move to T-005 makes it non-vacuous. D-4's split is half-repaired — the test-artifact bullet did move to T-003, but see the second blocker above for what went with it and the third for what T-003 added to it.",
+      "evidence": "T-003.md:10-11, :12-22, :5; T-002.md:16-24; T-005.md:10-19."
+    },
+    {
+      "clause_id": "Spec coverage (AC1-AC8)",
+      "severity": "info",
+      "description": "Walked all eight acceptance criteria and all five spec sections against what the tasks build. AC1 (names the failing item) — T-002 req 2, proven by T-003's four `names the item` cases. AC2 (absent CLI exits 0, says skipped) — T-002 req 1, T-003's four `absent tool` cases. AC3 (wording distinguishes) — T-002 req 3. AC4 (one failure doesn't stop the rest) — T-002, T-003's three keeps-going guards. AC5 (doctor reports it) — T-004, with a real mutation proof. AC6 — recorded non-goal at constitution.md:292; re-derived a sixth time and it holds (dotfiles-sync never runs `chezmoi apply`, and truncates its log every run at :23); correctly not reinstated. AC7 (four sites converted, configure-macos guards left alone) — B-1 on T-002 and D-1 on T-005. AC8 (`bats tests/` passes WITH new coverage) — the only criterion no check verifies; see the first blocker. The Problem, Proposed Behavior and Non-Goals sections map onto B-1/B-2/B-3/B-4 and the constitution's non-goals; 'Read first: conventions.md' maps to T-005, whose two cited passages I re-derived correct at conventions.md:40 and :46.",
+      "evidence": "spec.md:66-73 acceptance criteria; constitution.md:292; _working-memory/conventions.md:40 ('don't assert on log wording') and :46 (the `|| true` Error Handling bullet citing run_onchange_install-vscode-extensions.sh.tmpl)."
+    }
+  ],
+  "timestamp": "2026-08-07T04:34:49Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

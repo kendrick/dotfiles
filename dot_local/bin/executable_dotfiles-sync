@@ -127,6 +127,29 @@ fi
 # ---- Phase: commit + push ----
 cd "$SRC"
 
+# 2026-06-26 through 08-06: an abandoned interactive rebase left this source
+# dir detached, and every run after committed onto it anyway, reporting
+# success while push and `chezmoi update` both stayed dead for six weeks.
+# Refuse before the clean-tree check below — a detached HEAD with nothing
+# to commit still blocks `chezmoi update`, which was half the incident's
+# cost. Operation markers are checked before HEAD: a stopped rebase is also
+# a detached HEAD, and reporting it as one hands the user a `git checkout`
+# that git will refuse.
+if [ -d "$SRC/.git/rebase-merge" ] || [ -d "$SRC/.git/rebase-apply" ]; then
+  notify_fail "Rebase in progress in $SRC. Run 'rebase --continue' or 'rebase --abort'."
+  echo "==> Refusing to commit: rebase in progress. Run 'git -C \"$SRC\" rebase --continue' once conflicts are resolved, or 'git -C \"$SRC\" rebase --abort' to cancel it."
+  exit 1
+elif [ -f "$SRC/.git/MERGE_HEAD" ]; then
+  notify_fail "Merge in progress in $SRC. Run 'git commit' or 'git merge --abort'."
+  echo "==> Refusing to commit: merge in progress. Run 'git -C \"$SRC\" commit' once conflicts are resolved, or 'git -C \"$SRC\" merge --abort' to cancel it."
+  exit 1
+elif ! git symbolic-ref -q HEAD >/dev/null; then
+  head_sha="$(git rev-parse --short HEAD)"
+  notify_fail "HEAD is detached in $SRC at $head_sha. Run 'git switch -c' to reattach."
+  echo "==> Refusing to commit: HEAD is detached at $head_sha. Run 'git -C \"$SRC\" switch -c recovered-$head_sha' to reattach without losing the commit."
+  exit 1
+fi
+
 if [[ -z "$(git status --porcelain)" ]]; then
   echo "==> Nothing to commit. Already in sync."
   exit 0

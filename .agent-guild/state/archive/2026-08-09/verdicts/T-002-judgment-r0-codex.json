@@ -1,0 +1,30 @@
+{
+  "task_id": "T-002",
+  "checker": "checker-courier",
+  "vendor": "openai",
+  "model": "gpt-5.6-terra",
+  "verdict": "fail",
+  "findings": [
+    {
+      "clause_id": "B-2",
+      "severity": "info",
+      "description": "The fixture does not merely predetermine the refusal outcomes: the cited detector-removal mutations make the corresponding detached, rebase, and merge cases fail, so those cases exercise those real guard branches.",
+      "evidence": "Mutations 1\u20133 respectively change only the matching case to NOT ok while the other three remain ok; each case invokes `run bash \"$SCRIPT\"` after constructing its repository state."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "blocker",
+      "description": "The asserted no-fallback guarantee is machine-specific and does not hold if the `chezmoi` stub is absent or non-executable on a host that has `chezmoi` in `/usr/bin` or `/bin`.",
+      "evidence": "The harness PATH is `$STUBS:/usr/bin:/bin`; the cited probe establishes only that this particular host's `/opt/homebrew/bin/chezmoi` is outside it. PATH lookup can reach a real `/usr/bin/chezmoi` after no usable `$STUBS/chezmoi` is found. `/usr/local/bin` is not reachable under this PATH, but `/usr/bin` is."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "info",
+      "description": "The permanent suite proves only dirty attached, detached, rebase, and merge fixtures; it cannot detect guard regressions in untested states or semantics that preserve those four outcomes.",
+      "evidence": "All four committed cases call `fresh_repo()` and then test dirty repositories. No committed case covers clean special states, an attached repository with different upstream/divergence conditions, or behavior such as changed detection/order that still emits the asserted messages and preserves the tested revision counts."
+    }
+  ],
+  "timestamp": "2026-08-08T00:00:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

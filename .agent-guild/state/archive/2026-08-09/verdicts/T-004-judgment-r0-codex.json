@@ -1,0 +1,18 @@
+{
+  "task_id": "T-004",
+  "checker": "checker-courier",
+  "vendor": "openai",
+  "model": "gpt-5.6-terra",
+  "verdict": "blocked",
+  "findings": [
+    {
+      "clause_id": "routing",
+      "severity": "blocker",
+      "description": "Codex lane execution timed out after 3 minutes",
+      "evidence": "The `codex exec` command reached the turn.started event and began processing but did not complete within the 180-second timeout. The lane adapter was unable to deliver a complete, validated verdict before the timeout expired. Per protocol, salvage is not attempted; instead a blocked verdict is returned to indicate the check itself could not complete."
+    }
+  ],
+  "timestamp": "2026-08-09T03:23:44Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

@@ -30,6 +30,19 @@ Resolves which bundles a machine has on and emits them as a JSON array, so the s
 ## chezmoi template data
 `.chezmoi.toml.tmpl` `[data]` exposes to every `.tmpl`: `machine_role` (work/client/personal), `email`, `name`, `sync_schedule` (workday/evening/both/off), the `sync_times` table, and `bundles`. Anything added after a machine last ran `chezmoi init` is absent from that machine's config until it re-inits, so read the newer keys through `hasKey`/`get` with a fallback rather than dereferencing them. `.chezmoidata.toml` merges into the same namespace under `[pkg]`, but `[data]` wins on a collision. _(.chezmoi.toml.tmpl, .chezmoidata.toml)_
 
+## `chezmoi status` output
+Two status characters, a space, then the target path, one line per entry that differs. Column 0 is the difference between the last state chezmoi wrote and the actual state; column 1 is the difference between the actual state and the target state. `run_` scripts sit at ` R` permanently, which is why a fully-applied machine still lists three lines.
+
+| what moved | output | recoverable? |
+| --- | --- | --- |
+| source only (edit never applied) | `␣M` | yes |
+| live only (uncaptured `$HOME` drift) | `MM` | yes |
+| both | `MM` | **no**, identical to live-only |
+
+So the columns answer direction when exactly one side moved and go silent when both did. Measured 2026-08-09 on scratch source and destination dirs; see antipatterns for why that makes them a pre-filter rather than a test, and `docs/superpowers/specs/2026-08-07-dotfiles-sync-preflight-guard-design.md` for the mtime-versus-commit-time approach that stays decisive.
+
+One consumer today: the template-drift phase at `dot_local/bin/executable_dotfiles-sync:87-95`, which reads column 1 alone (`${line:1:1}`) and so treats an unapplied source edit as uncaptured live drift. GitHub #28 carries the fix. _(dot_local/bin/executable_dotfiles-sync, decisionLog 2026-08-09)_
+
 ## Teardown declarations
 `# teardown:<class> <path>`, one per line in a script's header comment. `<class>` is `secret` (removed at the default teardown level), `data` (`--full` only), or `none` (the script leaves nothing behind). `<path>` is literal and uses `~`, expanded by the consumer, so no template rendering is needed to read it; `none` takes no path. Two consumers: `dotfiles-teardown` greps `run_*` and `dot_local/bin/*` with `-I` so it skips the binaries in there, and treats an unrecognized class as a hard error rather than a silent skip; `dotfiles-doctor` requires a declaration on every `run_*` script and reports the ones missing it. _(dot_local/bin/executable_dotfiles-teardown.tmpl, dot_local/bin/executable_dotfiles-doctor)_
 

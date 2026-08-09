@@ -1,0 +1,114 @@
+{
+  "task_id": "CON-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5[1m]",
+  "verdict": "fail",
+  "findings": [
+    {
+      "clause_id": "V-1",
+      "severity": "blocker",
+      "description": "Assertion 3 fails a correct implementation. `git diff --cached --name-only` is not empty in the merge- and rebase-in-progress cases regardless of the guard: a genuine conflicted merge leaves the conflicted path staged. The assertion conflates 'the guard never reached git add -A' with 'the index is empty'; it needs the same before/after phrasing assertion 2 already uses.",
+      "evidence": "constitution.md:17. Verified: scratch repo, `git merge` add/add conflict -> `.git/MERGE_HEAD` present and `git diff --cached --name-only` prints `f.txt` with no dotfiles-sync involved at all."
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "blocker",
+      "description": "The six cases do not falsify a guard that omits the rebase check, so spec AC 4 is uncovered. A rebase in progress detaches HEAD, so both rebase cases are already caught by a `git symbolic-ref -q HEAD` test alone. A guard checking only symbolic-ref plus MERGE_HEAD passes all six cases AND passes the guard-deletion mutation. AC 4 requires the rebase/merge refusal fire 'even when HEAD is attached'; V-1 never pins HEAD-attached construction for the rebase states, and rebase-attached cannot arise from a real `git rebase`.",
+      "evidence": "constitution.md:16-17 vs spec.md:63. Verified: `git rebase -i HEAD~2` stopped at an edit -> `.git/rebase-merge` present AND `git symbolic-ref -q HEAD` exits 1 (detached)."
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "blocker",
+      "description": "The check demands a property the states do not have. Rebase-in-progress is simultaneously a detached-HEAD state, so 'three mutually exclusive matches, nine comparisons' is satisfiable only under a detection precedence order the constitution never states. A worker following the spec's own hint that `git symbolic-ref -q HEAD` is the whole test writes a correct guard that reports 'detached HEAD' for a rebase and fails V-2. Pin the precedence (rebase and merge dirs tested before detachment) in the clause text, or the check fails correct work.",
+      "evidence": "constitution.md:22-23; spec.md:42. Same rebase repro as V-1: `.git/rebase-merge` present and HEAD detached at the same instant."
+    },
+    {
+      "clause_id": "V-3",
+      "severity": "pass",
+      "description": "Falsifiable, correctly routed to checker-judgment, and the rubric names three concrete rejection shapes (merely diagnostic, silently destructive, right command for the wrong state). The `notify_fail` helper it requires exists and is the same one every other failure path uses.",
+      "evidence": "constitution.md:27-31; dot_local/bin/executable_dotfiles-sync:33-36 defines notify_fail, called at :67, :146, :148, :170-176."
+    },
+    {
+      "clause_id": "V-4",
+      "severity": "blocker",
+      "description": "The clause fails a correct implementation non-deterministically. `git commit` stdout carries the abbreviated SHA, which is a function of the commit timestamp, so two identically-constructed scratch repos differ whenever the runs straddle a wall-clock second. V-4 permits normalizing only the scratch path and the UTC date and says 'any other difference fails', which forbids normalizing the SHA. The dirty case is a coin flip.",
+      "evidence": "constitution.md:35. Verified: identical content and message at 10:00:00Z vs 10:00:01Z yields `[main ea2145d]` vs `[main 1ff310a]`."
+    },
+    {
+      "clause_id": "V-4",
+      "severity": "major",
+      "description": "Two further seams make the check unrunnable as written. First, the clause requires stdout and stderr be byte-identical separately, but the script merges them into one stream at line 26 (`exec > >(tee -a \"$LOG\") 2>&1`), so only lines 18-26 can ever produce separate stderr; that same process substitution also races the script's exit, so the captured stream is not reliably complete. Second, 'the pre-change script' names no baseline. Once the worker commits, HEAD is the post-change version, and the clause never says which revision or path the reference copy comes from.",
+      "evidence": "constitution.md:35; dot_local/bin/executable_dotfiles-sync:26."
+    },
+    {
+      "clause_id": "V-5",
+      "severity": "major",
+      "description": "The check is two-directional and sound in shape, but it asserts against 'the refusal's own marker', a string no clause defines. V-2 and V-3 deliberately govern by behavior rather than wording, and the Protected content section repeats that, so nothing in the constitution pins a marker; the checker has to invent or reverse-engineer it, which is judgment work dressed as a deterministic assert. It also reads `~/.local/state/dotfiles/last-sync.log` without requiring HOME be redirected, so an unstubbed probe truncates the user's real log (the script truncates it at :23).",
+      "evidence": "constitution.md:41, 83; dot_local/bin/executable_dotfiles-sync:20-23."
+    },
+    {
+      "clause_id": "V-1,V-2,V-4,V-5",
+      "severity": "blocker",
+      "description": "The probe harness these four clauses share is undefined, and none of them can reach the commit phase as written. The script runs four phases before `cd \"$SRC\"` at :128: VS Code list regeneration writes to `$SRC/dot_config/vscode-extensions.txt` and aborts under `set -euo pipefail` if that directory is absent in the scratch repo; `chezmoi re-add` exits 1 on failure; template drift calls `chezmoi status` and `chezmoi source-path \"$HOME/$tgt\"`; package drift calls `chezmoi execute-template` twice plus `brew` and `jq`. B-2 names `chezmoi source-path` as 'the seam', which is not sufficient for this script. doctor.bats's harness stubs source-path, status and execute-template, and additionally stubs `code` and `brew` and pre-creates the fixture's dot_config directory - none of which any clause names. V-1's guard-deletion mutation protects V-1 itself from a wrong-reason pass; V-2, V-4 and V-5 have no such protection.",
+      "evidence": "constitution.md:17, 23, 35, 41, 52; dot_local/bin/executable_dotfiles-sync:38-125; tests/doctor.bats:23-58."
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "None of the three checks reach the artifact this job changes, and the third one is red today. `tests/lint.bats` scans a guarded surface of `*.bats` plus helpers.bash plus mutation-check.sh - never the sync script - so it exits 0 whatever the worker writes into the guard. `tests/mutation-check.sh` iterates a hardcoded ALL_FILES of six bats files, also excluding the sync script, and refuses unrecognized assertion shapes. And B-1's own grep, run verbatim against the unmodified script right now, prints three pre-existing hits and exits 0, with the clause stating no pass/fail polarity and no mechanism to scope to 'the added lines'. The grep pattern is also weaker than the clause text: it anchors only at line start, missing command position after `;`, `&&`, `||`, `then`, `do`, `else` and `{`, which lint.bats's own pattern covers precisely because those are the dangerous positions.",
+      "evidence": "constitution.md:46-47. Verified: `/usr/bin/grep -nE '^[[:space:]]*(\\[\\[|\\(\\()' dot_local/bin/executable_dotfiles-sync` -> hits at :88, :122, :137, exit 0. tests/lint.bats:38 defines the surface; tests/mutation-check.sh:67 defines ALL_FILES."
+    },
+    {
+      "clause_id": "B-2",
+      "severity": "major",
+      "description": "The rubric's two questions are good and correctly routed to checker-judgment, but the clause text asserts a factual claim that is wrong: `chezmoi source-path` is not 'the seam' for this script, it is one of four chezmoi subcommands plus two external binaries the script calls before the commit phase. A worker who stubs exactly what the clause names cannot run the script at all, and the clause's second question - could a case touch the real source dir if a stub failed to take effect - is unanswerable without the full stub inventory being stated somewhere.",
+      "evidence": "constitution.md:52; dot_local/bin/executable_dotfiles-sync:40, 66, 90, 95, 104, 108-109, 118, 121."
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "pass",
+      "description": "Falsifiable and well-built. Requires red-on-mutation and green-on-restore in both directions, and demands the case-to-mutation mapping be named in the verdict so the pairing is auditable rather than asserted. The failing example correctly identifies red-for-the-wrong-reason as the thing to catch.",
+      "evidence": "constitution.md:57-61."
+    },
+    {
+      "clause_id": "D-1",
+      "severity": "blocker",
+      "description": "The argument forms are correct - `dot_local/bin/executable_dotfiles-sync` is an exact file and `tests/` is a directory prefix ending in a slash, both accepted - but the check is vacuous in the exact state D-3 requires the job to end in. check-diff-scope.py reads only the union of `git status --porcelain` and `git diff --name-only`, both working-tree views. D-3 requires the work land as standalone commits green at checkout, so at check time the tree is clean and the script reports zero paths. D-1's own failing example - the worker also 'fixes' the opt-in push default - passes the clause the moment it is committed. The check needs a committed-range comparison against the job's base commit.",
+      "evidence": "constitution.md:65 and 76-77. Verified on the current clean tree: `.agent-guild/scripts/check-diff-scope.py dot_local/bin/executable_dotfiles-sync tests/` -> `OK: 0 path(s) in scope`, exit 0. check-diff-scope.py:86-104."
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "major",
+      "description": "Every floor re-derived from the working tree is exact and the total is a correct floor, so the numbers are sound. But the skip half of the check has D-1's commit-blindness: `git diff` with no revision range sees an empty diff once the work is committed, so the clause's own failing example - a font.bats case gets skipped to make a new case pass - escapes. The floors would still catch a deleted case, but not a skipped one, which is what the example describes.",
+      "evidence": "constitution.md:70-73. Re-derived: apps 18, doctor 11, font 44, install-failures 17, jsonc 9, licensed-fonts 7, lint 1, packages 13 - all match. `bats --count tests/` = 120, so `> 120` is a correct rising floor. `bats tests/` green through case 120, and no `skip` exists in tests/ today."
+    },
+    {
+      "clause_id": "D-3",
+      "severity": "pass",
+      "description": "Falsifiable and correctly routed to checker-judgment. The standalone claim gets a mechanical verification (check out each sha, run the suite), and the message rubric names three concrete rejections: narrating the diff, a closing keyword, and a co-authorship trailer. Consistent with the repo's own commit-message standard.",
+      "evidence": "constitution.md:76-79."
+    },
+    {
+      "clause_id": "coverage",
+      "severity": "pass",
+      "description": "All seven spec acceptance criteria map to at least one clause (AC1 to V-1, AC2 to V-2, AC3 to V-3, AC4 to V-1, AC5 to V-4, AC6 to V-5, AC7 to B-2/B-3/D-2), and no clause requires anything the spec lists as a non-goal - D-1 affirmatively protects the push path and dotfiles-doctor. The three Phase 0 overrides are stated unambiguously and each is enforced by a clause: decision 1 by V-1's clean-tree cases, decision 2 by V-1's enumeration and the non-goals list, decision 3 by D-1. AC 4's attached-HEAD requirement is the one coverage gap, recorded against V-1 above. Protected content declaring None with a stated reason is correct here; no manifest is needed.",
+      "evidence": "spec.md:60-66 against constitution.md:15-79; constitution.md:7-11, 81-83."
+    },
+    {
+      "clause_id": "cross-clause",
+      "severity": "pass",
+      "description": "V-1 and V-4 do not conflict on the clean-attached case, the interaction the audit was asked to check. V-1 places the guard between `cd \"$SRC\"` and the clean-tree exit; on an attached branch with no operation in progress the guard finds nothing and emits nothing, so control reaches the same early exit with the same bytes. V-4's failing example is exactly the implementation that would break this, and V-4 forbids it, so the two clauses are mutually reinforcing rather than contradictory. No other clause pair contradicts; the remaining cross-clause defects are one-directional check gaps (D-3's committed end state defeating D-1 and D-2), recorded against those clauses.",
+      "evidence": "constitution.md:16, 34, 37; dot_local/bin/executable_dotfiles-sync:128-133."
+    },
+    {
+      "clause_id": "citations",
+      "severity": "minor",
+      "description": "Every numeric line citation in the constitution is stale against the working tree, inherited from the issue. V-1 pins the clean-tree early exit at :107-110; it is at :130-133, and `cd \"$SRC\"` is at :128 - lines 107-110 are inside the package-drift jq block. D-1 and the non-goals cite the push path at :131-141 and the opt-in rationale at :131-136; the push path is :165-179 and the rationale comment is :153-158. V-1's prose anchors are unambiguous on their own, which is why this is minor rather than blocking, but a worker who navigates by line number lands in the wrong phase.",
+      "evidence": "constitution.md:16, 64, 67, 90 vs dot_local/bin/executable_dotfiles-sync:104-133, 153-179."
+    }
+  ],
+  "timestamp": "2026-08-08T00:00:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

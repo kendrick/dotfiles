@@ -1,0 +1,18 @@
+{
+  "task_id": "T-003",
+  "checker": "checker-courier",
+  "vendor": "openai",
+  "model": "gpt-5.6-terra",
+  "verdict": "blocked",
+  "findings": [
+    {
+      "clause_id": "D-3, D-4",
+      "severity": "blocker",
+      "description": "Codex crossing timed out after 120 seconds. The vendor CLI did not complete the judgment crossing in time to validate and return a verdict.",
+      "evidence": "Command: codex exec --skip-git-repo-check -s read-only --ephemeral --json --output-schema .agent-guild/schemas/verdict.schema.json -o <path> <prompt> < /dev/null. Exit code 143 (timeout). The command exceeded the 120-second hold-the-line threshold per standing protocol."
+    }
+  ],
+  "timestamp": "2026-08-09T03:53:15Z",
+  "duration_ms": 120000,
+  "cost_usd": null
+}

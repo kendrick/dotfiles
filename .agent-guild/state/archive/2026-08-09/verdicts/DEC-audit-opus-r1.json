@@ -1,0 +1,90 @@
+{
+  "task_id": "DEC-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5[1m]",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "B-1",
+      "severity": "info",
+      "description": "r0 blocker closed, and measured rather than taken on the task file's word. In a clone pinned at 298c8a6 I inserted a six-line guard into dot_local/bin/executable_dotfiles-sync and left it uncommitted, exactly the state T-001's checker will meet. The substituted working-tree form `git diff 298c8a6 -- dot_local/bin/executable_dotfiles-sync` returned all six added lines; the constitution's literal `git diff 298c8a6..HEAD -- <script>` returned zero. Running `git add` on the script first does not change the working-tree result -- still six lines -- so a worker who stages is covered by the same form. The B-1 pipeline then behaved in both directions: the dedented pattern matched B-1's own failing example (the instrument control), and exited 1 over the guard's added lines (the required polarity). The substitution does what T-001 claims it does.",
+      "evidence": "tasks/T-001.md:22-30; measured in a clone at /private/tmp/.../scratchpad/clone: `git diff 298c8a6 -- dot_local/bin/executable_dotfiles-sync | grep -c '^+[^+]'` -> 6, same after `git add` -> 6, `git diff 298c8a6..HEAD -- <script> | wc -l` -> 0; pattern vs '  [[ -z \"$(git symbolic-ref -q HEAD)\" ]]' -> match, vs the six added lines -> exit 1"
+    },
+    {
+      "clause_id": "D-4",
+      "severity": "info",
+      "description": "Second r0 blocker closed by the same substitution, and the vacuity is closed independently of it. T-001's 'treat an EMPTY added-line set as a void run rather than a pass' means that even if the extraction is mis-typed or the wrong path is read, the zero-line result can no longer be reported as a satisfied blocker. T-003's check_method carries the same void rule for its committed-form re-run, so neither the early nor the late reading of these two clauses can pass on an empty set.",
+      "evidence": "tasks/T-001.md:26-30 and tasks/T-003.md:29-33; constitution.md:159 and :216"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "major",
+      "description": "T-002 closed the worker's half of the mutation-restore problem and left the checker's half open, and the check_method's own ordering makes the gap likely to fire. The worker is now told to take a copy outside the repo, diff against it, and leave the script byte-identical 'when you report done' (T-002.md:75-83, :87). The checker is told to 'apply T-001's three per-detector mutations, restoring from a copy taken outside the repo' -- restoring between mutations, with no closing restore and no byte-identity check -- and then, in the next sentence, to 'Also run `bats tests/` and `bats tests/lint.bats`'. Read in order, the suite run happens with the third detector still deleted, the merge case reports not ok, and correct work fails. Two further consequences: nothing re-derives the worker's byte-identity claim, which is a self-report guarding the only copy of T-001's artifact (it is uncommitted through two more tasks), and the checker's own final mutation can be handed to T-003 as the thing it commits. Both fail safe -- the shipped merge case goes red and D-2 catches it at T-003 -- so this is not a blocker, but the cost is a rework cycle billed to the wrong task. One sentence closes it: have T-001's checker record `shasum -a 256` of the script in its verdict, and have T-002's checker assert that hash before its first mutation and after its last, before running the suite.",
+      "evidence": "tasks/T-002.md:31-36 check_method (restore 'between' only; suite run sequenced after the mutation half) vs tasks/T-002.md:79-83 and :87, where the worker's equivalent is closed by 'byte-identical to how it found it when you report done'; constitution.md:122 and :183 both say 'between mutations'"
+    },
+    {
+      "clause_id": "D-1",
+      "severity": "minor",
+      "description": "The substitution introduces no gap for what ships, but it does leave one narrow seam, and it is worth stating because the answer is not obvious. T-001's checker reads the working tree; T-003's reads 298c8a6..HEAD, which for a job that starts at 298c8a6 is a subset of the same thing. Any change to the script that survives into the commit is therefore visible to T-003's re-run of B-1 and D-4 -- I confirmed an out-of-scope *addition* made after T-001's check shows up in the committed added lines. What is invisible to both is a *removal* of a line T-001 added: measured in the clone, committing the guard and then dropping three of its lines in a later commit left `git diff 298c8a6..HEAD -- <script> | grep -c '^-[^-]'` at 0 (D-1 part 3 sees nothing, because those lines were never in 298c8a6), while B-1 and D-4 read only added lines. Nothing in T-003 re-runs V-1 through V-5, so the assembled artifact's behavior is re-derived only through the four cases T-002 ships. Those cases do cover the realistic corruption -- a dropped detector or a changed message goes red, which is what B-3's family-string assertion buys -- so the net holds. It does not cover placement or the notify_fail call, neither of which any shipped case asserts. Closing the B-3 major above closes this too.",
+      "evidence": "measured in the clone: guard committed, three guard lines dropped in a second commit, `git diff 298c8a6..HEAD -- <script> | grep -c '^-[^-]'` -> 0 and the added-line set still reads as guard-only; tasks/T-003.md:9-33 re-runs D-1, D-2, D-3, B-1, D-4 and no V-clause; constitution.md:181 requires four cases, none of them a clean-tree blocked case"
+    },
+    {
+      "clause_id": "B-4",
+      "severity": "minor",
+      "description": "T-001's new 'Running your own code' section reproduces B-4's stub contract but not B-4's two-sided control or V-1's pre-run porcelain precondition, so the worker's own smoke test has no way to notice a leaky harness. The prevention rules are all there -- stubs and $HOME outside the repo, authoritative PATH, fresh repo per case, `code` absent -- and those are what actually cause the leak, so this is a detection gap in a self-check whose authoritative version the checker rebuilds anyway. Worst case is one retry: a worker who satisfies its own nine smoke tests against a dirtied scratch repo could ship a guard placed after the clean-tree exit and lose it at V-1. Two sentences from B-4's last bullet would remove the risk.",
+      "evidence": "tasks/T-001.md:86-99 vs constitution.md:199 (two-sided control) and constitution.md:114 (porcelain precondition)"
+    },
+    {
+      "clause_id": "B-1",
+      "severity": "minor",
+      "description": "'Void run' is doing two different jobs in this job's vocabulary and T-001 uses it for the second one without saying which outcome it maps to. In the constitution it means the instrument is broken and no verdict may be recorded against the artifact -- the guild's `blocked`, which does not spend a retry. In T-001's substitution paragraph the stated causes are 'no guard was written, or the wrong path was read', and the first of those is a plain worker failure that should spend a retry. In practice V-1 fails first and the verdict is `fail` regardless, so the ambiguity costs nothing today; it is one clause worth of wording.",
+      "evidence": "tasks/T-001.md:28-30 vs constitution.md:114 and :167, and the schema's `blocked` semantics at schemas/verdict.schema.json"
+    },
+    {
+      "clause_id": "B-4",
+      "severity": "info",
+      "description": "The duplicated stub contract does not disagree with itself. Compared item by item against constitution B-4: chezmoi's four subcommand behaviors, the five absent tools with the corrected `code` hazard (dirties a clean case, not aborts), osascript recording its full argument list, date stubbed, HOME redirected, DOTFILES_AUTO_PUSH left unset, `export PATH=\"$STUBS:/usr/bin:/bin\"` with apps.bats:73 named and doctor.bats:62 named as the form not to copy, stubs and $HOME outside the repo, a fresh repo per case with a bare origin and no reset-or-clean alternative. Every item matches on both sides and against the clause. T-001's copy is a strict subset of T-002's; the only omissions are the two filed as a minor above, plus GIT_*_DATE pinning, which belongs to V-4 and is not the worker's to run.",
+      "evidence": "tasks/T-001.md:90-99 vs tasks/T-002.md:53-62 vs constitution.md:191-199; apps.bats:73 and doctor.bats:62 re-read and confirmed"
+    },
+    {
+      "clause_id": "D-1",
+      "severity": "info",
+      "description": "T-002's boundary exception cannot be read as license to ship a change to the script. The sentence that grants it also revokes any residue in the same breath -- 'The mutation step above is the sole exception, and it must leave that file byte-identical to how it found it -- verify with `diff` against your copy' -- and the excerpt says the same thing a second time at :83. A worker who follows it leaves the file byte-identical by construction: the only permitted edit is a deletion restored from a copy taken before any edit, `git checkout` is explicitly forbidden with its reason, and T-002 commits nothing in any case, so 'ship' here means 'leave in the working tree'. The r0 contradiction between the mutation instruction and 'touch only tests/' is gone.",
+      "evidence": "tasks/T-002.md:75-83 and :87 vs the r0 finding against tasks/T-002.md:64 and :68"
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "info",
+      "description": "All five r0 minors are folded in, each located: V-1's placement assertion is now explicit in T-001's check_method (T-001.md:20-21); `bats tests/` and `bats tests/lint.bats` are in T-002's (T-002.md:34); D-3's checkouts are pinned last with a return-to-branch confirmation (T-003.md:24-28); per-detector deletion is stated to T-001's worker (T-001.md:99); and the bare origin is in T-002's excerpt (T-002.md:62) as well as T-001's (T-001.md:97). The three r0 majors other than the T-002 boundary are also closed: B-3's check_method now names the MERGE_HEAD construction, the fresh-repo-per-case rule, and the family-string assertion requirement that separates a real case from `[ \"$status\" -ne 0 ]`.",
+      "evidence": "tasks/T-001.md:20-21,:99; tasks/T-002.md:25-30,:34,:62; tasks/T-003.md:24-28"
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "info",
+      "description": "Coverage holds, re-derived. All thirteen clauses are cited: T-001 takes V-1..V-5, B-1, D-4; T-002 takes B-4, B-2, B-3; T-003 takes D-1, D-2, D-3 and re-runs B-1 and D-4. All seven spec acceptance criteria trace to a clause and a task: AC1 and AC4 to V-1, AC2 to V-2, AC3 to V-3, AC5 to V-4, AC6 to V-5, AC7 to B-3 plus D-2. Every spec non-goal traces to D-1 or D-4, and the spec's 'Done when' -- new tests fail when the guard is removed -- is B-3. The spec's 'Read first' items survive as substance rather than citation: the bash 3.2 rules are in T-001's constraints and the PATH-stub antipattern is in both harness sections. No spec requirement falls through.",
+      "evidence": "tasks/T-001.md:5, T-002.md:5, T-003.md:5 and :29-33 vs constitution.md:87-234 and spec.md:58-82"
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "info",
+      "description": "DAG and routing unchanged and still sound. T-001 [] -> T-002 [T-001] -> T-003 [T-001, T-002]: acyclic, every referenced task exists, and both edges are load-bearing (T-002's cases must go red under mutations of a guard that does not exist before T-001; T-003 commits both artifacts). Routing follows the table: all three tasks mix deterministic and rubric clauses, so checker-judgment is right for each; T-001's worker-standard/sonnet fits work judged on correctness with the refusal strings explicitly declassified at constitution.md:238; T-003's worker-craft/opus fits commit messages judged on voice and why-not-what.",
+      "evidence": "tasks/T-002.md:40, tasks/T-003.md:37; .agent-guild/CLAUDE.md model routing table; constitution.md:238"
+    },
+    {
+      "clause_id": "V-3",
+      "severity": "info",
+      "description": "Every line citation in the three excerpts re-derived against the working tree at 298c8a6, not carried over from r0. Confirmed: :16 set -euo pipefail, :26 the tee redirect, :28 notify and :33-36 notify_fail, the six phase headings at :39 :57 :65 :75 :85 :103, :66 the unguarded chezmoi re-add, :87-95 the drift loop and :90 its || continue, :122 and :137 pre-existing bare compounds, :128 cd \"$SRC\", :130-133 the clean-tree exit, :140 git add -A, :142 the date token, :159 the DOTFILES_AUTO_PUSH branch, 182 lines total. D-2's premises hold too: per-file @test counts are exactly apps 18, doctor 11, font 44, install-failures 17, jsonc 9, licensed-fonts 7, lint 1, packages 13, so every floor is a real constraint rather than slack.",
+      "evidence": "sed against dot_local/bin/executable_dotfiles-sync (182 lines); /usr/bin/grep -c '^@test' per file in tests/"
+    },
+    {
+      "clause_id": "D-3",
+      "severity": "info",
+      "description": "One bookkeeping nit, filed as info because it changes nothing a checker would do. T-003's `clauses` frontmatter reads [D-1, D-2, D-3] while its check_method also re-runs B-1 and D-4, so T-003's checker will emit findings against two clause ids the task does not list. The check_method is unambiguous about the instruction, so no verification is lost; the list is just no longer the complete answer to 'what does this task check'.",
+      "evidence": "tasks/T-003.md:5 vs tasks/T-003.md:29-33"
+    }
+  ],
+  "timestamp": "2026-08-09T11:20:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

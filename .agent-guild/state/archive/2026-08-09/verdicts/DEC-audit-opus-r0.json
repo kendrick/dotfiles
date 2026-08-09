@@ -1,0 +1,114 @@
+{
+  "task_id": "DEC-audit",
+  "checker": "auditor",
+  "vendor": "anthropic",
+  "model": "claude-opus-5[1m]",
+  "verdict": "fail",
+  "findings": [
+    {
+      "clause_id": "B-1",
+      "severity": "blocker",
+      "description": "T-001 cites B-1, but B-1's check extracts added lines from the committed diff `git diff 298c8a6..HEAD -- dot_local/bin/executable_dotfiles-sync`, and T-001's artifact is uncommitted at check time because T-001 assigns all commits to T-003. The extraction returns zero lines, grep -E exits 1, and B-1 -- a blocker -- passes vacuously against any guard whatsoever, including its own failing example. B-1's instrument control does not catch this: it only confirms the pattern matches the failing example, never that the added-line set is non-empty.",
+      "evidence": "tasks/T-001.md:29 deps: [] and :68 'commits are T-003's'; constitution.md:159 'git diff 298c8a6..HEAD -- dot_local/bin/executable_dotfiles-sync'; measured at repo root: `git rev-parse HEAD` -> 298c8a69f839..., `git diff 298c8a6..HEAD -- dot_local/bin/executable_dotfiles-sync | wc -l` -> 0"
+    },
+    {
+      "clause_id": "D-4",
+      "severity": "blocker",
+      "description": "Same timing defect, same task. D-4's check is 'read every added line from `git diff 298c8a6..HEAD -- dot_local/bin/executable_dotfiles-sync`', which yields an empty set while T-001's work sits uncommitted, so the judgment read has nothing to read and returns pass. D-4 is the clause revision 6 added specifically because D-1's mechanical parts cannot see a purely additive out-of-scope change inside the script; assigned to T-001 it cannot see anything at all. Neither of T-001's two committed-diff clauses is checkable at the point the decomposition schedules them.",
+      "evidence": "tasks/T-001.md:5 clauses list includes D-4, :23-25 check_method; constitution.md:216 'read every added line from git diff 298c8a6..HEAD'; constitution.md:122 confirms the timing -- 'the job's work is uncommitted while this runs'"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "major",
+      "description": "T-002's check_method restates B-3 as 'confirm the committed cases include all four of attached, detached, rebase and merge; then apply T-001's three per-detector mutations', dropping the two sub-requirements revision 7 added to that clause by name: any merge case must build its marker with `git rev-parse HEAD > \\.git/MERGE_HEAD`, and each case must get its own freshly built scratch repo. Both appear in T-002's Spec excerpt for the worker but not in the check_method for the checker, so nothing verifies them. An empty MERGE_HEAD makes the merge case's outcome a function of how the worker built the fixture rather than of the guard's correctness, which is the exact substitution the clause names.",
+      "evidence": "tasks/T-002.md:23-27 check_method vs constitution.md:181 'Any merge case must build its marker with git rev-parse HEAD > .git/MERGE_HEAD, and each case must get its own freshly built scratch repo'"
+    },
+    {
+      "clause_id": "B-4",
+      "severity": "major",
+      "description": "T-001 is write-blind. Its worker must place a guard inside a script that cannot be executed without B-4's full stub contract -- six phases run before `cd \"$SRC\"` at :128, and `chezmoi re-add` at :66 is unguarded by `command -v` and aborts the run. That contract is reproduced verbatim in T-002's excerpt and appears nowhere in T-001's, while T-001's constraint 'Touch only dot_local/bin/executable_dotfiles-sync' reads as forbidding the worker any apparatus to verify its own work. The worker therefore ships unrun code against seven clauses, and every defect surfaces as a checker retry. T-001's excerpt needs either the abridged stub contract or explicit leave to build a throwaway probe outside the repo.",
+      "evidence": "tasks/T-001.md:66-73 Constraints, no stub contract anywhere in :34-73; compare tasks/T-002.md:42-51 which carries it in full; constitution.md:189-199"
+    },
+    {
+      "clause_id": "B-3",
+      "severity": "major",
+      "description": "T-002's excerpt names the four required cases and the red-under-mutation requirement but never states what a case must assert. Four cases asserting only `[ \"$status\" -ne 0 ]` satisfy B-3's mutation test (deleting a detector lets the run commit, so the case goes red), satisfy B-2, and clear D-2's rising total. The durable suite this job leaves behind would then be blind to the V-2 defect -- a guard that refuses but names the wrong state -- because V-2, V-3 and V-5 are verified only by the checker's transient probes, which do not survive the job. A worker reading T-002 cold has to guess that the state-specific string belongs in the assertions.",
+      "evidence": "tasks/T-002.md:55-64 'The committed cases' and 'Each blocked-state case must go red' -- no assertion requirement stated; constitution.md:129 (V-2's family-string matrix) is checked only by T-001's checker probes"
+    },
+    {
+      "clause_id": "D-1",
+      "severity": "major",
+      "description": "T-002 contradicts its own boundary. Line :64 instructs the worker to delete a detector from dot_local/bin/executable_dotfiles-sync and restore it; line :68 says 'Touch only files under tests/. dot_local/bin/executable_dotfiles-sync is T-001's and is finished.' A worker can obey either but not both as written. Worse, the restore has no verification step and T-001's guard exists only in the working tree, so a failed or partial restore is unrecoverable: `git checkout` returns 298c8a6 and reverts the whole guard, which the task itself forbids. The mutation is necessary; it needs to be stated as a permitted transient exception with a byte-identical restore check before the worker reports done.",
+      "evidence": "tasks/T-002.md:64 vs tasks/T-002.md:68; constitution.md:183"
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "minor",
+      "description": "T-001's check_method enumerates V-1 as 'the nine-case table ... plus the three per-detector mutations' and omits the placement assertion: for at least one refusing case the captured log must contain the six phase headings at :39, :57, :65, :75, :85 and :103. The preamble 'run exactly as the constitution writes them' arguably carries it, but the enumeration reads as exhaustive and a checker working from the task file would skip a sub-assertion V-1 states in its own paragraph.",
+      "evidence": "tasks/T-001.md:10-19 vs constitution.md:118"
+    },
+    {
+      "clause_id": "D-2",
+      "severity": "minor",
+      "description": "Nothing in T-002 runs `bats tests/` or lint over the file T-002 ships, even though tests/lint.bats scans $BATS_TEST_DIRNAME/*.bats and so covers it the moment it lands. A bare `[[` in the new file surfaces only at T-003's D-2 check, two tasks later, where T-003's own constraint forbids patching it and the fix is a T-002 rework after T-003 has already committed. The check is one command and belongs in T-002's check_method.",
+      "evidence": "tasks/T-002.md:9-27 check_method has no suite run; tasks/T-002.md:70 acknowledges the lint surface; constitution.md:83"
+    },
+    {
+      "clause_id": "D-3",
+      "severity": "minor",
+      "description": "D-3's check is 'checking out each sha and running bats tests/', which detaches HEAD in this repo -- the exact state the job exists to refuse. T-003's check_method pins no ordering against D-1 and D-2, both of which evaluate `298c8a6..HEAD` and would read a detached HEAD at an earlier commit if the checker has not returned to the branch. Add 'restore the branch before evaluating D-1 and D-2', or order D-3 last.",
+      "evidence": "tasks/T-003.md:11-24; constitution.md:232"
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "minor",
+      "description": "T-001's excerpt never tells the worker that the three detectors are deleted individually under mutation and that each must therefore be separately excisable. The excerpt's table and 'check the markers first' permit a single fused condition with a downstream message selector, against which 'delete only the rebase check' is ambiguous for the checker. One sentence in the excerpt removes the ambiguity.",
+      "evidence": "tasks/T-001.md:42-54 vs constitution.md:91 and :122"
+    },
+    {
+      "clause_id": "B-4",
+      "severity": "minor",
+      "description": "V-1 constructs its scratch repos 'with a bare origin'; T-002's excerpt says only 'freshly built scratch repo' and never mentions the remote, so the harness T-002 ships may differ from the one T-001's checker builds to the same contract. Not load-bearing today -- DOTFILES_AUTO_PUSH is unset, so the script exits at :162 without pushing -- but it is a gratuitous divergence between two harnesses the job builds to one standard.",
+      "evidence": "tasks/T-002.md:53 vs constitution.md:92 'build a scratch repo with a bare origin'"
+    },
+    {
+      "clause_id": "V-1",
+      "severity": "info",
+      "description": "Coverage holds. All thirteen clauses are cited exactly once across the three tasks: T-001 takes V-1..V-5, B-1, D-4; T-002 takes B-2, B-3, B-4; T-003 takes D-1, D-2, D-3. All seven spec acceptance criteria trace to a clause and a task: AC1 and AC4 to V-1, AC2 to V-2, AC3 to V-3, AC5 to V-4, AC6 to V-5, AC7 to B-3 and D-2. Every spec non-goal traces to D-1 or D-4. No clause and no AC falls through.",
+      "evidence": "tasks/T-001.md:5, tasks/T-002.md:5, tasks/T-003.md:5 vs constitution.md:87-234 and spec.md:58-73"
+    },
+    {
+      "clause_id": "D-1",
+      "severity": "info",
+      "description": "The DAG is sound and the order is necessary. T-001 [] -> T-002 [T-001] -> T-003 [T-001, T-002]: acyclic, every referenced task exists. T-002's dependency on T-001 is real despite B-4's control running the baseline: B-3 requires the committed cases to go red under per-detector mutations of the guard, which cannot exist before T-001 ships it, and B-2 requires cases that drive the real script's refusal path. T-003's two dependencies are real -- it commits both artifacts, D-1 reads the script's diff and D-2 reads the suite.",
+      "evidence": "tasks/T-002.md:31, tasks/T-003.md:28; constitution.md:181-183"
+    },
+    {
+      "clause_id": "D-3",
+      "severity": "info",
+      "description": "Routing is correct on all three tasks. Each task mixes deterministic and rubric clauses, so checker-judgment is right for all three and none is purely deterministic and mis-routed: T-001 carries V-3 and D-4 as rubrics, T-002 carries B-2 and B-4's read-the-contract half, T-003 carries D-3. T-001's worker-standard/sonnet fits -- the one user-facing artifact, the refusal string, is explicitly declassified at constitution.md:238, which governs it by behavior rather than wording. T-003's worker-craft/opus fits: commit messages judged on why-not-what and voice are taste work, which is the routing table's own definition.",
+      "evidence": ".agent-guild/CLAUDE.md model routing table; tasks/T-001.md:6-8, T-002.md:6-8, T-003.md:6-8"
+    },
+    {
+      "clause_id": "V-4",
+      "severity": "info",
+      "description": "One-dispatch sizing holds, T-001 included. Seven clauses is a lot of constraint but they all bear on one insertion into one file, so the worker's deliverable is a single guard and there is no split point that would not put two workers in the same file. The load that is genuinely heavy is the checker's -- nine cases in nine repos, three mutations, V-3's second nine-case pass, V-4's baseline comparison -- and that is one opus dispatch's worth of work, not a sizing defect. If B-1 and D-4 move per the blockers above, T-001 drops to five clauses on its own.",
+      "evidence": "tasks/T-001.md:5 and :34-73; constitution.md:92-124"
+    },
+    {
+      "clause_id": "V-2",
+      "severity": "info",
+      "description": "Every line citation in all three Spec excerpts verifies against the working tree at 298c8a6. Checked and correct: :16 set -euo pipefail, :26 the tee redirect, :28-31 notify, :33-36 notify_fail, the six phase headings at :39 :57 :65 :75 :85 :103, :66 chezmoi re-add, :87-95 the drift loop, :90 its || continue, :88 :122 :137 the pre-existing bare compounds, :128 cd \"$SRC\", :130-133 the clean-tree exit, :140 git add -A, :142 the date token, :159 DOTFILES_AUTO_PUSH, :159-182 the push path, tests/apps.bats:73 the authoritative PATH form, tests/doctor.bats:62 the prepending form. Suite state also confirms D-2's premises: per-file @test counts match the floors exactly and `bats --count tests/` is 120, so 'rises above 120' is a real constraint.",
+      "evidence": "verified by sed against dot_local/bin/executable_dotfiles-sync (182 lines), tests/apps.bats, tests/doctor.bats, tests/lint.bats:50"
+    },
+    {
+      "clause_id": "V-5",
+      "severity": "info",
+      "description": "No boundary conflict on T-001's side, which was the sharpest question asked. T-001 can satisfy V-1 through V-5 without writing a single test file: V-1's probe is explicitly the checker's own and may not be delegated to the worker's bats file, and V-2, V-3, V-4 and V-5 all read from checker-run probes. T-003's boundary is clean too -- it commits without editing, and check-diff-scope.py always permits .agent-guild/state/ while .gitignore excludes it, so the job's own bookkeeping cannot trip D-1. Only T-002 crosses its own boundary, filed separately above.",
+      "evidence": "constitution.md:120 'This probe is the checker's own'; .agent-guild/scripts/check-diff-scope.py in_scope(); .gitignore:8"
+    }
+  ],
+  "timestamp": "2026-08-09T09:40:00Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

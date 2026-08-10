@@ -568,9 +568,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "inbox-to-memory/SKILL.md",
-      "skillFolderHash": "2d35fdb80e8e258801cdc5fa2c9db39ceed9f002",
+      "skillFolderHash": "17eb5ac3704ec7fea4561ae313ec39139ea305a2",
       "installedAt": "2026-07-10T21:06:31.566Z",
-      "updatedAt": "2026-08-06T20:51:41.860Z"
+      "updatedAt": "2026-08-10T04:05:23.741Z"
     },
     "readme-coauthorship": {
       "source": "kendrick/skills",

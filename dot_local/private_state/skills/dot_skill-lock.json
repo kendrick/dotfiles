@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "eeac6e28a2dbdf95258068a140c110d98a6dc3ad",
+      "skillFolderHash": "2ba2bcecc086cac7216ca719746ea2ad4ed1e230",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-08-06T20:52:14.086Z"
+      "updatedAt": "2026-08-11T03:59:57.730Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -473,15 +473,6 @@
       "installedAt": "2026-07-09T17:31:36.214Z",
       "updatedAt": "2026-08-06T20:52:26.396Z"
     },
-    "writing-great-skills": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/mattpocock/skills.git",
-      "skillPath": "skills/productivity/writing-great-skills/SKILL.md",
-      "skillFolderHash": "81d36946d48842f90358d8af54e3cdcc141f8e01",
-      "installedAt": "2026-07-09T17:31:36.220Z",
-      "updatedAt": "2026-07-20T21:15:28.525Z"
-    },
     "claude-handoff": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -491,24 +482,6 @@
       "installedAt": "2026-07-09T17:31:36.227Z",
       "updatedAt": "2026-08-06T21:16:17.866Z"
     },
-    "design-an-interface": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/mattpocock/skills.git",
-      "skillPath": "skills/deprecated/design-an-interface/SKILL.md",
-      "skillFolderHash": "080dd14b88424aea0c6aca72357c617d6ab42625",
-      "installedAt": "2026-07-09T17:31:36.233Z",
-      "updatedAt": "2026-07-20T21:15:33.342Z"
-    },
-    "obsidian-vault": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/mattpocock/skills.git",
-      "skillPath": "skills/personal/obsidian-vault/SKILL.md",
-      "skillFolderHash": "5fdd257588fefa400e8a0d505aac555a0b52311a",
-      "installedAt": "2026-07-09T17:31:36.239Z",
-      "updatedAt": "2026-07-20T21:15:35.285Z"
-    },
     "setup-pre-commit": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -517,24 +490,6 @@
       "skillFolderHash": "dcc584ff84c4f040ea12742fcb46b7c3ad7070bd",
       "installedAt": "2026-07-09T17:31:36.260Z",
       "updatedAt": "2026-08-06T21:16:17.866Z"
-    },
-    "ubiquitous-language": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/mattpocock/skills.git",
-      "skillPath": "skills/deprecated/ubiquitous-language/SKILL.md",
-      "skillFolderHash": "8e138d6b06a52aeaf5f329be7a0c8298e06f62e5",
-      "installedAt": "2026-07-09T17:31:36.266Z",
-      "updatedAt": "2026-07-20T21:15:42.158Z"
-    },
-    "wizard": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/mattpocock/skills.git",
-      "skillPath": "skills/in-progress/wizard/SKILL.md",
-      "skillFolderHash": "e4dc85309aebecd9759f6c4cb3fdcb7c4f69544c",
-      "installedAt": "2026-07-09T17:31:36.271Z",
-      "updatedAt": "2026-07-20T21:15:44.202Z"
     },
     "writing-fragments": {
       "source": "mattpocock/skills",

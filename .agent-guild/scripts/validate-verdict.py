@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Validate a checker verdict JSON file against verdict.schema.json, plus the
-two semantic rules a structured-output-safe schema can't express itself
-(no if/then): a `fail` verdict must carry at least one finding, and every
-finding's `evidence` must be non-empty.
+three semantic rules a structured-output-safe schema can't express itself
+(no if/then): a `fail` verdict must carry at least one finding, every
+finding's `evidence` must be non-empty, and a `pass` verdict must carry no
+`blocker` or `major` finding.
 
     .agent-guild/scripts/validate-verdict.py FILE
 
@@ -15,9 +16,9 @@ portable.
 
 Exit codes: 0 conforming; 1 the file violates the schema or a semantic rule
 (malformed JSON, a missing/mistyped required field, a bad enum value, a fail
-verdict with zero findings, a finding with empty evidence) — stderr names the
-failing JSON path, e.g. `findings[0].evidence`; 3 infra error (file or
-schema unreadable).
+verdict with zero findings, a finding with empty evidence, a pass verdict
+carrying a defect-severity finding) — stderr names the failing JSON path,
+e.g. `findings[0].evidence`; 3 infra error (file or schema unreadable).
 """
 import argparse
 import json
@@ -142,8 +143,14 @@ def schema_violation(instance, schema, path=""):
     return None
 
 
+# A severity that asserts a defect, and so can't sit under a pass. Kept next
+# to the rule it feeds rather than inlined, because the schema's enum is the
+# other half of this pair and the two have to move together.
+DEFECT_SEVERITIES = ("blocker", "major")
+
+
 def semantic_violation(data):
-    """The two rules a conditional would express if the schema could use
+    """The three rules a conditional would express if the schema could use
     one. Returns (json_path, reason) or None. Assumes `data` already passed
     schema_violation — callers are expected to check schema first."""
     findings = data.get("findings", [])
@@ -153,6 +160,21 @@ def semantic_violation(data):
         evidence = finding.get("evidence")
         if not isinstance(evidence, str) or not evidence.strip():
             return _index("findings", i) + ".evidence", "evidence must be a non-empty string"
+    # A pass says every cited clause is satisfied, so a finding claiming a
+    # defect contradicts it. The live case this guards: a courier verdict
+    # passed while carrying twelve 'blocker' findings, every one of them
+    # affirming that something was CORRECT, because the far side read the
+    # clause's own severity as the label for any finding about it (#115).
+    if data.get("verdict") == "pass":
+        for i, finding in enumerate(findings):
+            severity = finding.get("severity")
+            if severity in DEFECT_SEVERITIES:
+                return (
+                    _index("findings", i) + ".severity",
+                    f"verdict is 'pass' but this finding is '{severity}'; a pass "
+                    "carries only 'info' (a clause satisfied) or 'minor' "
+                    "findings. If the defect is real, the verdict is 'fail'",
+                )
     return None
 
 

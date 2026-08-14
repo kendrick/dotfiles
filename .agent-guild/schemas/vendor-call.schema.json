@@ -56,6 +56,45 @@
     "quota_event": {
       "type": "boolean",
       "description": "True when this call registered a vendor quota exhaustion. A quota_event line is always written before any exhaustion sentinel is touched, so the ledger always explains the sentinel."
+    },
+    "attempts": {
+      "type": "integer",
+      "description": "How many times the vendor call was attempted before this row's own result (success or final failure). Optional and absent on every row written before #116 — a retry does not become a second ledger row, so this is how a retried crossing stays visible on the one row it produced."
+    },
+    "discarded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Why this attempt was discarded, e.g. the validation failure that triggered a retry."
+          },
+          "duration_ms": {
+            "type": "integer",
+            "description": "Wall-clock duration of this one attempt, not the cumulative figure across all attempts."
+          },
+          "exit_code": {
+            "type": "integer",
+            "description": "This attempt's own vendor process exit code."
+          },
+          "tokens_in": {
+            "type": ["number", "null"],
+            "description": "Input tokens this attempt reported, or null if the vendor didn't report a figure for it — never a fabricated 0."
+          },
+          "tokens_out": {
+            "type": ["number", "null"],
+            "description": "Output tokens this attempt reported, or null if the vendor didn't report a figure for it — never a fabricated 0."
+          }
+        },
+        "required": ["reason", "duration_ms", "exit_code", "tokens_in", "tokens_out"],
+        "additionalProperties": false
+      },
+      "description": "One entry per attempt this row's crossing discarded before its final result, oldest first. Optional and absent on every row written before #116. The row's own top-level tokens_in/tokens_out stay the cumulative sum across all attempts, so this array is the only place a discarded attempt's own figures live."
+    },
+    "job": {
+      "type": "string",
+      "description": "The guild run this call belongs to, written as that run's provenance ref (e.g. \"kendrick/skills#17\"). ledger-append.py takes it from --job, else from spec.md's provenance header, else leaves the key out. An absent key means the row is unattributed, and absence is the only spelling of that: the field is never written as null."
     }
   },
   "required": [

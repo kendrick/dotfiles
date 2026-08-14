@@ -250,6 +250,15 @@ FAKE_CLAUDE = textwrap.dedent(
     elif mode == "wrong_identity":
         success["structured_output"]["task_id"] = "T-999"
         print(json.dumps(success))
+    elif mode == "echoed_wrong_model":
+        # modelUsage still names the pinned model: the CLI billed what we
+        # asked for and only the model's own text disagrees.
+        success["structured_output"]["model"] = "claude-haiku-4-5"
+        print(json.dumps(success))
+    elif mode == "billed_wrong_model":
+        success["modelUsage"] = {"claude-opus-4-1": {
+            "inputTokens": 101, "outputTokens": 23, "costUSD": 0.02}}
+        print(json.dumps(success))
     elif mode.startswith("row_"):
         exit_code, envelope, stderr_text = ROWS[mode[len("row_"):]]
         if stderr_text:
@@ -259,6 +268,30 @@ FAKE_CLAUDE = textwrap.dedent(
         else:
             sys.stdout.write(json.dumps(envelope))
         raise SystemExit(exit_code)
+    elif mode == "malformed_then_quota":
+        # First attempt is discarded for a validation failure, same as
+        # malformed_once; second attempt hits quota instead of succeeding.
+        # #116/T-009: a quota abandonment invents no discarded entry for
+        # that first, already-thrown-away attempt.
+        if count == 1:
+            print(json.dumps({
+                "type": "result",
+                "subtype": "success",
+                "is_error": False,
+                "terminal_reason": "completed",
+                "result": "NOT_JSON",
+                "usage": {"input_tokens": 7, "output_tokens": 3},
+            }))
+        else:
+            print(json.dumps({
+                "type": "result",
+                "subtype": "error_during_execution",
+                "is_error": True,
+                "api_error_status": 429,
+                "terminal_reason": "api_error",
+                "result": "API Error: Request rejected (429) · Rate limit exceeded",
+            }))
+            raise SystemExit(1)
     else:
         print(json.dumps(success))
     """
@@ -399,6 +432,21 @@ try:
         and len(calls) == 2,
         f"rc={process.returncode} outcome={outcome!r} calls={calls!r}",
     )
+    # #116/T-009: the ledger's discarded entry carries the FIRST attempt's
+    # own duration and usage, not the crossing's cumulative figures — the
+    # tell that the shared clock was reused instead.
+    discarded = outcome["ledger"].get("discarded") if outcome else None
+    check(
+        "the discarded attempt's own figures land in the ledger, not the cumulative ones",
+        discarded is not None
+        and len(discarded) == 1
+        and discarded[0]["tokens_in"] == 7
+        and discarded[0]["tokens_out"] == 3
+        and discarded[0]["exit_code"] == 0
+        and "structured_output" in discarded[0]["reason"]
+        and discarded[0]["duration_ms"] != outcome["ledger"]["duration_ms"],
+        f"discarded={discarded!r} row_duration_ms={outcome and outcome['ledger']['duration_ms']!r}",
+    )
 finally:
     temp.cleanup()
 
@@ -447,6 +495,31 @@ try:
         and outcome["ledger"]["quota_event"] is True
         and outcome["attempts"] == 1
         and len(calls) == 1,
+        f"rc={process.returncode} outcome={outcome!r}",
+    )
+    check(
+        "a quota abandonment stays distinguishable: no discarded entry invented for it",
+        outcome is not None and "discarded" not in outcome["ledger"],
+        f"ledger={outcome and outcome['ledger']!r}",
+    )
+finally:
+    temp.cleanup()
+
+temp, process, outcome, calls, _prompt = run_courier("malformed_then_quota")
+try:
+    # Same point as the case above, but with a discarded attempt actually
+    # sitting in attempt_records when quota hits: even then, nothing is
+    # invented for the row that abandoned the crossing.
+    check(
+        "quota after a discarded first attempt still invents no discarded entry",
+        process.returncode == 0
+        and outcome is not None
+        and outcome["status"] == "quota"
+        and outcome["verdict"] is None
+        and outcome["ledger"]["quota_event"] is True
+        and outcome["attempts"] == 2
+        and "discarded" not in outcome["ledger"]
+        and len(calls) == 2,
         f"rc={process.returncode} outcome={outcome!r}",
     )
 finally:
@@ -569,6 +642,58 @@ for letter, expect_quota, pin in C10_ROWS:
         )
     finally:
         temp.cleanup()
+
+# Row (a) carries the live #92 payload ("Not logged in · Please run /login").
+# The table above pins that it isn't exhaustion; this pins the other half—that
+# the blocked verdict says why, rather than the generic "exited 1" that once
+# sent a session hunting a login problem that didn't exist.
+temp, process, outcome, calls, _prompt = run_courier("row_a")
+try:
+    description = ""
+    if outcome and outcome.get("verdict"):
+        description = outcome["verdict"]["findings"][0]["description"]
+    check(
+        "auth denial: blocked verdict names the keychain cause and the token remedy",
+        process.returncode == 0
+        and outcome is not None
+        and outcome["status"] == "verdict"
+        and outcome["verdict"]["verdict"] == "blocked"
+        and "keychain" in description
+        and "CLAUDE_CODE_OAUTH_TOKEN" in description
+        and "exited 1" not in description,
+        f"rc={process.returncode} description={description!r}",
+    )
+finally:
+    temp.cleanup()
+
+temp, process, outcome, calls, prompt = run_courier("echoed_wrong_model")
+try:
+    check(
+        "an echoed model name is overwritten, not treated as a mismatch",
+        process.returncode == 0
+        and outcome is not None
+        and outcome["status"] == "verdict"
+        and outcome["verdict"]["verdict"] == "pass"
+        and outcome["verdict"]["model"] == MODEL,
+        f"rc={process.returncode} stdout={process.stdout!r}",
+    )
+finally:
+    temp.cleanup()
+
+temp, process, outcome, calls, prompt = run_courier("billed_wrong_model")
+try:
+    description = ""
+    if outcome and outcome.get("verdict"):
+        description = outcome["verdict"]["findings"][0]["description"]
+    check(
+        "a modelUsage naming another model still blocks, because the CLI attested it",
+        outcome is not None
+        and outcome["verdict"]["verdict"] == "blocked"
+        and "modelUsage" in description,
+        f"description={description!r}",
+    )
+finally:
+    temp.cleanup()
 
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

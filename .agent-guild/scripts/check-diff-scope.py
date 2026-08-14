@@ -23,6 +23,14 @@ kit itself writes) and need no allowlist entry.
 Run from the repo root, like the kit's other scripts—git's relative paths
 only line up against ALLOWED/--ignore arguments when cwd is the toplevel.
 
+There was once a `--task-file` flag that scoped the check to one task's own
+`owns:` list, meant as the runtime half of #133. It never had a caller, and
+#162 ruled it can't have a sound one: under a wave the working tree holds
+every in-flight task's writes at once and nothing can attribute a write back
+to the task that made it, so a per-task run flags its peers. What that flag
+was reaching for is enforced where it can be proven instead—R13 and R15 at
+lint time, and ready-set.py's refusal to group tasks it can't compare.
+
 The path set is the union of `git status --porcelain` and
 `git diff --name-only`. Rename syntax (`old -> new`, which `git status`
 emits for a detected rename) resolves to the new path—a rename that lands
@@ -33,9 +41,19 @@ or more paths are out of scope, each named on stderr as
 `check-diff-scope: out of scope: <path>`; 3 usage/infra error (not a git
 repo, or a git command itself failed).
 
+`paths_overlap(a, b)` below is the single home for "do these two ownership
+paths overlap" semantics—check-job-spec.py's R13 ownership-overlap rule
+imports it via the `_load_module` importlib idiom (see that script's own
+docstring), rather than re-deriving the same exact/prefix logic a second
+time. `owns_entry_problem(entry)` lives beside it for the same reason:
+overlap is only meaningful between two entries that are actually one of
+the two shapes, so the shape predicate belongs where the shapes are
+defined. R15 and ready-set.py both import it.
+
 Stdlib only, so the kit stays copy-in portable.
 """
 import argparse
+import os
 import subprocess
 import sys
 
@@ -104,6 +122,114 @@ def collect_changed_paths():
     return unique
 
 
+def paths_overlap(a, b):
+    """True if ownership paths `a` and `b` denote overlapping territory.
+    Each is either an exact file path or a directory prefix ending in
+    '/'—the same two shapes ALLOWED and `owns:` entries both take.
+
+    The comparison is on the path itself, with the trailing slash treated
+    as notation rather than as part of the name, so `src/lib` and
+    `src/lib/` are the same territory spelled two ways. #162 found the
+    earlier version answering False there: it compared a file claim
+    against a directory claim, correctly for the shapes it was handed and
+    uselessly for what the author meant, and two tasks writing one tree
+    rode the same wave on the strength of that answer. R15 refuses the
+    slashless spelling of a directory that already exists, but a task's
+    whole job is often to create the tree it owns, and this predicate is
+    the only thing standing between that case and a lost write.
+
+    So: two paths overlap when they name the same node, or when either is
+    a parent directory of the other. A trailing slash still carries
+    meaning for anyone reading the file, and `plugin/` still does not
+    swallow `plugin-extra/`, because a parent relationship is tested at a
+    separator rather than by raw string prefix. `a` and `b` are
+    interchangeable—the check is symmetric—which matters to a caller like
+    R13 comparing two tasks' owns lists pairwise without caring which one
+    it read first."""
+    a_core = a.rstrip("/")
+    b_core = b.rstrip("/")
+    if a_core == b_core:
+        return True
+    return a_core.startswith(b_core + "/") or b_core.startswith(a_core + "/")
+
+
+def owns_entry_problem(entry, repo_root=None):
+    """A short reason an `owns:` entry is malformed, or None if it's one of
+    the two shapes paths_overlap above understands.
+
+    Shape is load-bearing rather than cosmetic. `paths_overlap` above
+    answers "same territory?" for the two documented shapes; hand it a
+    third thing and its answer is meaningless rather than wrong, and a
+    meaningless "no overlap" is what puts two tasks on one file in the
+    same wave (#162). Every check here catches a spelling that would
+    produce one: `./src/a.py` never matches `src/a.py`, a glob never
+    matches the files it was meant to stand for, an invisible character
+    makes a path that matches nothing at all.
+
+    Existence is never required—a task's whole job is often to create the
+    file it owns. The repo_root checks fire only when the path DOES exist
+    and its kind contradicts its spelling. Pass repo_root=None for the
+    textual checks alone, which is what ready-set.py does to stay a pure
+    function of the task files."""
+    if not isinstance(entry, str):
+        return f"not a string ({type(entry).__name__})"
+    if not entry.strip():
+        return "empty entry"
+    if entry != entry.strip():
+        return "leading or trailing whitespace"
+    invisible = next((c for c in entry if c in "​‌‍﻿\xa0"), None)
+    if invisible is not None:
+        # Survives .strip(), reads as an ordinary path, matches nothing.
+        # Usually arrived by paste rather than by typing.
+        return f"invisible character U+{ord(invisible):04X}"
+    if "\\" in entry:
+        return "backslash; entries use '/' separators"
+    # `*` and `?` only. Brackets are ordinary filename characters and
+    # `app/[slug]/page.tsx` is the most common path shape in half the
+    # frameworks a copied-in kit will meet; rejecting it would fail
+    # DEC-audit with no spelling the author could fix.
+    glob_char = next((c for c in entry if c in "*?"), None)
+    if glob_char is not None:
+        return (
+            f"glob character {glob_char!r}; an entry is a literal path, and a "
+            "pattern here would own nothing"
+        )
+    if entry.startswith("~") or entry.startswith("$"):
+        return "shell expansion; entries are literal repo-relative paths"
+    if entry.startswith("/"):
+        return "absolute path; entries are repo-relative"
+    core = entry[:-1] if entry.endswith("/") else entry
+    if not core:
+        return "bare '/'"
+    parts = core.split("/")
+    if "" in parts:
+        return "empty path segment ('//')"
+    if "." in parts:
+        return "'.' segment; write the path without './'"
+    if ".." in parts:
+        return "'..' segment; entries stay inside the repo"
+    if repo_root is not None:
+        full = os.path.join(repo_root, core)
+        if entry.endswith("/"):
+            if os.path.isfile(full):
+                return "ends with '/' but exists as a file"
+        elif os.path.isdir(full):
+            return "exists as a directory but lacks the trailing '/'"
+    return None
+
+
+def path_within(path, prefix):
+    """True if `path` sits inside directory `prefix`, which ends in '/'.
+
+    Containment, not overlap, and the difference is the whole reason this
+    isn't paths_overlap. Overlap is symmetric because two owners collide
+    whichever way you read the pair. A grant flows one way only: allowing
+    `docs/generated/` says nothing about a file at `docs`, which is
+    ABOVE the granted territory rather than inside it. Sharing the
+    symmetric predicate here let exactly that through."""
+    return path.startswith(prefix)
+
+
 def in_scope(path, allowed_files, allowed_dirs, ignored):
     if path in allowed_files:
         return True
@@ -111,10 +237,7 @@ def in_scope(path, allowed_files, allowed_dirs, ignored):
         return True
     if path.startswith(".agent-guild/state/"):
         return True
-    for prefix in allowed_dirs:
-        if path.startswith(prefix):
-            return True
-    return False
+    return any(path_within(path, prefix) for prefix in allowed_dirs)
 
 
 def main(argv=None):

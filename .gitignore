@@ -14,3 +14,4 @@ _working-memory/activeContext.md
 # therefore leaves bytecode the auto-sync will happily commit if left untracked.
 __pycache__/
 *.pyc
+.agent-guild/state/

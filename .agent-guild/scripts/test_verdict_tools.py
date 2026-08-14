@@ -228,6 +228,61 @@ with tempfile.TemporaryDirectory() as d:
         f"err={err!r}",
     )
 
+# The #115 shape, minus eleven of its siblings: a pass carrying findings that
+# affirm correctness, every one stamped `blocker` because the far side read the
+# clause's own severity as the label for any finding about it.
+AFFIRMING_FINDING = {
+    "clause_id": "C-1",
+    "severity": "blocker",
+    "description": "Conversion 6 preserves the byte-identical needle 'found 0'.",
+    "evidence": "convert.sh:41-48",
+}
+
+for severity in ("blocker", "major"):
+    with tempfile.TemporaryDirectory() as d:
+        pass_with_defect = json.loads(json.dumps(PASS_VERDICT))
+        pass_with_defect["findings"] = [
+            dict(AFFIRMING_FINDING, severity="info"),
+            dict(AFFIRMING_FINDING, severity=severity),
+        ]
+        path = write_json(d, f"pass_{severity}.json", pass_with_defect)
+        rc, out, err = run_validate(path)
+        check(f"pass carrying a '{severity}' finding: nonzero exit", rc != 0, f"rc={rc}")
+        check(
+            f"pass carrying a '{severity}' finding: stderr names findings[1].severity",
+            "findings[1].severity" in err,
+            f"err={err!r}",
+        )
+
+with tempfile.TemporaryDirectory() as d:
+    pass_ok = json.loads(json.dumps(PASS_VERDICT))
+    pass_ok["findings"] = [
+        dict(AFFIRMING_FINDING, severity="info"),
+        dict(AFFIRMING_FINDING, severity="minor"),
+    ]
+    path = write_json(d, "pass_ok.json", pass_ok)
+    rc, out, err = run_validate(path)
+    check("pass carrying info and minor findings: exit 0", rc == 0, f"rc={rc} err={err}")
+
+with tempfile.TemporaryDirectory() as d:
+    # The rule is about pass, not about severity: a blocker under a fail is
+    # the ordinary case and has to stay legal.
+    path = write_json(d, "fail_blocker.json", FAIL_VERDICT)
+    rc, out, err = run_validate(path)
+    check("fail carrying a blocker finding: exit 0", rc == 0, f"rc={rc} err={err}")
+
+with tempfile.TemporaryDirectory() as d:
+    bad_severity = json.loads(json.dumps(FAIL_VERDICT))
+    bad_severity["findings"][0]["severity"] = "critical"
+    path = write_json(d, "bad_severity.json", bad_severity)
+    rc, out, err = run_validate(path)
+    check("severity outside the enum: nonzero exit", rc != 0, f"rc={rc}")
+    check(
+        "severity outside the enum: stderr names findings[0].severity",
+        "findings[0].severity" in err,
+        f"err={err!r}",
+    )
+
 # --------------------------------------------------------------------------- render
 print("render")
 

@@ -24,54 +24,34 @@ signal produces no verdict; the parent records the ledger line before creating
 state/exhausted/claude.
 """
 import argparse
-import importlib.util
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime, timezone
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SCRIPT_DIR)
+import _courier_lib  # noqa: E402  needs SCRIPT_DIR on the path first
+
 SCHEMA_PATH = os.path.normpath(
     os.path.join(SCRIPT_DIR, "..", "schemas", "verdict.schema.json")
 )
 VALIDATOR_PATH = os.path.join(SCRIPT_DIR, "validate-verdict.py")
 MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_TIMEOUT_SECONDS = 120.0
-QUOTA_RE = re.compile(
-    r"(?:rate[ -]?limit|quota|usage[ -]?limit|spend(?:ing)?[ -]?cap"
-    r"|(?<![\w.])429(?![\w.]))",
-    re.IGNORECASE,
-)
 
-
-class CourierError(Exception):
-    """The local courier boundary cannot produce a classified outcome."""
-
-
-def _load_validator():
-    spec = importlib.util.spec_from_file_location(
-        "agent_guild_validate_verdict", VALIDATOR_PATH
-    )
-    if spec is None or spec.loader is None:
-        raise CourierError(
-            f"cannot load verdict validator from {VALIDATOR_PATH}"
-        )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-VALIDATOR = _load_validator()
-
-
-def _utc_now():
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+# Both lanes share these; see _courier_lib for why the 429 boundary is the
+# part worth stating once.
+CourierError = _courier_lib.CourierError
+QUOTA_RE = _courier_lib.QUOTA_RE
+AUTH_RE = _courier_lib.AUTH_RE
+VALIDATOR = _courier_lib.load_validator(VALIDATOR_PATH)
+_utc_now = _courier_lib.utc_now
+_number = _courier_lib.number
 
 
 def _adapted_schema():
@@ -194,6 +174,23 @@ def _parse_envelope(call):
     return envelope, None
 
 
+def _prose_surfaces(call, envelope):
+    # stdout carries the serialized JSON envelope, so scanning it as text
+    # reads numeric fields like duration_ms as if they were prose—the
+    # bug #69 exists to fix. Only stderr (always) and result (only on an
+    # API-error envelope) are prose surfaces worth pattern-matching.
+    # They're joined with a separator, not concatenated raw, so a digit
+    # trailing one surface can never complete "429" with a digit leading
+    # the other.
+    surfaces = [call["stderr"]]
+    if (
+        isinstance(envelope, dict)
+        and envelope.get("terminal_reason") == "api_error"
+    ):
+        surfaces.append(str(envelope.get("result", "")))
+    return "\n".join(surfaces)
+
+
 def _is_quota(call, envelope):
     # Structural signal outranks wording: a real 429 status classifies as
     # quota even outside the errorish gate (e.g. a "completed" envelope
@@ -206,21 +203,13 @@ def _is_quota(call, envelope):
     )
     if not errorish:
         return False
-    # stdout carries the serialized JSON envelope, so scanning it as text
-    # reads numeric fields like duration_ms as if they were prose — the
-    # bug this task exists to fix. Only stderr (always) and result (only
-    # on an API-error envelope) are prose surfaces worth pattern-matching.
-    # They're joined with a separator, not concatenated raw, so a digit
-    # trailing one surface can never complete "429" with a digit leading
-    # the other.
-    surfaces = [call["stderr"]]
-    if (
-        isinstance(envelope, dict)
-        and envelope.get("terminal_reason") == "api_error"
-    ):
-        surfaces.append(str(envelope.get("result", "")))
-    text = "\n".join(surfaces)
-    return bool(QUOTA_RE.search(text))
+    return bool(QUOTA_RE.search(_prose_surfaces(call, envelope)))
+
+
+def _is_auth_denial(call, envelope):
+    """Only called from inside the errorish gate, and only after quota has
+    already been ruled out, so the caller owns both of those conditions."""
+    return bool(AUTH_RE.search(_prose_surfaces(call, envelope)))
 
 
 def _validate_structured_output(envelope, task_id):
@@ -245,11 +234,15 @@ def _validate_structured_output(envelope, task_id):
         path, reason = violation
         return None, f"structured_output failed verdict validation at {path}: {reason}"
 
+    # `model` is absent from this list on purpose. The far side knows which
+    # task it judged, which role it was filling, and whose API answered; it
+    # does not know its own name, it is only repeating one it was handed. The
+    # codex lane lost a sound judgment to that distinction (#142), so identity
+    # is stamped below rather than demanded here.
     expected_identity = {
         "task_id": task_id,
         "checker": "checker-courier",
         "vendor": "anthropic",
-        "model": MODEL,
     }
     for key, expected in expected_identity.items():
         if verdict.get(key) != expected:
@@ -258,7 +251,12 @@ def _validate_structured_output(envelope, task_id):
                 f"structured_output {key} was {verdict.get(key)!r}, "
                 f"expected {expected!r}",
             )
+    verdict["model"] = MODEL
 
+    # This check survives the change above, because it is not a self-report:
+    # modelUsage is the CLI's own accounting of which model it billed, which
+    # is exactly the vendor-structural evidence the codex lane turned out not
+    # to have.
     model_usage = envelope.get("modelUsage")
     if isinstance(model_usage, dict) and model_usage:
         unexpected = sorted(set(model_usage) - {MODEL})
@@ -269,12 +267,6 @@ def _validate_structured_output(envelope, task_id):
                 f"model {MODEL!r}: {sorted(model_usage)!r}",
             )
     return verdict, None
-
-
-def _number(value, expected_type):
-    if isinstance(value, bool):
-        return None
-    return value if isinstance(value, expected_type) else None
 
 
 def _usage(envelope):
@@ -301,36 +293,27 @@ def _usage(envelope):
 
 
 def _blocked_verdict(task_id, description, evidence):
-    verdict = {
-        "task_id": task_id,
-        "checker": "checker-courier",
-        "vendor": "anthropic",
-        "model": MODEL,
-        "verdict": "blocked",
-        "findings": [
-            {
-                "clause_id": "external-lane",
-                "severity": "blocker",
-                "description": description,
-                "evidence": evidence,
-            }
-        ],
-        "timestamp": _utc_now(),
-        "duration_ms": None,
-        "cost_usd": None,
-    }
-    schema, schema_error = VALIDATOR.load_schema()
-    if schema_error:
-        raise CourierError(schema_error)
-    violation = VALIDATOR.schema_violation(verdict, schema)
-    if violation is None:
-        violation = VALIDATOR.semantic_violation(verdict)
-    if violation is not None:
-        path, reason = violation
-        raise CourierError(
-            f"internally generated blocked verdict is invalid at {path}: {reason}"
-        )
-    return verdict
+    return _courier_lib.blocked_verdict(
+        VALIDATOR, task_id, "checker-courier", "anthropic", MODEL,
+        description, evidence,
+    )
+
+
+def _discarded_entries(attempt_records):
+    """One `--discarded`-shaped object per non-final attempt, oldest first,
+    built from each attempt's own duration and usage rather than the
+    crossing's cumulative figures (#116, mirrored from codex-courier.py).
+    Empty when nothing was retried."""
+    return [
+        {
+            "reason": record["reason"] or "no failure reason recorded",
+            "duration_ms": record["duration_ms"],
+            "exit_code": record["exit_code"],
+            "tokens_in": record["tokens_in"],
+            "tokens_out": record["tokens_out"],
+        }
+        for record in attempt_records[:-1]
+    ]
 
 
 def _ledger(
@@ -341,6 +324,7 @@ def _ledger(
     envelope=None,
     quota_event=False,
     usage_totals=None,
+    discarded=None,
 ):
     if usage_totals is not None:
         tokens_in, tokens_out, cost_usd = usage_totals
@@ -348,18 +332,15 @@ def _ledger(
         tokens_in, tokens_out, cost_usd = _usage(envelope)
     else:
         tokens_in = tokens_out = cost_usd = None
-    return {
-        "task_id": task_id,
-        "vendor": "claude",
-        "model": MODEL,
-        "started_at": started_at,
-        "duration_ms": duration_ms,
-        "exit_code": call["returncode"],
-        "tokens_in": tokens_in,
-        "tokens_out": tokens_out,
-        "cost_usd": cost_usd,
-        "quota_event": quota_event,
-    }
+    return _courier_lib.ledger_record(
+        task_id, "claude", MODEL, started_at, duration_ms,
+        call["returncode"], tokens_in, tokens_out, cost_usd, quota_event,
+        # Never invented for a quota bailout, even when an earlier attempt
+        # was itself discarded first: a quota abandonment stays
+        # distinguishable from a retried crossing (#116), so callers on that
+        # path simply never pass this.
+        discarded=discarded or None,
+    )
 
 
 def run_courier(task_id, prompt, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):
@@ -370,20 +351,37 @@ def run_courier(task_id, prompt, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):
     last_envelope = None
     malformed_reason = None
     usage_totals = [None, None, None]
+    attempt_records = []
 
     for attempt in range(2):
         attempts = attempt + 1
+        attempt_clock = time.monotonic()
         call = _run_once(prompt, timeout_seconds)
         last_call = call
         envelope, envelope_error = _parse_envelope(call)
         last_envelope = envelope
+        attempt_tokens_in = attempt_tokens_out = None
         if isinstance(envelope, dict):
             reported = _usage(envelope)
+            attempt_tokens_in, attempt_tokens_out, _attempt_cost = reported
             for index, value in enumerate(reported):
                 if value is None:
                     continue
                 prior = usage_totals[index]
                 usage_totals[index] = value if prior is None else prior + value
+
+        # This attempt's own elapsed time, not the crossing's cumulative
+        # clock: a discarded attempt's duration_ms has to say how long THAT
+        # call took, or the retry looks free (#116).
+        attempt_records.append({
+            "reason": None,
+            "duration_ms": max(
+                0, int((time.monotonic() - attempt_clock) * 1000)
+            ),
+            "exit_code": call["returncode"],
+            "tokens_in": attempt_tokens_in,
+            "tokens_out": attempt_tokens_out,
+        })
 
         duration_ms = max(
             0, int((time.monotonic() - started_clock) * 1000)
@@ -412,14 +410,46 @@ def run_courier(task_id, prompt, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):
             description = (
                 f"Claude CLI timed out after {timeout_seconds:g} seconds"
             )
+            # Silence on both streams for the whole wall clock is the
+            # signature of a sandbox with no egress: the CLI retries a
+            # transport failure rather than erroring out, so it dies at the
+            # bound with nothing to report. Verified 2026-08-10 in a Codex
+            # session where DNS did not resolve at all (#92).
+            if not call["stdout"].strip() and not call["stderr"].strip():
+                description += (
+                    ", producing no output on either stream. Check network "
+                    "egress first: a sandboxed session with no DNS looks "
+                    "exactly like this. `curl -sS -m 10 "
+                    "https://api.anthropic.com/v1/messages` fails in "
+                    "milliseconds when egress is blocked. On Codex, set "
+                    "sandbox_workspace_write.network_access = true."
+                )
             break
         if call["returncode"] != 0 or (
             isinstance(envelope, dict) and envelope.get("is_error") is True
         ):
-            description = (
-                f"Claude CLI exited {call['returncode']} before producing "
-                "a verdict"
-            )
+            if _is_auth_denial(call, envelope):
+                # "exited 1" once sent a session hunting a login problem that
+                # didn't exist. The CLI was logged in; the sandbox was what it
+                # couldn't get past (#92). Name the cause here so the blocked
+                # verdict reads without that detour.
+                description = (
+                    "Claude CLI could not authenticate; the lane never "
+                    "reached the far side. On macOS the CLI reads its "
+                    "credentials from the login keychain, which a sandboxed "
+                    "Codex session cannot open, so a terminal that is logged "
+                    "in still fails here. Run `claude setup-token` outside "
+                    "the sandbox and pass the token it prints to the courier's "
+                    "session as CLAUDE_CODE_OAUTH_TOKEN. That is the first of "
+                    "two requirements; the sandbox also needs network egress, "
+                    "or the credential resolves and the call then hangs until "
+                    "the wall clock."
+                )
+            else:
+                description = (
+                    f"Claude CLI exited {call['returncode']} before producing "
+                    "a verdict"
+                )
             break
         if envelope_error is not None:
             malformed_reason = envelope_error
@@ -438,11 +468,13 @@ def run_courier(task_id, prompt, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):
                         call,
                         envelope,
                         usage_totals=usage_totals,
+                        discarded=_discarded_entries(attempt_records),
                     ),
                     "attempts": attempts,
                     "diagnostic": None,
                 }
         if attempt == 0:
+            attempt_records[-1]["reason"] = malformed_reason
             continue
         description = (
             "Claude structured_output remained invalid after one retry: "
@@ -464,6 +496,7 @@ def run_courier(task_id, prompt, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):
             last_call,
             last_envelope,
             usage_totals=usage_totals,
+            discarded=_discarded_entries(attempt_records),
         ),
         "attempts": attempts,
         "diagnostic": evidence,
@@ -487,27 +520,11 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     prompt = sys.stdin.read()
-    if not re.fullmatch(r"T-\d+", args.task_id):
-        sys.stderr.write(
-            "claude-courier: --task-id must have the form T-NNN\n"
-        )
-        return 2
-    if args.timeout_seconds <= 0:
-        sys.stderr.write(
-            "claude-courier: --timeout-seconds must be positive\n"
-        )
-        return 2
-    if not prompt.strip():
-        sys.stderr.write("claude-courier: prompt stdin is empty\n")
-        return 2
-    if not re.search(
-        rf"\bTask-ID:\s*{re.escape(args.task_id)}\b",
-        prompt,
-        re.IGNORECASE,
-    ):
-        sys.stderr.write(
-            f"claude-courier: prompt does not carry Task-ID: {args.task_id}\n"
-        )
+    invalid = _courier_lib.validate_courier_args(
+        "claude-courier", args.task_id, args.timeout_seconds, prompt
+    )
+    if invalid:
+        sys.stderr.write(invalid + "\n")
         return 2
 
     try:

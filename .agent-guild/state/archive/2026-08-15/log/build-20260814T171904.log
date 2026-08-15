@@ -1,0 +1,2 @@
+check-build.sh: running: [ "$(bats -c -f "drop-and-retry" tests/install-failures.bats)" -eq 2 ] && bats -f "drop-and-retry" tests/install-failures.bats
+check-build.sh: exit 1 (log: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/log/build-20260814T171904.log)

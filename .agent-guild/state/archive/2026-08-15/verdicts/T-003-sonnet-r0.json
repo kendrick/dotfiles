@@ -1,0 +1,24 @@
+{
+  "task_id": "T-003",
+  "checker": "checker-deterministic",
+  "vendor": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "C-4",
+      "severity": "info",
+      "description": "bats tests/ passed with all 129 test cases green (125 baseline + 4 new from T-001).",
+      "evidence": "check-build.sh output: 1..129 with all ok results"
+    },
+    {
+      "clause_id": "C-7",
+      "severity": "info",
+      "description": "The working-tree diff touches only the 5 allowed paths with no out-of-scope changes.",
+      "evidence": "check-diff-scope.py output: OK: 5 path(s) in scope"
+    }
+  ],
+  "timestamp": "2026-08-15T00:35:41Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

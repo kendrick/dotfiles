@@ -27,27 +27,14 @@ echo "$brewfile" | awk '/^tap /{gsub(/"/,"",$2); print $2}' | while read -r tap;
   brew trust --tap "$tap" 2>/dev/null || true
 done
 
-# The guard this replaces was `|| echo "Some Brewfile entries failed"`, put there because a
-# MAS app can need interactive sudo and must not abort the apply. It worked, and it also
-# meant a count where a name belonged: on 2026-08-06 fzf joined the core bundle, brew never
-# installed it, and the run said the same thing it says on a machine that is merely waiting
-# on an App Store password. Keep the run's own output on screen and keep a copy to read the
-# names back out of.
-bundle_log=$(mktemp -t dotfiles-brew-bundle)
-trap 'rm -f "$bundle_log"' EXIT
-
-# tee rather than capture-then-print: a fresh machine spends tens of minutes in here and
-# needs to see it working. PIPESTATUS[0] is brew's status; $? would be tee's, always 0.
-brew bundle --file=/dev/stdin <<<"$brewfile" 2>&1 | tee "$bundle_log"
-bundle_status=${PIPESTATUS[0]}
-
-if [ "$bundle_status" -ne 0 ]; then
-  # brew names each failing entry as "<Verb> <entry> has failed!" on stderr, where Verb is
-  # Installing, Upgrading, or Tapping, and wraps it in red when stdout is a terminal — so
-  # strip SGR escapes first or an interactive apply matches nothing. brew's own closing
-  # line, "Homebrew Bundle failed! N Brewfile dependencies failed to install.", deliberately
-  # does not match this shape: it carries a count, and a count is what hid fzf.
-  failed_entries=$(awk '
+# brew names each failing entry as "<Verb> <entry> has failed!" on stderr, where Verb is
+# Installing, Upgrading, or Tapping, and wraps it in red when stdout is a terminal — so
+# strip SGR escapes first or an interactive apply matches nothing. brew's own closing
+# line, "Homebrew Bundle failed! N Brewfile dependencies failed to install.", deliberately
+# does not match this shape: it carries a count, and a count is what hid fzf. Factored out
+# because #22's retry needs this same read applied to a second log, not just the first.
+parse_failed_entries() {
+  awk '
     {
       line = $0
       gsub(/\033\[[0-9;]*m/, "", line)
@@ -57,15 +44,17 @@ if [ "$bundle_status" -ne 0 ]; then
         print line
       }
     }
-  ' "$bundle_log")
+  ' "$1"
+}
 
-  # The other phase. brew batch-fetches everything that needs downloading before it
-  # installs anything, and installer.rb:84-87 returns on a fetch failure — so the install
-  # phase never runs and none of the per-entry lines the awk above wants can exist. The
-  # only line this phase emits joins every entry that needed fetching, guilty or not: the
-  # #17 e2e saw six names for one bad formula. Parsing it would have blamed five packages
-  # whose sole crime was not being downloaded yet.
-  fetch_batch=$(awk '
+# The other phase. brew batch-fetches everything that needs downloading before it
+# installs anything, and installer.rb:84-87 returns on a fetch failure — so the install
+# phase never runs and none of the per-entry lines the parser above wants can exist. The
+# only line this phase emits joins every entry that needed fetching, guilty or not: the
+# #17 e2e saw six names for one bad formula. Parsing it would have blamed five packages
+# whose sole crime was not being downloaded yet.
+parse_fetch_batch() {
+  awk '
     {
       line = $0
       gsub(/\033\[[0-9;]*m/, "", line)
@@ -75,36 +64,104 @@ if [ "$bundle_status" -ne 0 ]; then
         print line
       }
     }
-  ' "$bundle_log")
+  ' "$1"
+}
 
+# Reports one completed `brew bundle` attempt and, the first time only, retries. $log is
+# the tee'd output, $status is brew's own exit code (PIPESTATUS, not tee's), and
+# $allow_retry is 1 for the initial attempt and 0 for the retry this function may itself
+# trigger — #17 already ruled out looping the apply, so a second failure of either phase
+# is always just reported, never retried again.
+handle_bundle_result() {
+  local log="$1" status="$2" allow_retry="$3"
+  local failed_entries fetch_batch missing
+
+  [ "$status" -eq 0 ] && return 0
+
+  failed_entries=$(parse_failed_entries "$log")
   if [ -n "$failed_entries" ]; then
     echo "Homebrew ran, but could not install these Brewfile entries (its errors are above):"
     printf '%s\n' "$failed_entries" | sed 's/^/  /'
-  elif [ -n "$fetch_batch" ]; then
-    # Re-derive rather than parse. Asking brew which of the batch actually resolves is what
-    # separates a typo in the registry from a download that failed, and it doesn't depend on
-    # the shape of an error string — the assumption that produced this bug in the first place.
-    # `brew info` answers for casks and formulae alike without downloading anything.
-    missing=$(while IFS= read -r entry; do
-      [ -n "$entry" ] || continue
-      brew info "$entry" >/dev/null 2>&1 || printf '%s\n' "$entry"
-    done <<<"$fetch_batch")
-
-    if [ -n "$missing" ]; then
-      echo "Homebrew ran, but these Brewfile entries don't exist (its errors are above):"
-      printf '%s\n' "$missing" | sed 's/^/  /'
-    else
-      # Every name resolves, so the registry is fine and the download isn't. Naming the whole
-      # batch is the honest answer here; singling one out would be a guess.
-      echo "Homebrew could not fetch these Brewfile entries, though all of them exist (its errors are above):"
-      printf '%s\n' "$fetch_batch" | sed 's/^/  /'
-    fi
-  else
-    # brew failed in a shape this script does not recognise. Saying so beats saying nothing,
-    # which is the silence the whole change exists to end.
-    echo "Homebrew ran and exited $bundle_status without naming a failed entry. Its output is above."
+    return 0
   fi
-fi
+
+  fetch_batch=$(parse_fetch_batch "$log")
+  if [ -z "$fetch_batch" ]; then
+    # brew failed in a shape this script does not recognise. Saying so beats saying
+    # nothing, which is the silence the whole change exists to end.
+    echo "Homebrew ran and exited $status without naming a failed entry. Its output is above."
+    return 0
+  fi
+
+  # Re-derive rather than parse. Asking brew which of the batch actually resolves is what
+  # separates a typo in the registry from a download that failed, and it doesn't depend on
+  # the shape of an error string — the assumption that produced this bug in the first place.
+  # `brew info` answers for casks and formulae alike without downloading anything.
+  missing=$(while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    brew info "$entry" >/dev/null 2>&1 || printf '%s\n' "$entry"
+  done <<<"$fetch_batch")
+
+  if [ -z "$missing" ]; then
+    # Every name resolves, so the registry is fine and the download isn't. Naming the whole
+    # batch is the honest answer here; singling one out would be a guess.
+    echo "Homebrew could not fetch these Brewfile entries, though all of them exist (its errors are above):"
+    printf '%s\n' "$fetch_batch" | sed 's/^/  /'
+    return 0
+  fi
+
+  # bash 3.2 renders an empty array as one empty word under set -u, so both expansions
+  # below are count-guarded rather than trusted to iterate zero times.
+  local -a missing_arr=() fetch_arr=()
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    missing_arr+=("$entry")
+  done <<<"$missing"
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    fetch_arr+=("$entry")
+  done <<<"$fetch_batch"
+
+  echo "Homebrew ran, but these Brewfile entries don't exist (its errors are above):"
+  printf '%s\n' "$missing" | sed 's/^/  /'
+
+  if [ "$allow_retry" -eq 1 ] && [ "${#missing_arr[@]}" -lt "${#fetch_arr[@]}" ]; then
+    # At least one batched name resolves, so the registry isn't entirely to blame — drop
+    # only the dead lines and give the survivors the run they never got, since
+    # installer.rb's fetch phase returns before installing anything at all. Gating on the
+    # count comparison (not on whether the trimmed Brewfile is merely non-empty) matters:
+    # the fetch batch is a handful of entries out of dozens in the full Brewfile, so
+    # "the Brewfile still has lines in it" stays true even when every batched name is dead.
+    local retry_brewfile="$brewfile" entry
+    for entry in "${missing_arr[@]}"; do
+      retry_brewfile=$(printf '%s\n' "$retry_brewfile" | grep -vF "\"$entry\"")
+    done
+
+    retry_log=$(mktemp -t dotfiles-brew-bundle-retry)
+    brew bundle --file=/dev/stdin <<<"$retry_brewfile" 2>&1 | tee "$retry_log"
+    local retry_status=${PIPESTATUS[0]}
+
+    handle_bundle_result "$retry_log" "$retry_status" 0
+  fi
+}
+
+# The guard this replaces was `|| echo "Some Brewfile entries failed"`, put there because a
+# MAS app can need interactive sudo and must not abort the apply. It worked, and it also
+# meant a count where a name belonged: on 2026-08-06 fzf joined the core bundle, brew never
+# installed it, and the run said the same thing it says on a machine that is merely waiting
+# on an App Store password. Keep the run's own output on screen and keep a copy to read the
+# names back out of. $retry_log is unset unless handle_bundle_result actually retries; an
+# unset trap reference just expands empty, so rm -f no-ops on the happy path instead of
+# needing a second trap registration.
+bundle_log=$(mktemp -t dotfiles-brew-bundle)
+trap 'rm -f "$bundle_log" "$retry_log"' EXIT
+
+# tee rather than capture-then-print: a fresh machine spends tens of minutes in here and
+# needs to see it working. PIPESTATUS[0] is brew's status; $? would be tee's, always 0.
+brew bundle --file=/dev/stdin <<<"$brewfile" 2>&1 | tee "$bundle_log"
+bundle_status=${PIPESTATUS[0]}
+
+handle_bundle_result "$bundle_log" "$bundle_status" 1
 
 # Still 0, having named the failures. Stopping the apply here would strand every later
 # script over one unavailable formula; dotfiles-doctor is what carries the gap forward.

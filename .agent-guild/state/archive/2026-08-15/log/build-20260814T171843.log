@@ -1,0 +1,8 @@
+check-build.sh: running: [ "$(bats -c -f "fetch-phase" tests/install-failures.bats)" -eq 1 ] && bats -f "fetch-phase" tests/install-failures.bats
+1..1
+not ok 1 install-packages: a fetch-phase failure names only the entry that doesn't exist
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/install-failures.bats, line 132)
+#   `assert_contains "  fixture-nonexistent-xyz"' failed
+# chezmoi: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r0/c7repo/.chezmoidata.toml: toml: line 1: expected '.' or '=', but got '\n' instead
+check-build.sh: exit 1 (log: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/log/build-20260814T171843.log)

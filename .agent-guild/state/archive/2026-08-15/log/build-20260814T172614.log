@@ -1,0 +1,5 @@
+check-build.sh: running: [ "$(bats -c -f "drop-and-retry" tests/install-failures.bats)" -eq 2 ] && bats -f "drop-and-retry" tests/install-failures.bats
+1..2
+ok 1 install-packages: drop-and-retry installs the survivors of a fetch failure
+ok 2 install-packages: drop-and-retry reports all of them when none resolve
+check-build.sh: exit 0 (log: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/log/build-20260814T172614.log)

@@ -1,0 +1,4 @@
+check-build.sh: running: [ "$(bats -c -f "drop-and-retry" tests/install-failures.bats)" -eq 2 ] && bats -f "drop-and-retry" tests/install-failures.bats
+1..2
+/opt/homebrew/Cellar/bats-core/1.14.0/libexec/bats-core/bats-format-cat: line 6: 24478 Terminated: 15          cat
+/opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/validator.bash: line 18: printf: write error: Broken pipe

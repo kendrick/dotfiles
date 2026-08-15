@@ -1,0 +1,6 @@
+check-build.sh: running: bats -f "no extra brew calls" tests/install-failures.bats
+1..1
+not ok 1 install-packages: a clean run makes no extra brew calls
+# (in test file tests/install-failures.bats, line 241)
+#   `[ "$(count_calls info)" -eq 0 ]' failed
+check-build.sh: exit 1 (log: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/log/build-20260814T172954.log)

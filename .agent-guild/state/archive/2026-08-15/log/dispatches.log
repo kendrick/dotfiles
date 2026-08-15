@@ -1,0 +1,16 @@
+2026-08-14T22:01:59Z | agent-guild:auditor | CON-audit | opus
+2026-08-14T22:19:59Z | agent-guild:auditor | CON-audit | opus
+2026-08-14T22:40:18Z | agent-guild:auditor | CON-audit | opus
+2026-08-14T23:05:33Z | agent-guild:auditor | DEC-audit | opus
+2026-08-14T23:21:28Z | agent-guild:auditor | DEC-audit | opus
+2026-08-15T01:38:40Z | agent-guild:auditor | DEC-audit | opus
+2026-08-15T02:01:04Z | agent-guild:auditor | DEC-audit | opus
+2026-08-15T02:12:36Z | agent-guild:auditor | DEC-audit | opus
+2026-08-15T03:59:55Z | agent-guild:worker-standard | T-001 | sonnet
+2026-08-15T04:00:03Z | agent-guild:worker-craft | T-002 | opus
+2026-08-15T05:13:29Z | agent-guild:worker-craft | T-002 | opus
+2026-08-15T05:14:09Z | agent-guild:worker-standard | T-001 | sonnet
+2026-08-15T05:18:14Z | agent-guild:checker-judgment | T-002 | opus
+2026-08-15T05:21:22Z | agent-guild:checker-judgment | T-001 | opus
+2026-08-15T05:28:09Z | agent-guild:worker-standard | T-003 | sonnet
+2026-08-15T05:35:26Z | agent-guild:checker-deterministic | T-003 | haiku

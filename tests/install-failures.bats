@@ -44,6 +44,15 @@ first_raycast_extension() {
 	grep -vE '^\s*#|^\s*$' "$SRC/dot_config/raycast-extensions.txt" | head -1
 }
 
+# Rendered the same way render_script renders a full script — real $HOME, since the
+# Brewfile partial pulls from .chezmoidata.toml rather than anything install-packages
+# itself gates on. Used to read real entry names for the drop-and-retry cases below: a
+# fixture name the render never contained would make "not the dropped name" vacuously
+# true, per the constitution's C-1.
+render_brewfile() {
+	HOME="$REAL_HOME" chezmoi execute-template <<<'{{ template "Brewfile" . }}'
+}
+
 # Raycast's hotkey write ignores $HOME and lands in the real
 # ~/Library/Preferences, so every case that reaches it needs this on PATH first
 # — recording, not just swallowing, since the proof D-4 wants is that the real
@@ -67,9 +76,11 @@ stub_sleep() {
 }
 
 # ---- install-packages ----
-# One `brew bundle` call over the whole rendered Brewfile, so it has no
-# keeps-going case of its own — B-3 exempts it, since `brew bundle` already
-# continues past a failing entry internally.
+# `brew bundle` already continues past a failing entry internally, so this
+# suite has no keeps-going case of its own — B-3 exempts it. #22 adds one
+# exception below: a fetch-phase failure where some but not all of the
+# batched names are unresolvable gets exactly one retry with the dead lines
+# dropped.
 
 @test "install-packages: absent tool skips clean" {
 	script="$(render_script run_onchange_install-packages.sh.tmpl)"
@@ -178,6 +189,166 @@ STUB
 	[ "$status" -eq 0 ]
 	assert_not_contains "could not install"
 	assert_not_contains "without naming a failed entry"
+}
+
+# The stub logs one line per `brew bundle` call to $BUNDLE_LOG (a real recorded log of
+# every invocation, not the summary text alone — C-1 rules out proving the retry from
+# text `run_onchange_install-packages.sh.tmpl:94-95` already printed before any retry
+# branch existed) and saves each call's received Brewfile under $BUNDLE_DIR/<n>, since
+# the mixed-batch case has to show the second call's Brewfile, not just that a second
+# call happened.
+@test "install-packages: drop-and-retry, mixed batch installs the survivors" {
+	script="$(render_script run_onchange_install-packages.sh.tmpl)"
+	brewfile="$(render_brewfile)"
+	local -a names
+	names=($(printf '%s\n' "$brewfile" | grep '^brew "' | head -3 | sed -E 's/^brew "([^"]+)"$/\1/'))
+	export SURVIVOR1="${names[0]}" DROP_NAME="${names[1]}" SURVIVOR2="${names[2]}"
+	export BUNDLE_LOG="$BATS_TEST_TMPDIR/bundle-calls.log"
+	export BUNDLE_DIR="$BATS_TEST_TMPDIR/bundle-brewfiles"
+	: >"$BUNDLE_LOG"
+	mkdir -p "$BUNDLE_DIR"
+
+	cat >"$STUBS/brew" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+trust) exit 0 ;;
+info)
+	case "$2" in
+	"$DROP_NAME") exit 1 ;;
+	*) exit 0 ;;
+	esac
+	;;
+bundle)
+	n=$(( $(wc -l <"$BUNDLE_LOG") + 1 ))
+	echo "bundle $n" >>"$BUNDLE_LOG"
+	cat >"$BUNDLE_DIR/$n"
+	if [ "$n" -eq 1 ]; then
+		echo "Fetching $SURVIVOR1, $DROP_NAME, $SURVIVOR2"
+		echo "\`brew bundle\` failed! Failed to fetch $SURVIVOR1, $DROP_NAME, $SURVIVOR2" >&2
+		echo "Error: No available formula with the name \"$DROP_NAME\"." >&2
+		exit 1
+	fi
+	exit 0
+	;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	[ "$(wc -l <"$BUNDLE_LOG")" -eq 2 ]
+	second="$(cat "$BUNDLE_DIR/2")"
+	assert_contains "\"$SURVIVOR1\"" "$second"
+	assert_contains "\"$SURVIVOR2\"" "$second"
+	assert_not_contains "\"$DROP_NAME\"" "$second"
+}
+
+# The all-dead counterpart to the mixed-batch case above. Gating the retry on "the
+# trimmed Brewfile is non-empty" would still fire here — the fetch batch is two names out
+# of dozens elsewhere in the real Brewfile — so this asserts the log holds exactly one
+# `bundle` call, the way C-1's rubric requires it be gated instead: every batched name
+# unresolvable, not merely some Brewfile lines surviving.
+@test "install-packages: drop-and-retry, all unresolvable reports without retrying" {
+	script="$(render_script run_onchange_install-packages.sh.tmpl)"
+	brewfile="$(render_brewfile)"
+	local -a names
+	names=($(printf '%s\n' "$brewfile" | grep '^brew "' | head -2 | sed -E 's/^brew "([^"]+)"$/\1/'))
+	export NAME1="${names[0]}" NAME2="${names[1]}"
+	export BUNDLE_LOG="$BATS_TEST_TMPDIR/bundle-calls.log"
+	: >"$BUNDLE_LOG"
+
+	cat >"$STUBS/brew" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+trust) exit 0 ;;
+info) exit 1 ;;
+bundle)
+	echo "bundle" >>"$BUNDLE_LOG"
+	cat >/dev/null
+	echo "Fetching $NAME1, $NAME2"
+	echo "\`brew bundle\` failed! Failed to fetch $NAME1, $NAME2" >&2
+	echo "Error: No available formula with the name \"$NAME1\"." >&2
+	exit 1
+	;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	[ "$(wc -l <"$BUNDLE_LOG")" -eq 1 ]
+	assert_contains "  $NAME1"
+	assert_contains "  $NAME2"
+}
+
+@test "install-packages: no extra brew calls on a clean run" {
+	script="$(render_script run_onchange_install-packages.sh.tmpl)"
+	export BUNDLE_LOG="$BATS_TEST_TMPDIR/bundle-calls.log"
+	export INFO_LOG="$BATS_TEST_TMPDIR/info-calls.log"
+	: >"$BUNDLE_LOG"
+	: >"$INFO_LOG"
+
+	cat >"$STUBS/brew" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+trust) exit 0 ;;
+info) echo "info $2" >>"$INFO_LOG"; exit 0 ;;
+bundle)
+	echo "bundle" >>"$BUNDLE_LOG"
+	cat >/dev/null
+	echo "Homebrew Bundle complete! 0 Brewfile dependencies now installed."
+	exit 0
+	;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	[ "$(wc -l <"$INFO_LOG")" -eq 0 ]
+	[ "$(wc -l <"$BUNDLE_LOG")" -eq 1 ]
+}
+
+# A second failure after the retry, in the other phase this time — install rather than
+# fetch. Drops one of two names, so the retry fires; the survivor then fails to install
+# for an unrelated reason. Only the count matters here: two `bundle` calls and no third,
+# regardless of which phase the second failure lands in.
+@test "install-packages: reports and stops after a second failure" {
+	script="$(render_script run_onchange_install-packages.sh.tmpl)"
+	brewfile="$(render_brewfile)"
+	local -a names
+	names=($(printf '%s\n' "$brewfile" | grep '^brew "' | head -2 | sed -E 's/^brew "([^"]+)"$/\1/'))
+	export DROP_NAME="${names[0]}" SURVIVOR_NAME="${names[1]}"
+	export BUNDLE_LOG="$BATS_TEST_TMPDIR/bundle-calls.log"
+	: >"$BUNDLE_LOG"
+
+	cat >"$STUBS/brew" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+trust) exit 0 ;;
+info)
+	case "$2" in
+	"$DROP_NAME") exit 1 ;;
+	*) exit 0 ;;
+	esac
+	;;
+bundle)
+	n=$(( $(wc -l <"$BUNDLE_LOG") + 1 ))
+	echo "bundle $n" >>"$BUNDLE_LOG"
+	cat >/dev/null
+	if [ "$n" -eq 1 ]; then
+		echo "Fetching $SURVIVOR_NAME, $DROP_NAME"
+		echo "\`brew bundle\` failed! Failed to fetch $SURVIVOR_NAME, $DROP_NAME" >&2
+		echo "Error: No available formula with the name \"$DROP_NAME\"." >&2
+		exit 1
+	fi
+	echo "Installing $SURVIVOR_NAME has failed!"
+	exit 1
+	;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	[ "$(wc -l <"$BUNDLE_LOG")" -eq 2 ]
+	assert_contains "  $SURVIVOR_NAME"
 }
 
 # ---- install-vscode-extensions ----

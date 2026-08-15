@@ -1,0 +1,128 @@
+check-build.sh: running: bats tests/
+1..125
+ok 1 moves the selected package and leaves its alignment and comment alone
+ok 2 a package whose name prefixes another's is not confused for it
+ok 3 a tapped name with slashes in it is matched literally
+ok 4 several packages selected at once all move
+ok 5 multiple target bundles are written as a list
+ok 6 selecting no package writes nothing
+ok 7 selecting a package but no bundle writes nothing
+ok 8 refuses when the anchor matches no entry
+ok 9 adopts an installed package the registry never named
+ok 10 says so and writes nothing when everything installed is already tracked
+ok 11 rewrites the bundles line in the local config
+ok 12 inserts the key under [data] when the machine never re-inited
+ok 13 marking no bundles leaves the local config alone
+ok 14 moving a package leaves the local config untouched
+ok 15 choosing this machine's bundles leaves the registry untouched
+ok 16 names the missing tool rather than failing somewhere inside a pipeline
+ok 17 rejects an unknown flag instead of guessing
+ok 18 --help lists all three modes and exits clean
+ok 19 doctor: a tracked but uninstalled formula is reported
+ok 20 says nothing when every declared cask is tracked
+ok 21 names the key, the half and the cask when the registry is missing one
+ok 22 a formula does not satisfy a cask dependency
+ok 23 matches the whole cask name, not a prefix of a longer one
+ok 24 a cask in a bundle this machine hasn't enabled is a gap
+ok 25 an empty list is fine on Tier C, which is fetched from 1Password
+ok 26 an empty list is a gap on a tier that installs from Homebrew
+ok 27 a half with no casks key at all is reported as undeclared
+ok 28 skips rather than dies when there is no registry to read
+ok 29 the repo's own font registry and package registry agree
+ok 30 lists the roster in order and marks the active font
+ok 31 switching rewrites the Ghostty block and the VS Code keys together
+ok 32 hands both files back to chezmoi
+ok 33 a second argument overrides the registry size
+ok 34 rejects a size that is not a positive integer
+ok 35 round-tripping the whole roster restores both files byte for byte
+ok 36 writes one Ghostty font-feature line per tag
+ok 37 switching writes the editor axes and the terminal family too
+ok 38 a Tier B key leaves the editor and the terminal on different families
+ok 39 every Tier B editor entry falls back to the symbols family
+ok 40 every entry carries the fields the switcher reads
+ok 41 every half declares where its font comes from
+ok 42 only Tier C declares no casks
+ok 43 no two entries share an order
+ok 44 preserves the trailing commas the formatter keeps re-adding
+ok 45 preserves file modes so chezmoi does not re-add them as private
+ok 46 an unknown key exits non-zero with neither file modified
+ok 47 a Ghostty config missing its end marker exits non-zero and changes nothing
+ok 48 a missing registry exits non-zero naming the file
+ok 49 an absent jq exits non-zero
+ok 50 settings carrying comments are reported, not stripped, and nothing is written
+ok 51 an anchor matching zero times exits non-zero
+ok 52 an anchor matching more than once exits non-zero
+ok 53 builds the family cache when it is missing
+ok 54 rebuilds the family cache once it is older than seven days
+ok 55 leaves a family cache younger than seven days alone
+ok 56 --refresh rebuilds the cache on demand
+ok 57 does not invoke system_profiler on an ordinary switch with a warm cache
+ok 58 refuses a font whose family is absent, naming it and its tier, touching nothing
+ok 59 a Tier C refusal points at 1Password and the fetch that may not have run
+ok 60 --force writes a font the cache says is absent
+ok 61 lists an absent entry marked rather than hiding it, and exits 0
+ok 62 an unknown option exits non-zero rather than being read as a key
+ok 63 no family name appears outside the registry
+ok 64 the settings file carries every key the switcher writes
+ok 65 neither config is a chezmoi template
+ok 66 an unpatched terminal font emits its fallback family
+ok 67 a patched terminal font emits no fallback line
+ok 68 MonoLisa names dlig explicitly in both halves
+ok 69 every Tier C entry is fetchable by a manifest line
+ok 70 the fetch script declares its teardown class
+ok 71 no font bytes are tracked in the source tree
+ok 72 switching drives the terminal's ligature settings too
+ok 73 an unpatched font names its icon fallback in the terminal family too
+ok 74 install-packages: absent tool skips clean
+ok 75 install-packages: present tool failing names the item
+ok 76 install-packages: a fetch-phase failure names only the entry that doesn't exist
+ok 77 install-packages: a fetch failure where every entry exists names the whole batch
+ok 78 install-packages: all items succeed prints no failure summary
+ok 79 install-vscode-extensions: absent tool skips clean
+ok 80 install-vscode-extensions: present tool failing names the item
+ok 81 install-vscode-extensions: one failure does not stop the rest
+ok 82 install-vscode-extensions: all items succeed prints no failure summary
+ok 83 configure-raycast: absent tool skips clean
+ok 84 configure-raycast: present tool failing names the item
+ok 85 configure-raycast: one failure does not stop the rest
+ok 86 configure-raycast: all items succeed prints no failure summary
+ok 87 install-claude-plugins: absent tool skips clean
+ok 88 install-claude-plugins: present tool failing names the item
+ok 89 install-claude-plugins: one failure does not stop the rest
+ok 90 install-claude-plugins: all items succeed prints no failure summary
+ok 91 strips a trailing comma before a closing brace
+ok 92 strips a trailing comma before a closing bracket
+ok 93 leaves a comma-then-brace living inside a string alone
+ok 94 survives an escaped quote inside a string
+ok 95 leaves strict JSON untouched
+ok 96 refuses a file with line comments rather than stripping them
+ok 97 refuses a file with block comments rather than stripping them
+ok 98 reads this machine's real VS Code settings
+ok 99 returns editor.fontFamily byte-identical to its input
+ok 100 exits 0 when op is absent
+ok 101 exits 0 when op is present but signed out
+ok 102 exits 0 and says so when the vault will not authorize
+ok 103 skips an item missing from the vault and keeps going
+ok 104 leaves no temp directory behind when a run fails partway
+ok 105 installs into a subdirectory so teardown has one path to remove
+ok 106 pins the account on every op call
+ok 107 no bare [[ or (( on the guarded surface
+ok 108 every package declares a name, a known type, and at least one bundle
+ok 109 mas entries carry an integer id and no other type does
+ok 110 every bundle a package or tap names is in the catalog
+ok 111 no package is declared twice
+ok 112 every tapped formula's tap is enabled wherever the formula is
+ok 113 taps render first, contiguously, at column zero
+ok 114 the trust step still finds every tap the render emits
+ok 115 a package in a bundle you haven't enabled renders nowhere
+ok 116 an empty bundle list renders an empty Brewfile
+ok 117 every role installs every font the roster names
+ok 118 the seeded bundle list matches what the render falls back to
+ok 119 each role's packages are a superset of the narrower role's
+ok 120 every bundle in the catalog is reachable from some role's defaults
+ok 121 sync: attached branch with no operation in progress commits normally
+ok 122 sync: detached HEAD refuses, names itself, and leaves the repo untouched
+ok 123 sync: rebase in progress refuses, names itself, and leaves the repo untouched
+ok 124 sync: merge in progress refuses, names itself, and leaves the repo untouched
+ok 125 sync: detached HEAD refuses on a clean tree, before the clean-tree exit ever runs
+check-build.sh: exit 0 (log: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/log/build-20260814T171155.log)

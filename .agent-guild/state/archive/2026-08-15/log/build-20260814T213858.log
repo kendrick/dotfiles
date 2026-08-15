@@ -1,0 +1,29 @@
+check-build.sh: running: bats tests/
+1..125
+ok 1 moves the selected package and leaves its alignment and comment alone
+ok 2 a package whose name prefixes another's is not confused for it
+ok 3 a tapped name with slashes in it is matched literally
+ok 4 several packages selected at once all move
+ok 5 multiple target bundles are written as a list
+ok 6 selecting no package writes nothing
+ok 7 selecting a package but no bundle writes nothing
+ok 8 refuses when the anchor matches no entry
+ok 9 adopts an installed package the registry never named
+ok 10 says so and writes nothing when everything installed is already tracked
+ok 11 rewrites the bundles line in the local config
+ok 12 inserts the key under [data] when the machine never re-inited
+ok 13 marking no bundles leaves the local config alone
+ok 14 moving a package leaves the local config untouched
+ok 15 choosing this machine's bundles leaves the registry untouched
+ok 16 names the missing tool rather than failing somewhere inside a pipeline
+ok 17 rejects an unknown flag instead of guessing
+ok 18 --help lists all three modes and exits clean
+ok 19 doctor: a tracked but uninstalled formula is reported
+ok 20 says nothing when every declared cask is tracked
+ok 21 names the key, the half and the cask when the registry is missing one
+ok 22 a formula does not satisfy a cask dependency
+ok 23 matches the whole cask name, not a prefix of a longer one
+ok 24 a cask in a bundle this machine hasn't enabled is a gap
+ok 25 an empty list is fine on Tier C, which is fetched from 1Password
+ok 26 an empty list is a gap on a tier that installs from Homebrew
+ok 27 a half with no casks key at all is reported as undeclared

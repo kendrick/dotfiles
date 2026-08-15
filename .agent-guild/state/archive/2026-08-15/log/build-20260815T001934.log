@@ -1,0 +1,4 @@
+check-build.sh: running: bats -f "reports and stops" tests/install-failures.bats
+1..1
+ok 1 install-packages: reports and stops after a second failure
+check-build.sh: exit 0 (log: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/log/build-20260815T001934.log)

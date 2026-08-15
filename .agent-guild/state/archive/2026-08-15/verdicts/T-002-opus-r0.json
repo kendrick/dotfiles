@@ -1,0 +1,54 @@
+{
+  "task_id": "T-002",
+  "checker": "checker-judgment",
+  "vendor": "anthropic",
+  "model": "claude-opus-5[1m]",
+  "verdict": "pass",
+  "findings": [
+    {
+      "clause_id": "C-6",
+      "severity": "info",
+      "description": "Both parentheticals are reworded away from the retry promise and replaced with an actionable instruction plus the true re-run condition; no wording anywhere in the file claims an automatic retry.",
+      "evidence": "dot_local/bin/executable_dotfiles-doctor:21 `echo \"-- in your dotfiles but not installed (install by hand; apply won't retry until the list changes):\"` and :67 `echo \"-- in a bundle you've enabled but not installed (install by hand; apply won't retry until the package list changes):\"`. `git diff` confirms the two removed lines were the `(next apply installs these)` variants. Grep for retry/apply wording across the whole file returns only :20, :21, :35 (\"apply never uninstalls\"), :65, :67, :92 — no surviving retry promise."
+    },
+    {
+      "clause_id": "C-6",
+      "severity": "info",
+      "description": "The Homebrew heading's claim matches the packages installer's actual hash key and exit contract.",
+      "evidence": "run_onchange_install-packages.sh.tmpl:2-5 `# Brewfile hash: {{ includeTemplate \"Brewfile\" . | sha256sum }}` / `Re-runs whenever the rendered Brewfile changes. Hashing the render rather than the template file is what makes this react to .chezmoidata.toml edits and to a machine turning a bundle on or off.` — so the re-run trigger is the package list, as the heading at :67 says. `git show HEAD:run_onchange_install-packages.sh.tmpl` tail: `# Still 0, having named the failures. Stopping the apply here would strand every later script over one unavailable formula; dotfiles-doctor is what carries the gap forward.` followed by `exit 0`, confirming the doctor comment's \"exits 0 by design (#17)\" and the filed-as-done consequence."
+    },
+    {
+      "clause_id": "C-6",
+      "severity": "info",
+      "description": "The VS Code heading's claim holds for the extensions installer specifically, which is a separate script with its own hash key.",
+      "evidence": "run_onchange_install-vscode-extensions.sh.tmpl:3 `# VS Code extensions hash: {{ include \"dot_config/vscode-extensions.txt\" | sha256sum }}` and :8 `# Re-runs whenever the extension list changes.` — the key is the extension list, matching \"apply won't retry until the list changes\" at doctor:21. The rejected-id half of the comment at doctor:18-20 also holds: :26-30 collect failures via `if ! code --install-extension ... ; then failed+=(\"$ext\")`, :38-40 name them, and :45-47 `# Named the failures and still succeeded, on purpose` / `exit 0`."
+    },
+    {
+      "clause_id": "C-8",
+      "severity": "info",
+      "description": "Both added comments explain the run_onchange hash constraint and the #17/#22 history a reader could not recover from the adjacent echo, and neither paraphrases its own code.",
+      "evidence": "dot_local/bin/executable_dotfiles-doctor:17-20 explains the extension installer's hash key and its exit-0-on-rejected-id behavior; :63-66 explains the Brewfile hash key, the #17 exit-0 decision, and names #22 as the resulting symptom (\"the same missing name in this list, run after run\"). The adjacent code in both cases is a single `echo` of a heading, so neither comment restates it."
+    },
+    {
+      "clause_id": "C-8",
+      "severity": "info",
+      "description": "Density and voice match the file's existing register: multi-line why-comments, concrete issue numbers, and a named consequence rather than a generic caution.",
+      "evidence": "Register at :29-32 (\"Packages are data now (GitHub #4) ... it's the same parser the render uses, so there's no second reader to drift from the first.\") and :84-94 (\"That's how Fantasque went years unnoticed: the configs named it, the Brewfile installed no fonts at all ...\"). The added prose keeps that shape — 4 lines each, issue-anchored, ending on the observable symptom — and the `#` spacer added at :62 follows the same paragraph separator used at :33, :62, :88 and :93. No list-of-three tics, no bolded inline headers, no hedged summary sentence."
+    },
+    {
+      "clause_id": "C-8",
+      "severity": "minor",
+      "description": "In the extension comment, \"this file's hash\" briefly reads as the doctor script's own hash before the clause after the colon disambiguates it to the extension list; a reader who stops at the colon could take it the wrong way.",
+      "evidence": "dot_local/bin/executable_dotfiles-doctor:17-18 `# run_onchange keys the extension installer on this file's hash: chezmoi re-runs it when` / `# the list changes, never because something on the list is still missing.` The referent is `list=\"$SRC/dot_config/vscode-extensions.txt\"` set at :12, and the second half states the correct trigger, so the comment is not false — only briefly ambiguous."
+    },
+    {
+      "clause_id": "C-8",
+      "severity": "info",
+      "description": "The artifact is syntactically valid and the doctor suite is still 11/11, with the prefix tests/doctor.bats:99 asserts intact.",
+      "evidence": "`bash -n dot_local/bin/executable_dotfiles-doctor` → exit 0. `bats tests/doctor.bats` → `1..11` with `ok 1 doctor: a tracked but uninstalled formula is reported` through `ok 11 the repo's own font registry and package registry agree`, all 11 ok. Test 1 is the one carrying `assert_contains \"in a bundle you've enabled but not installed\"` at tests/doctor.bats:99, and `git diff --numstat` shows tests/doctor.bats unmodified, so the prefix survived unedited."
+    }
+  ],
+  "timestamp": "2026-08-15T05:19:45Z",
+  "duration_ms": null,
+  "cost_usd": null
+}

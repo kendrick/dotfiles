@@ -1,0 +1,527 @@
+check-build.sh: running: bats tests/
+1..129
+not ok 1 moves the selected package and leaves its alignment and comment alone
+# (in test file tests/apps.bats, line 119)
+#   `[ "$status" -eq 0 ]' failed
+not ok 2 a package whose name prefixes another's is not confused for it
+# (in test file tests/apps.bats, line 128)
+#   `[ "$status" -eq 0 ]' failed
+not ok 3 a tapped name with slashes in it is matched literally
+# (in test file tests/apps.bats, line 136)
+#   `[ "$status" -eq 0 ]' failed
+not ok 4 several packages selected at once all move
+# (in test file tests/apps.bats, line 143)
+#   `[ "$status" -eq 0 ]' failed
+not ok 5 multiple target bundles are written as a list
+# (in test file tests/apps.bats, line 151)
+#   `[ "$status" -eq 0 ]' failed
+not ok 6 selecting no package writes nothing
+# (in test file tests/apps.bats, line 162)
+#   `[ "$status" -eq 0 ]' failed
+not ok 7 selecting a package but no bundle writes nothing
+# (in test file tests/apps.bats, line 171)
+#   `[ "$status" -eq 0 ]' failed
+not ok 8 refuses when the anchor matches no entry
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/apps.bats, line 181)
+#   `assert_contains "found 0"' failed
+not ok 9 adopts an installed package the registry never named
+# (in test file tests/apps.bats, line 191)
+#   `[ "$status" -eq 0 ]' failed
+not ok 10 says so and writes nothing when everything installed is already tracked
+# (in test file tests/apps.bats, line 203)
+#   `[ "$status" -eq 0 ]' failed
+not ok 11 rewrites the bundles line in the local config
+# (in test file tests/apps.bats, line 213)
+#   `[ "$status" -eq 0 ]' failed
+not ok 12 inserts the key under [data] when the machine never re-inited
+# (in test file tests/apps.bats, line 230)
+#   `[ "$status" -eq 0 ]' failed
+not ok 13 marking no bundles leaves the local config alone
+# (in test file tests/apps.bats, line 242)
+#   `[ "$status" -eq 0 ]' failed
+not ok 14 moving a package leaves the local config untouched
+# (in test file tests/apps.bats, line 256)
+#   `[ "$status" -eq 0 ]' failed
+not ok 15 choosing this machine's bundles leaves the registry untouched
+# (in test file tests/apps.bats, line 265)
+#   `[ "$status" -eq 0 ]' failed
+not ok 16 names the missing tool rather than failing somewhere inside a pipeline
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/apps.bats, line 276)
+#   `assert_contains "fzf"' failed
+not ok 17 rejects an unknown flag instead of guessing
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/apps.bats, line 282)
+#   `assert_contains "unknown option"' failed
+not ok 18 --help lists all three modes and exits clean
+# (in test file tests/apps.bats, line 287)
+#   `[ "$status" -eq 0 ]' failed
+ok 19 doctor: a tracked but uninstalled formula is reported
+ok 20 says nothing when every declared cask is tracked
+ok 21 names the key, the half and the cask when the registry is missing one
+ok 22 a formula does not satisfy a cask dependency
+ok 23 matches the whole cask name, not a prefix of a longer one
+ok 24 a cask in a bundle this machine hasn't enabled is a gap
+ok 25 an empty list is fine on Tier C, which is fetched from 1Password
+ok 26 an empty list is a gap on a tier that installs from Homebrew
+ok 27 a half with no casks key at all is reported as undeclared
+ok 28 skips rather than dies when there is no registry to read
+not ok 29 the repo's own font registry and package registry agree
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/doctor.bats, line 284)
+#   `assert_contains "none"' failed
+not ok 30 lists the roster in order and marks the active font
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 31 switching rewrites the Ghostty block and the VS Code keys together
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 32 hands both files back to chezmoi
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 33 a second argument overrides the registry size
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 34 rejects a size that is not a positive integer
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 35 round-tripping the whole roster restores both files byte for byte
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 36 writes one Ghostty font-feature line per tag
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 37 switching writes the editor axes and the terminal family too
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 38 a Tier B key leaves the editor and the terminal on different families
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 39 every Tier B editor entry falls back to the symbols family
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 40 every entry carries the fields the switcher reads
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 41 every half declares where its font comes from
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 42 only Tier C declares no casks
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 43 no two entries share an order
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 44 preserves the trailing commas the formatter keeps re-adding
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 45 preserves file modes so chezmoi does not re-add them as private
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 46 an unknown key exits non-zero with neither file modified
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 47 a Ghostty config missing its end marker exits non-zero and changes nothing
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 48 a missing registry exits non-zero naming the file
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 49 an absent jq exits non-zero
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 50 settings carrying comments are reported, not stripped, and nothing is written
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 51 an anchor matching zero times exits non-zero
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 52 an anchor matching more than once exits non-zero
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 53 builds the family cache when it is missing
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 54 rebuilds the family cache once it is older than seven days
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 55 leaves a family cache younger than seven days alone
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 56 --refresh rebuilds the cache on demand
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 57 does not invoke system_profiler on an ordinary switch with a warm cache
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 58 refuses a font whose family is absent, naming it and its tier, touching nothing
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 59 a Tier C refusal points at 1Password and the fetch that may not have run
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 60 --force writes a font the cache says is absent
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 61 lists an absent entry marked rather than hiding it, and exits 0
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 62 an unknown option exits non-zero rather than being read as a key
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 63 no family name appears outside the registry
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 64 the settings file carries every key the switcher writes
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 65 neither config is a chezmoi template
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 66 an unpatched terminal font emits its fallback family
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 67 a patched terminal font emits no fallback line
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 68 MonoLisa names dlig explicitly in both halves
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 69 every Tier C entry is fetchable by a manifest line
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 70 the fetch script declares its teardown class
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 71 no font bytes are tracked in the source tree
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 72 switching drives the terminal's ligature settings too
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+not ok 73 an unpatched font names its icon fallback in the terminal family too
+# (from function `setup' in test file tests/font.bats, line 27)
+#   `cp "$SRC/dot_config/font/registry.json" "$HOME/.config/font/registry.json"' failed
+# cp: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+ok 74 install-packages: absent tool skips clean
+ok 75 install-packages: present tool failing names the item
+ok 76 install-packages: a fetch-phase failure names only the entry that doesn't exist
+ok 77 install-packages: a fetch failure where every entry exists names the whole batch
+ok 78 install-packages: all items succeed prints no failure summary
+not ok 79 install-vscode-extensions: absent tool skips clean
+# (in test file tests/install-failures.bats, line 188)
+#   `[ "$status" -eq 0 ]' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_install-vscode-extensions.sh.tmpl: No such file or directory
+not ok 80 install-vscode-extensions: present tool failing names the item
+# (in test file tests/install-failures.bats, line 204)
+#   `[ "$status" -eq 0 ]' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_install-vscode-extensions.sh.tmpl: No such file or directory
+# grep: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/vscode-extensions.txt: No such file or directory
+not ok 81 install-vscode-extensions: one failure does not stop the rest
+# (in test file tests/install-failures.bats, line 211)
+#   `expected="$(grep -vcE '^\s*#|^\s*$' "$SRC/dot_config/vscode-extensions.txt")"' failed with status 2
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_install-vscode-extensions.sh.tmpl: No such file or directory
+# grep: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/vscode-extensions.txt: No such file or directory
+not ok 82 install-vscode-extensions: all items succeed prints no failure summary
+# (in test file tests/install-failures.bats, line 232)
+#   `[ "$status" -eq 0 ]' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_install-vscode-extensions.sh.tmpl: No such file or directory
+not ok 83 configure-raycast: absent tool skips clean
+# (in test file tests/install-failures.bats, line 246)
+#   `[ "$status" -eq 0 ]' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_configure-raycast.sh.tmpl: No such file or directory
+not ok 84 configure-raycast: present tool failing names the item
+# (in test file tests/install-failures.bats, line 264)
+#   `[ "$status" -eq 0 ]' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_configure-raycast.sh.tmpl: No such file or directory
+# grep: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/raycast-extensions.txt: No such file or directory
+not ok 85 configure-raycast: one failure does not stop the rest
+# (in test file tests/install-failures.bats, line 277)
+#   `expected="$(grep -vcE '^\s*#|^\s*$' "$SRC/dot_config/raycast-extensions.txt")"' failed with status 2
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_configure-raycast.sh.tmpl: No such file or directory
+# grep: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/raycast-extensions.txt: No such file or directory
+not ok 86 configure-raycast: all items succeed prints no failure summary
+# (in test file tests/install-failures.bats, line 301)
+#   `[ "$status" -eq 0 ]' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_configure-raycast.sh.tmpl: No such file or directory
+not ok 87 install-claude-plugins: absent tool skips clean
+# (in test file tests/install-failures.bats, line 319)
+#   `[ "$status" -eq 0 ]' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_install-claude-plugins.sh.tmpl: No such file or directory
+not ok 88 install-claude-plugins: present tool failing names the item
+# (in test file tests/install-failures.bats, line 344)
+#   `[ "$status" -eq 0 ]' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_install-claude-plugins.sh.tmpl: No such file or directory
+# grep: /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/88/run_onchange_after_install-claude-plugins.sh: No such file or directory
+not ok 89 install-claude-plugins: one failure does not stop the rest
+# (in test file tests/install-failures.bats, line 354)
+#   `expected="$(grep -cE '^(add_marketplace|install_plugin) ' "$script")"' failed with status 2
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_install-claude-plugins.sh.tmpl: No such file or directory
+# grep: /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/89/run_onchange_after_install-claude-plugins.sh: No such file or directory
+not ok 90 install-claude-plugins: all items succeed prints no failure summary
+# (in test file tests/install-failures.bats, line 395)
+#   `[ "$status" -eq 0 ]' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/install-failures.bats: line 35: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_install-claude-plugins.sh.tmpl: No such file or directory
+ok 91 install-packages: drop-and-retry installs the survivors
+ok 92 install-packages: drop-and-retry with nothing left makes no second bundle call
+ok 93 install-packages: a clean run makes no extra brew calls
+ok 94 install-packages: a retry that fails again reports and stops
+not ok 95 strips a trailing comma before a closing brace
+# (in test file tests/jsonc.bats, line 21)
+#   `[ "$status" -eq 0 ]' failed
+not ok 96 strips a trailing comma before a closing bracket
+# (in test file tests/jsonc.bats, line 28)
+#   `[ "$status" -eq 0 ]' failed
+not ok 97 leaves a comma-then-brace living inside a string alone
+# (in test file tests/jsonc.bats, line 38)
+#   `[ "$status" -eq 0 ]' failed
+not ok 98 survives an escaped quote inside a string
+# (in test file tests/jsonc.bats, line 45)
+#   `[ "$status" -eq 0 ]' failed
+not ok 99 leaves strict JSON untouched
+# (in test file tests/jsonc.bats, line 52)
+#   `[ "$status" -eq 0 ]' failed
+not ok 100 refuses a file with line comments rather than stripping them
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/jsonc.bats, line 63)
+#   `assert_contains "while parsing"' failed
+not ok 101 refuses a file with block comments rather than stripping them
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/jsonc.bats, line 70)
+#   `assert_contains "while parsing"' failed
+not ok 102 reads this machine's real VS Code settings
+# (in test file tests/jsonc.bats, line 78)
+#   `[ "$status" -eq 0 ]' failed
+not ok 103 returns editor.fontFamily byte-identical to its input
+# (in test file tests/jsonc.bats, line 89)
+#   `[ "$status" -eq 0 ]' failed
+# grep: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../private_Library/private_Application Support/Code/User/settings.json: No such file or directory
+not ok 104 exits 0 when op is absent
+# (from function `setup' in test file tests/licensed-fonts.bats, line 24)
+#   `chezmoi execute-template <"$SCRIPT" >"$BATS_TEST_TMPDIR/fetch.sh"' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/licensed-fonts.bats: line 24: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_fetch-licensed-fonts.sh.tmpl: No such file or directory
+not ok 105 exits 0 when op is present but signed out
+# (from function `setup' in test file tests/licensed-fonts.bats, line 24)
+#   `chezmoi execute-template <"$SCRIPT" >"$BATS_TEST_TMPDIR/fetch.sh"' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/licensed-fonts.bats: line 24: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_fetch-licensed-fonts.sh.tmpl: No such file or directory
+not ok 106 exits 0 and says so when the vault will not authorize
+# (from function `setup' in test file tests/licensed-fonts.bats, line 24)
+#   `chezmoi execute-template <"$SCRIPT" >"$BATS_TEST_TMPDIR/fetch.sh"' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/licensed-fonts.bats: line 24: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_fetch-licensed-fonts.sh.tmpl: No such file or directory
+not ok 107 skips an item missing from the vault and keeps going
+# (from function `setup' in test file tests/licensed-fonts.bats, line 24)
+#   `chezmoi execute-template <"$SCRIPT" >"$BATS_TEST_TMPDIR/fetch.sh"' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/licensed-fonts.bats: line 24: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_fetch-licensed-fonts.sh.tmpl: No such file or directory
+not ok 108 leaves no temp directory behind when a run fails partway
+# (from function `setup' in test file tests/licensed-fonts.bats, line 24)
+#   `chezmoi execute-template <"$SCRIPT" >"$BATS_TEST_TMPDIR/fetch.sh"' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/licensed-fonts.bats: line 24: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_fetch-licensed-fonts.sh.tmpl: No such file or directory
+not ok 109 installs into a subdirectory so teardown has one path to remove
+# (from function `setup' in test file tests/licensed-fonts.bats, line 24)
+#   `chezmoi execute-template <"$SCRIPT" >"$BATS_TEST_TMPDIR/fetch.sh"' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/licensed-fonts.bats: line 24: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_fetch-licensed-fonts.sh.tmpl: No such file or directory
+not ok 110 pins the account on every op call
+# (from function `setup' in test file tests/licensed-fonts.bats, line 24)
+#   `chezmoi execute-template <"$SCRIPT" >"$BATS_TEST_TMPDIR/fetch.sh"' failed
+# /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/licensed-fonts.bats: line 24: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../run_onchange_after_fetch-licensed-fonts.sh.tmpl: No such file or directory
+ok 111 no bare [[ or (( on the guarded surface
+not ok 112 every package declares a name, a known type, and at least one bundle
+# (in test file tests/packages.bats, line 53)
+#   `[ "$status" -eq 0 ]' failed
+not ok 113 mas entries carry an integer id and no other type does
+# (in test file tests/packages.bats, line 64)
+#   `[ "$status" -eq 0 ]' failed
+not ok 114 every bundle a package or tap names is in the catalog
+# (in test file tests/packages.bats, line 72)
+#   `[ "$status" -eq 0 ]' failed
+not ok 115 no package is declared twice
+# (in test file tests/packages.bats, line 78)
+#   `[ "$status" -eq 0 ]' failed
+not ok 116 every tapped formula's tap is enabled wherever the formula is
+# (in test file tests/packages.bats, line 91)
+#   `[ "$status" -eq 0 ]' failed
+not ok 117 taps render first, contiguously, at column zero
+# (in test file tests/packages.bats, line 101)
+#   `[ "$status" -eq 0 ]' failed
+ok 118 the trust step still finds every tap the render emits
+not ok 119 a package in a bundle you haven't enabled renders nowhere
+# (in test file tests/packages.bats, line 118)
+#   `[ "$status" -eq 0 ]' failed
+not ok 120 an empty bundle list renders an empty Brewfile
+# (in test file tests/packages.bats, line 132)
+#   `[ "$status" -eq 0 ]' failed
+not ok 121 every role installs every font the roster names
+# (in test file tests/packages.bats, line 146)
+#   `rendered="$(render_with "$role")"' failed
+# jq: error: Could not open file /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_config/font/registry.json: No such file or directory
+# chezmoi: template: arg1:1:12: executing "arg1" at <{{template "Brewfile" .}}>: template "Brewfile" not defined
+ok 122 the seeded bundle list matches what the render falls back to
+not ok 123 each role's packages are a superset of the narrower role's
+# (in test file tests/packages.bats, line 200)
+#   `[ -n "$(comm -13 <(echo "$client") <(echo "$personal"))" ]' failed
+# chezmoi: template: arg1:1:12: executing "arg1" at <{{template "Brewfile" .}}>: template "Brewfile" not defined
+# chezmoi: template: arg1:1:12: executing "arg1" at <{{template "Brewfile" .}}>: template "Brewfile" not defined
+# chezmoi: template: arg1:1:12: executing "arg1" at <{{template "Brewfile" .}}>: template "Brewfile" not defined
+ok 124 every bundle in the catalog is reachable from some role's defaults
+not ok 125 sync: attached branch with no operation in progress commits normally
+# (in test file tests/sync.bats, line 126)
+#   `[ "$status" -eq 0 ]' failed
+not ok 126 sync: detached HEAD refuses, names itself, and leaves the repo untouched
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/sync.bats, line 142)
+#   `assert_contains "$DETACHED_MSG"' failed
+not ok 127 sync: rebase in progress refuses, names itself, and leaves the repo untouched
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/sync.bats, line 158)
+#   `assert_contains "$REBASE_MSG"' failed
+not ok 128 sync: merge in progress refuses, names itself, and leaves the repo untouched
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/sync.bats, line 177)
+#   `assert_contains "$MERGE_MSG"' failed
+not ok 129 sync: detached HEAD refuses on a clean tree, before the clean-tree exit ever runs
+# (from function `assert_contains' in file tests/helpers.bash, line 15,
+#  in test file tests/sync.bats, line 195)
+#   `assert_contains "$DETACHED_MSG"' failed
+
+The following warnings were encountered during tests:
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 118)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 127)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 135)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 142)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 150)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 161)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 170)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 179)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps --adopt` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 190)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps --adopt` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 202)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps --machine` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 212)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps --machine` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 229)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps --machine` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 241)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 255)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps --machine` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 264)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 274)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps --oops` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 280)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-apps --help` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/apps.bats, line 286)
+BW01: `run`'s command `bash /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/79/run_onchange_install-vscode-extensions.sh` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/install-failures.bats, line 187)
+BW01: `run`'s command `bash /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/80/run_onchange_install-vscode-extensions.sh` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/install-failures.bats, line 203)
+BW01: `run`'s command `bash /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/82/run_onchange_install-vscode-extensions.sh` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/install-failures.bats, line 231)
+BW01: `run`'s command `bash /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/83/run_onchange_configure-raycast.sh` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/install-failures.bats, line 245)
+BW01: `run`'s command `bash /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/84/run_onchange_configure-raycast.sh` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/install-failures.bats, line 263)
+BW01: `run`'s command `bash /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/86/run_onchange_configure-raycast.sh` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/install-failures.bats, line 300)
+BW01: `run`'s command `bash /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/87/run_onchange_after_install-claude-plugins.sh` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/install-failures.bats, line 318)
+BW01: `run`'s command `bash /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/88/run_onchange_after_install-claude-plugins.sh` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/install-failures.bats, line 343)
+BW01: `run`'s command `bash /var/folders/zz/jwg0lvm10hbfv_zq5q8cf7jw0000gn/T/bats-run-X3nGE6/test/90/run_onchange_after_install-claude-plugins.sh` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/install-failures.bats, line 394)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-sync` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/sync.bats, line 124)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-sync` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/sync.bats, line 139)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-sync` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/sync.bats, line 155)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-sync` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/sync.bats, line 174)
+BW01: `run`'s command `bash /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/apparatus/CON-audit-r2/ref/tests/../dot_local/bin/executable_dotfiles-sync` exited with code 127, indicating 'Command not found'. Use run's return code checks, e.g. `run -127`, to fix this message.
+      (from function `run' in file /opt/homebrew/Cellar/bats-core/1.14.0/lib/bats-core/test_functions.bash, line 442,
+       in test file tests/sync.bats, line 192)
+check-build.sh: exit 1 (log: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/log/build-20260814T174304.log)

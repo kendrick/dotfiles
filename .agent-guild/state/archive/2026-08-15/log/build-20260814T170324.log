@@ -1,0 +1,3 @@
+check-build.sh: running: bats -f "no extra brew calls" tests/install-failures.bats
+ERROR: Found no tests. (Try `--allow-empty-suite`?)1..0
+check-build.sh: exit 1 (log: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/log/build-20260814T170324.log)

@@ -1,0 +1,6 @@
+check-build.sh: running: bats -f "reports and stops" tests/install-failures.bats
+1..1
+not ok 1 install-packages: a retry that fails again reports and stops
+# (in test file tests/install-failures.bats, line 521)
+#   `[ "$(count_calls bundle)" -eq 2 ]' failed
+check-build.sh: exit 1 (log: /Users/k.arnett/.local/share/chezmoi/.agent-guild/state/log/build-20260814T174556.log)

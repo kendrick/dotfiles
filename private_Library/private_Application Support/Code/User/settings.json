@@ -56,5 +56,4 @@
 	"terminal.integrated.fontLigatures.featureSettings": "'calt', 'liga'",
 	"terminal.integrated.fontSize": 14,
 	"chat.viewSessions.orientation": "stacked",
-	"chat.disableAIFeatures": true,
 }

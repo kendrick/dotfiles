@@ -47,7 +47,14 @@ dot_local/bin/executable_awssso
 # run on the first one. Skip it while the key is absent and the rest of the
 # bootstrap (brew, vscode, zsh, git, …) still lands; seed the key, re-apply, and
 # it comes in on the next pass. The plugin reinstall script guards the same way.
-{{ if not (stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt")) }}
+#
+# Size rather than existence, because `op read … > key.txt` leaves a 0-byte file
+# behind whenever the read fails: the shell creates the target before op ever runs.
+# That's the exact command run_before_provision-age-key.sh prints when it gives up,
+# so the failure path is what creates the file that defeats it. stat() alone calls
+# that empty file a key and trades the clean skip for "encryption not configured".
+{{ $key := stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") }}
+{{ if or (not $key) (eq (int $key.size) 0) }}
 .claude/settings.json
 .claude/VOICE.md
 .claude/voice-samples-work.md

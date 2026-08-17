@@ -72,6 +72,7 @@ packages = [
   { name = "raycast",              type = "cask", bundles = ["core"] },
   { name = "slack",                type = "cask", bundles = ["core"] },
   { name = "visual-studio-code",   type = "cask", bundles = ["core"] },
+  { name = "yq",                   type = "cask", bundles = ["core"] },
   { name = "zoom",                 type = "cask", bundles = ["core"] },
   { name = "Hidden Bar",           type = "mas",  id = 1452453066, bundles = ["core"] },
 
@@ -146,6 +147,7 @@ packages = [
   { name = "powershell",        type = "brew", bundles = ["office"] },
   { name = "grammarly-desktop", type = "cask", bundles = ["office"] },
   { name = "obsidian",          type = "cask", bundles = ["office"] },
+  { name = "poppler",           type = "cask", bundles = ["office"] },
   { name = "ticktick",          type = "cask", bundles = ["office"] },
 
   # ---- ai ----
@@ -159,7 +161,6 @@ packages = [
 
   # ---- personal-apps ----
   { name = "libreoffice", type = "cask", bundles = ["personal-apps"] },
-  { name = "notion",      type = "cask", bundles = ["personal-apps"] },
   { name = "reader",      type = "cask", bundles = ["personal-apps"] },
 
   # ---- cloud ----

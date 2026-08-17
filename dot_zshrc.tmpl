@@ -54,3 +54,10 @@ zstyle ':completion:*' menu select
 [ -s "{{ .chezmoi.homeDir }}/.bun/_bun" ] && source "{{ .chezmoi.homeDir }}/.bun/_bun"
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+# Machine-local overrides, sourced last so they beat everything above. A client machine's
+# proxy exports live here: the gateway hostname belongs to the client, not to me, so it
+# can't go in a public repo, and it can't be a template value either—a machine needs a
+# working proxy before the first apply can succeed. Absent on most machines, hence the
+# guard. chezmoi never manages this file; .chezmoiignore is what keeps it that way.
+[[ ! -r ~/.zshrc.local ]] || source ~/.zshrc.local

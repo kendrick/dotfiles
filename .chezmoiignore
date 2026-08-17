@@ -73,6 +73,12 @@ dot_local/bin/executable_awssso
 Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist
 {{ end }}
 
+# Machine-local shell overrides, sourced by dot_zshrc.tmpl when present. Whatever a
+# machine can't get from this repo goes here, which on a client box means the corporate
+# proxy exports. This line is what stops a re-add from lifting a client's gateway
+# hostnames into a public repo the first time the file shows up.
+.zshrc.local
+
 # Per-machine deploy key for the quantified-claude events repo. The github-qc-events
 # ssh stanza (in private_dot_ssh/config) IS synced, but the key itself stays local:
 # each machine generates its own and registers its own read-write deploy key, so one

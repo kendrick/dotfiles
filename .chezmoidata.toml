@@ -35,6 +35,8 @@ taps = [
   { name = "fkhadra/cli",           bundles = ["core"] },
   # Tagged with the bundle of its only formula so the tap and squoosh switch together.
   { name = "sbcinnovation/tap",     bundles = ["dev"] },
+  # Same deal for deskflow: the cask lives in the project's own tap, not homebrew-cask.
+  { name = "deskflow/tap",          bundles = ["dev"] },
   { name = "databricks/tap",        bundles = ["cloud"] },
 ]
 
@@ -62,6 +64,7 @@ packages = [
   { name = "shellcheck",           type = "brew", bundles = ["core"] },
   { name = "uv",                   type = "brew", bundles = ["core"] },
   { name = "wget",                 type = "brew", bundles = ["core"] },
+  { name = "yq",                   type = "brew", bundles = ["core"] },
   { name = "z",                    type = "brew", bundles = ["core"] },
   { name = "fkhadra/cli/caniuse",  type = "brew", bundles = ["core"] },
   { name = "1password",            type = "cask", bundles = ["core"] },
@@ -72,7 +75,6 @@ packages = [
   { name = "raycast",              type = "cask", bundles = ["core"] },
   { name = "slack",                type = "cask", bundles = ["core"] },
   { name = "visual-studio-code",   type = "cask", bundles = ["core"] },
-  { name = "yq",                   type = "cask", bundles = ["core"] },
   { name = "zoom",                 type = "cask", bundles = ["core"] },
   { name = "Hidden Bar",           type = "mas",  id = 1452453066, bundles = ["core"] },
 
@@ -119,6 +121,7 @@ packages = [
   { name = "repomix",                     type = "brew", bundles = ["dev"] },
   { name = "specify",                     type = "brew", bundles = ["dev"] },
   { name = "sbcinnovation/tap/squoosh",   type = "brew", bundles = ["dev"] },
+  { name = "deskflow",                    type = "cask", bundles = ["dev"] },
 
   # ---- browsers ----
   { name = "brave-browser",  type = "cask", bundles = ["browsers"] },
@@ -144,19 +147,24 @@ packages = [
   { name = "glow",              type = "brew", bundles = ["office"] },
   { name = "marp-cli",          type = "brew", bundles = ["office"] },
   { name = "pandoc",            type = "brew", bundles = ["office"] },
+  { name = "poppler",           type = "brew", bundles = ["office"] },
   { name = "powershell",        type = "brew", bundles = ["office"] },
+  # The one font that isn't in the `fonts` bundle, and deliberately: that bundle is the
+  # `font` command's roster, one cask per family in registry.json. Lora is a serif text
+  # face for documents, so filing it there would make the roster look like it has a
+  # fourteenth entry the switch never writes.
+  { name = "font-lora",         type = "cask", bundles = ["office"] },
   { name = "grammarly-desktop", type = "cask", bundles = ["office"] },
   { name = "obsidian",          type = "cask", bundles = ["office"] },
-  { name = "poppler",           type = "cask", bundles = ["office"] },
   { name = "ticktick",          type = "cask", bundles = ["office"] },
 
   # ---- ai ----
+  { name = "herdr",              type = "brew", bundles = ["ai"] },
   { name = "chatgpt",            type = "cask", bundles = ["ai"] },
   { name = "claude",             type = "cask", bundles = ["ai"] },
   { name = "claude-code@latest", type = "cask", bundles = ["ai"] },
   { name = "codex",              type = "cask", bundles = ["ai"] },
   { name = "conductor",          type = "cask", bundles = ["ai"] },
-  { name = "herdr",              type = "cask", bundles = ["ai"] },
   { name = "macwhisper",         type = "cask", bundles = ["ai"] },
 
   # ---- personal-apps ----

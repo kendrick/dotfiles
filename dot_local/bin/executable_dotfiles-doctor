@@ -14,7 +14,11 @@ if command -v code &>/dev/null; then
   listed="$(grep -vE '^[[:space:]]*#|^[[:space:]]*$' "$list" | sort)"
   echo "-- here but not in your dotfiles (uninstall, or capture with dotfiles-sync):"
   comm -23 <(echo "$installed") <(echo "$listed") | sed 's/^/    /'
-  echo "-- in your dotfiles but not installed (next apply installs these):"
+  # run_onchange keys the extension installer on this file's hash: chezmoi re-runs it when
+  # the list changes, never because something on the list is still missing. A rejected id
+  # doesn't stop that script either (it names the id and exits 0), so chezmoi files the run
+  # as done and no later apply goes back for the extension the marketplace pulled.
+  echo "-- in your dotfiles but not installed (install by hand; apply won't retry until the list changes):"
   comm -13 <(echo "$installed") <(echo "$listed") | sed 's/^/    /'
 else
   echo "    code CLI not found — skipping"
@@ -55,7 +59,12 @@ if command -v brew &>/dev/null && command -v jq &>/dev/null; then
 
   # Against `brew list`, not `brew leaves`: a tracked formula that something else depends on
   # isn't a leaf, and comparing to leaves would report it missing on every single run.
-  echo "-- in a bundle you've enabled but not installed (next apply installs these):"
+  #
+  # Same hash model as the extension list above. run_onchange_install-packages.sh.tmpl keys
+  # on the rendered Brewfile and exits 0 by design (#17), so one bad entry can't abort the
+  # apply and a name brew couldn't resolve is filed as done alongside everything that did
+  # install. That is GitHub #22: the same missing name in this list, run after run.
+  echo "-- in a bundle you've enabled but not installed (install by hand; apply won't retry until the package list changes):"
   installed_brew="$(brew list --formula)"
   installed_cask="$(brew list --cask 2>/dev/null)"
   while IFS= read -r formula; do

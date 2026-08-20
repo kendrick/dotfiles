@@ -56,6 +56,9 @@
 **Why we backed out:** `op account list --format=json` returns the account set the desktop app is exposing with no prompt at all (confirmed: exit 0, no Touch ID), and stays empty until the CLI integration is switched on. That makes it a clean readiness signal, with the single `op read` saved for after the wait.
 **Don't suggest:** Polling `op read`, `op item get`, or any `op` subcommand that resolves a secret. Probe with `op account list` and read once. _(run_before_provision-age-key.sh.tmpl, commit 50443df)_
 
+## 2026-08-20 — Don't specify guard behavior by enumerating fixtures
+Twenty audit rounds tried it on #29: every finite fixture set admits a condition true across all of it, and 19 consecutive deliverables passed every check while losing real files (source mtime, empty live file, bounded history window, status column gate, file size in three encodings, nesting depth, --path-style=absolute). What terminated it: a rule + a pure decision function over named axes + stratified witnesses. Don't suggest: adding one more fixture, threshold, or banned token to pin sync-guard behavior; extend the decision table's axes or the purity boundary instead. Related mechanics worth not re-deriving: committed bytes never match live plaintext for encrypted_ sources; a blank status column 1 also means "no persistent state", so it can't be the sole direction signal.
+
 ## 2026-08-04 — Don't try to script the 1Password CLI integration toggle
 **Tried:** Looking for a way to enable Settings > Developer > Integrate with 1Password CLI from the bootstrap, so the age-key fetch could be fully unattended.
 **What broke:** 1Password stores that setting inside its signed group-container settings. Writing it externally is unsupported and gets tamper-detected, and the toggle exists precisely so the user consents to CLI access.

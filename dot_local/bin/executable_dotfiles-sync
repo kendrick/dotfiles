@@ -327,17 +327,25 @@ cd "$SRC"
 # cost. Operation markers are checked before HEAD: a stopped rebase is also
 # a detached HEAD, and reporting it as one hands the user a `git checkout`
 # that git will refuse.
+#
+# Each arm below keeps its recovery command in the echo only, and sends the notification
+# to the log for it. A notification body is a single line on a display that truncates,
+# and abbreviating a command to fit produced three that errored when run as printed:
+# `git switch -c` with no branch name, `rebase --continue` with no `git`, and a bare
+# `git commit` that acts on whatever repo the reader is standing in (#27). Pointing at
+# the log is also what the script's five other notify_fail sites do, and it keeps one
+# copy of each command rather than two that drift apart.
 if [ -d "$SRC/.git/rebase-merge" ] || [ -d "$SRC/.git/rebase-apply" ]; then
-  notify_fail "Rebase in progress in $SRC. Run 'rebase --continue' or 'rebase --abort'."
+  notify_fail "Rebase in progress in $SRC. See $LOG for the commands that finish or cancel it."
   echo "==> Refusing to commit: rebase in progress. Run 'git -C \"$SRC\" rebase --continue' once conflicts are resolved, or 'git -C \"$SRC\" rebase --abort' to cancel it."
   exit 1
 elif [ -f "$SRC/.git/MERGE_HEAD" ]; then
-  notify_fail "Merge in progress in $SRC. Run 'git commit' or 'git merge --abort'."
+  notify_fail "Merge in progress in $SRC. See $LOG for the commands that finish or cancel it."
   echo "==> Refusing to commit: merge in progress. Run 'git -C \"$SRC\" commit' once conflicts are resolved, or 'git -C \"$SRC\" merge --abort' to cancel it."
   exit 1
 elif ! git symbolic-ref -q HEAD >/dev/null; then
   head_sha="$(git rev-parse --short HEAD)"
-  notify_fail "HEAD is detached in $SRC at $head_sha. Run 'git switch -c' to reattach."
+  notify_fail "HEAD is detached in $SRC at $head_sha. See $LOG for the command that reattaches without losing the commit."
   echo "==> Refusing to commit: HEAD is detached at $head_sha. Run 'git -C \"$SRC\" switch -c recovered-$head_sha' to reattach without losing the commit."
   exit 1
 fi

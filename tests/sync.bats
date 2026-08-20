@@ -44,6 +44,11 @@ setup() {
 	export OSA_LOG="$BATS_TEST_TMPDIR/osascript.log"
 	: >"$OSA_LOG"
 
+	# Where the script's own tee redirect puts the log, derived from the $HOME set above.
+	# The guard notifications name this path, so the assertions need the same value the
+	# script computes rather than a substring that would still pass if the path changed.
+	export SYNC_LOG="$HOME/.local/state/dotfiles/last-sync.log"
+
 	write_stubs
 	export PATH="$STUBS:/usr/bin:/bin"
 }
@@ -178,6 +183,65 @@ fresh_repo() {
 	assert_not_contains "$DETACHED_MSG"
 	assert_not_contains "$REBASE_MSG"
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}
+
+# The notification is what a person reads first, and the three guard arms used to
+# abbreviate their recovery command to fit it: `git switch -c` with no branch name,
+# `rebase --continue` with no `git` in front, `git commit` with no `-C "$SRC"` (#27).
+# Each errored when run as printed. The runnable form now lives only in the echo, which
+# reaches the log through the tee redirect, so these assert the notification sends the
+# reader there instead of handing them a command that fails.
+#
+# Reads $OSA_LOG rather than $output: the echo and the notification say deliberately
+# different things now, and asserting on merged output could not tell them apart.
+notification_body() {
+	cat "$OSA_LOG"
+}
+
+@test "sync: the detached-HEAD notification points at the log instead of a truncated command" {
+	fresh_repo
+	git -C "$REPO" checkout -q --detach HEAD
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	local notified
+	notified="$(notification_body)"
+	assert_contains "$SYNC_LOG" "$notified"
+	# The dangling flag from #27's table: `git switch -c` with nothing after it.
+	assert_not_contains "switch -c'" "$notified"
+}
+
+@test "sync: the rebase notification points at the log instead of a truncated command" {
+	fresh_repo
+	mkdir -p "$REPO/.git/rebase-merge"
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	local notified
+	notified="$(notification_body)"
+	assert_contains "$SYNC_LOG" "$notified"
+	# `rebase --continue` with no `git` in front of it is not a command.
+	assert_not_contains "'rebase --continue'" "$notified"
+}
+
+@test "sync: the merge notification points at the log instead of a directory-dependent command" {
+	fresh_repo
+	git -C "$REPO" rev-parse HEAD >"$REPO/.git/MERGE_HEAD"
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	local notified
+	notified="$(notification_body)"
+	assert_contains "$SYNC_LOG" "$notified"
+	# This one runs, but only from inside the source dir; without -C it silently acts on
+	# whatever repo the reader happens to be standing in.
+	assert_not_contains "'git commit'" "$notified"
 }
 
 @test "sync: detached HEAD refuses on a clean tree, before the clean-tree exit ever runs" {

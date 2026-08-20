@@ -516,7 +516,7 @@
       "skillPath": "databricks-api/SKILL.md",
       "skillFolderHash": "c7a7cd2e172e7f18e09245e8ef19f10efceac1c1",
       "installedAt": "2026-07-10T21:06:31.538Z",
-      "updatedAt": "2026-08-06T20:52:46.967Z"
+      "updatedAt": "2026-08-20T18:56:55.793Z"
     },
     "inbox-to-memory": {
       "source": "kendrick/skills",
@@ -525,7 +525,7 @@
       "skillPath": "inbox-to-memory/SKILL.md",
       "skillFolderHash": "17eb5ac3704ec7fea4561ae313ec39139ea305a2",
       "installedAt": "2026-07-10T21:06:31.566Z",
-      "updatedAt": "2026-08-10T04:05:23.741Z"
+      "updatedAt": "2026-08-20T18:56:55.778Z"
     },
     "readme-coauthorship": {
       "source": "kendrick/skills",
@@ -534,7 +534,7 @@
       "skillPath": "readme-coauthorship/SKILL.md",
       "skillFolderHash": "9e615741ac8a9d33135eb5eb88d06b870431f4d9",
       "installedAt": "2026-07-10T21:06:31.581Z",
-      "updatedAt": "2026-08-06T20:51:41.868Z"
+      "updatedAt": "2026-08-20T18:56:55.785Z"
     },
     "handoff": {
       "source": "kendrick/skills",
@@ -543,7 +543,7 @@
       "skillPath": "handoff/SKILL.md",
       "skillFolderHash": "b699008b1e7ac9387d17d5d1b1efe7ca6e48da67",
       "installedAt": "2026-07-27T17:29:02.387Z",
-      "updatedAt": "2026-08-06T20:51:41.837Z"
+      "updatedAt": "2026-08-20T18:56:55.770Z"
     },
     "file-issue": {
       "source": "kendrick/skills",
@@ -552,7 +552,25 @@
       "skillPath": "file-issue/SKILL.md",
       "skillFolderHash": "195a211d6b90059cb97310e416340548c9a1e3b3",
       "installedAt": "2026-08-06T20:51:41.803Z",
-      "updatedAt": "2026-08-06T20:51:41.803Z"
+      "updatedAt": "2026-08-20T18:56:55.760Z"
+    },
+    "adversarial-review": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "adversarial-review/SKILL.md",
+      "skillFolderHash": "1514688ab3c4137548d300cf19e5f977081c445b",
+      "installedAt": "2026-08-20T17:19:36.495Z",
+      "updatedAt": "2026-08-20T18:56:55.800Z"
+    },
+    "technical-writing": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "technical-writing/SKILL.md",
+      "skillFolderHash": "6114001977aed931e454ecbb82d549aa6eef53f9",
+      "installedAt": "2026-08-20T17:19:36.512Z",
+      "updatedAt": "2026-08-20T17:19:36.512Z"
     }
   },
   "dismissed": {

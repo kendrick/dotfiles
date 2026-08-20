@@ -24,6 +24,9 @@ setup() {
 	export STUBS="$BATS_TEST_TMPDIR/stubs"
 	export FIXTURE="$BATS_TEST_TMPDIR/src"
 	mkdir -p "$HOME" "$STUBS" "$FIXTURE/dot_config/font"
+	# Otherwise chezmoi resolves its config out of the real ~/.config no matter where
+	# $HOME points, the same reason font.bats and packages.bats unset these.
+	unset XDG_CONFIG_HOME XDG_CACHE_HOME
 
 	# The doctor asks chezmoi four things: where the source tree is, what's drifted, and since
 	# packages became data, what the registry holds and which bundles this machine has on.
@@ -270,12 +273,24 @@ JSON
 # someone's fresh machine.
 @test "the repo's own font registry and package registry agree" {
 	unset FIXTURE
+	# --source alone isn't enough here, unlike everywhere else that reaches the real
+	# binary. The section under test narrows tracked casks to the bundles this machine
+	# has enabled, and `bundles` derives those from config data, not from the source
+	# tree: under the synthetic $HOME there's no config, machine_role is absent, and
+	# the template's documented fallback to core alone excludes the fonts bundle every
+	# roster cask is filed in — so all of them read as gaps and the "none" below never
+	# prints. Pinning the role supplies that data without coupling the case to whatever
+	# this machine's real chezmoi.toml happens to say. work is deliberately the widest
+	# role, so a cask filed into a bundle no role enables still fails here, which is
+	# the regression this case exists to catch.
+	local cfg="$BATS_TEST_TMPDIR/role.toml"
+	printf '[data]\n  machine_role = "work"\n' >"$cfg"
 	cat >"$STUBS/chezmoi" <<STUB
 #!/usr/bin/env bash
 case "\$1" in
 source-path) echo "$SRC" ;;
 status) : ;;
-execute-template) exec "$REAL_CHEZMOI" execute-template --source "$SRC" "\$2" ;;
+execute-template) exec "$REAL_CHEZMOI" execute-template --source "$SRC" --config "$cfg" "\$2" ;;
 esac
 STUB
 	chmod +x "$STUBS/chezmoi"

@@ -16,7 +16,22 @@
 set -euo pipefail
 
 SRC="$(chezmoi source-path)"
-HOST="$(hostname -s)"
+
+# The commit label answers one question: which machine captured this. `hostname -s` can't,
+# because on macOS it follows the network. With HostName unset it takes whatever DHCP hands
+# over and falls back to LocalHostName only when nothing does, so one laptop wrote both
+# [auto-sync from That-Air] and [auto-sync from That-MacBook-Air] a day apart, and reading
+# 26 unpushed commits back meant running scutil on the box to find out it was one machine
+# (#20). LocalHostName is stable across networks and already hyphenated, so it drops into
+# the subject line as-is; ComputerName is friendlier but carries spaces.
+#
+# Each fallback still has to yield something. An empty label writes "[auto-sync from ]",
+# which tells a reader less than even a stale name would. scutil is guarded because it
+# lives in /usr/sbin, off the minimal PATH launchd supplies, and set -e would otherwise
+# take the whole run down over a name.
+HOST="$(scutil --get LocalHostName 2>/dev/null || true)"
+[ -n "$HOST" ] || HOST="$(hostname -s 2>/dev/null || true)"
+[ -n "$HOST" ] || HOST="unknown-host"
 LOGDIR="$HOME/.local/state/dotfiles"
 LOG="$LOGDIR/last-sync.log"
 mkdir -p "$LOGDIR"

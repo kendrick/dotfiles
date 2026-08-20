@@ -62,6 +62,15 @@ setup() {
 	export READD_LOG="$BATS_TEST_TMPDIR/readd.log"
 	: >"$READD_LOG"
 
+	# Tab-separated target -> absolute source path, appended to by
+	# sg_prepare_target (helpers.bash) for every fixture the decision-table
+	# machinery builds. The source-path stub arm below consults it before
+	# falling back to the original dot_-prefix convention, which is what
+	# lets nested and encrypted fixtures skip faking that convention
+	# themselves. Empty and unused by the ten pre-existing cases.
+	export SRC_MAP="$BATS_TEST_TMPDIR/src-map"
+	: >"$SRC_MAP"
+
 	write_stubs
 	export PATH="$STUBS:/usr/bin:/bin"
 }
@@ -86,6 +95,19 @@ source-path)
 			exit 0
 		fi
 		tgt="${2#"$HOME"/}"
+		# Decision-table fixtures (tests/helpers.bash, sg_prepare_target)
+		# register an exact mapping here instead of faking chezmoi's
+		# dot_/private_/encrypted_ naming convention, which the fallback
+		# below still handles unchanged for every case that predates this
+		# file. Last match wins, which only matters when a name is
+		# reused -- the builder guarantees none is.
+		if [ -s "$SRC_MAP" ]; then
+			mapped="$(awk -F'\t' -v t="$tgt" '$1 == t { v = $2 } END { if (v != "") print v }' "$SRC_MAP")"
+			if [ -n "$mapped" ]; then
+				printf '%s\n' "$mapped"
+				exit 0
+			fi
+		fi
 		case "$tgt" in
 		.*)
 			base="dot_${tgt#.}"
@@ -413,4 +435,398 @@ touch_at() {
 	')"
 
 	[ "$filtered_new" = "$out_head" ]
+}
+
+# ---------------------------------------------------------------------------
+# Constitution C-1/C-8/C-9: the decision table's anchor cases.
+#
+# These small cases run against both the working tree and, via C-8/C-9's
+# check scripts, a worktree checked out at the pre-fix commit — the check
+# scripts copy this whole tests/ directory over that checkout, so the same
+# case body runs against old and new guard code without any change here.
+# Every fixture below is built through sg_build_row_and_check
+# (tests/helpers.bash), the same machinery the table case below uses, so a
+# row is built identically wherever it appears in this file.
+# ---------------------------------------------------------------------------
+
+@test "sync-guard: decision table row 1 fails today" {
+	# ("_", edited, head, behind) — the uncommitted source edit issue #29's
+	# row 1 describes. Today's guard only compares commit time to live
+	# mtime, so an edit that was never committed never advances anything it
+	# reads and this row proceeds when it must block.
+	fresh_repo
+	sg_reset_state
+	sg_build_row_and_check "row1" 1 0 " " edited head behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 6 24 "$(sg_next_nonce)" BLOCK
+}
+
+@test "sync-guard: decision table row 4 fails today" {
+	# ("_", clean, near, behind) — issue #29 row 2 in its commonest form:
+	# source committed one commit ahead, then something rewrote the live
+	# file back onto an older value afterward. Today's guard has no arm 3
+	# at all, so a live file matching an old commit reads the same as one
+	# that never drifted.
+	fresh_repo
+	sg_reset_state
+	local dist
+	dist="$(sg_next_near_dist)"
+	sg_build_row_and_check "row4" 2 0 " " clean near behind "$dist" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 5 20 "$(sg_next_nonce)" BLOCK
+}
+
+@test "sync-guard: decision table row 6 fails today" {
+	# ("_", clean, far, behind) — row 4's deep form: the live file sits on
+	# a commit many revisions back instead of the one right before HEAD.
+	fresh_repo
+	sg_reset_state
+	local dist
+	dist="$(sg_next_far_dist)"
+	sg_build_row_and_check "row6" 3 0 " " clean far behind "$dist" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 7 40 "$(sg_next_nonce)" BLOCK
+}
+
+@test "sync-guard: decision table row 12 fails today" {
+	# ("M", edited, none, behind) — ordinary live drift (column 1 M) sitting
+	# on top of an uncommitted source edit. Today's guard reads no status
+	# column at all and has no arm 1, so the edit is invisible either way.
+	fresh_repo
+	sg_reset_state
+	sg_build_row_and_check "row12" 0 0 "M" edited none behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 4 15 "$(sg_next_nonce)" BLOCK
+}
+
+@test "sync-guard: decision table row 13 fails today" {
+	# ("_", edited, near, behind) — issue #29's two rows stacked on one
+	# file: an uncommitted edit *and* the source committed ahead of what
+	# this machine applied.
+	fresh_repo
+	sg_reset_state
+	local dist
+	dist="$(sg_next_near_dist)"
+	sg_build_row_and_check "row13" 4 0 " " edited near behind "$dist" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 9 33 "$(sg_next_nonce)" BLOCK
+}
+
+@test "sync-guard: the decision table PROCEED rows hold today" {
+	# Rows 7, 8, 9 and 10 — what the guard already does correctly. This
+	# case has to pass at both the working tree and the pre-fix anchor
+	# (C-8), so it carries no BLOCK build at all: changing any of these four
+	# outcomes would be a regression, not a fix.
+	fresh_repo
+	sg_reset_state
+
+	# Row 7: (" ", clean, none, behind) — ordinary drift on a machine with
+	# no chezmoi persistent state, where every row's column 1 reads blank.
+	sg_build_row_and_check "proceed7" 0 0 " " clean none behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 3 10 "$(sg_next_nonce)" PROCEED || return 1
+
+	# Row 8: ("M", clean, none, behind) — ordinary live drift, the thing
+	# re-add exists for.
+	sg_build_row_and_check "proceed8" 1 0 "M" clean none behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 4 12 "$(sg_next_nonce)" PROCEED || return 1
+
+	# Row 9: ("M", clean, near, behind) — the live file drifted back onto a
+	# value this repo once committed.
+	local dist9
+	dist9="$(sg_next_near_dist)"
+	sg_build_row_and_check "proceed9" 2 0 "M" clean near behind "$dist9" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 5 18 "$(sg_next_nonce)" PROCEED || return 1
+
+	# Row 10: ("M", clean, far, behind) — the same, onto a much older value.
+	local dist10
+	dist10="$(sg_next_far_dist)"
+	sg_build_row_and_check "proceed10" 3 0 "M" clean far behind "$dist10" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 6 22 "$(sg_next_nonce)" PROCEED || return 1
+}
+
+@test "sync-guard: an encrypted source with no key falls back to today's behavior" {
+	# Row 3's encrypted build (ct=ahead) with the age identity removed
+	# afterward, rather than merely pointed away from. Arm 2 (commit time
+	# vs. live mtime) needs no decryption at all, so this must still block
+	# through it even with the key gone — a PROCEED row can't prove this,
+	# since it would go green whether the fallback worked or the path was
+	# skipped outright.
+	fresh_repo
+	sg_reset_state
+	sg_age_setup
+	local dist
+	dist="$(sg_next_near_dist)"
+	sg_prepare_target "nokeytarget" 1 1 " " clean near ahead "$dist" \
+		"$NEW_EPOCH" "$OLD_EPOCH" "$OLDER_EPOCH" 6 20 "$(sg_next_nonce)"
+	write_status "$SG_STATUS_LINE"
+	rm -f "$SG_AGE_KEYFILE"
+
+	sg_run_guard
+
+	[ "$status" -ne 0 ]
+	assert_contains "        $SG_HOME_REL"
+	[ ! -s "$READD_LOG" ]
+}
+
+@test "sync-guard: the decision table holds when many targets share one run" {
+	# Two runs at deliberately different scales — round 19's defeat was a
+	# single ax_live=none initialised above the per-target loop, which every
+	# single-target case in this file is structurally blind to: it only
+	# shows up once a BLOCK target resolving near or far follows one
+	# resolving head in the same run, carrying the stale value forward. Both
+	# runs place that ordering; the second also puts real-repo scale (six
+	# BLOCK targets among twenty-five-plus rows) behind both counts, since
+	# two fixed counts alone would only exclude the thresholds between them.
+	fresh_repo
+	sg_reset_state
+	sg_age_setup
+
+	# --- run 1: small — five rows, two BLOCK targets --------------------
+	STATUS_LINES=()
+	BLOCK_TARGETS=()
+	PROCEED_TARGETS=()
+
+	# live=none, encrypted: covers the "at least one encrypted target" and
+	# "none" requirements.
+	sg_add_target "m1-none" 1 1 " " clean none behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 4 12 "$(sg_next_nonce)" PROCEED
+
+	# live=head, BLOCK, space-bearing name — the "resolving head" anchor a
+	# later near/far BLOCK target in this run must follow.
+	sg_add_target "m1 head block" 0 0 " " edited head behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 5 14 "$(sg_next_nonce)" BLOCK
+
+	# live=near, PROCEED (drifted back onto an old committed value).
+	local m1n3
+	m1n3="$(sg_next_near_dist)"
+	sg_add_target "m1-near-proceed" 2 0 "M" clean near behind "$m1n3" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 6 16 "$(sg_next_nonce)" PROCEED
+
+	# live=near, BLOCK — placed after the head BLOCK target above.
+	local m1n4
+	m1n4="$(sg_next_near_dist)"
+	sg_add_target "m1-near-block" 1 0 " " clean near behind "$m1n4" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 7 18 "$(sg_next_nonce)" BLOCK
+
+	# live=far, PROCEED — the fourth live value, completing the mix.
+	local m1f5
+	m1f5="$(sg_next_far_dist)"
+	sg_add_target "m1-far-proceed" 3 0 "M" clean far behind "$m1f5" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 8 20 "$(sg_next_nonce)" PROCEED
+
+	[ "${#STATUS_LINES[@]}" -eq 5 ]
+	[ "${#BLOCK_TARGETS[@]}" -eq 2 ]
+
+	write_status "${STATUS_LINES[@]}"
+	sg_run_guard
+
+	[ "$status" -ne 0 ]
+	[ ! -s "$READD_LOG" ]
+	sg_assert_multi_block_set
+
+	# --- run 2: large — at least 25 rows, six BLOCK targets --------------
+	STATUS_LINES=()
+	BLOCK_TARGETS=()
+	PROCEED_TARGETS=()
+
+	# The head anchor this run's near/far BLOCK targets must all follow.
+	sg_add_target "m2-head-anchor" 0 0 " " clean head behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 3 10 "$(sg_next_nonce)" PROCEED
+	sg_add_target "m2-head-block" 1 0 " " edited head behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 4 11 "$(sg_next_nonce)" BLOCK
+
+	local m2n1
+	m2n1="$(sg_next_near_dist)"
+	sg_add_target "m2-near-block-1" 2 0 " " clean near behind "$m2n1" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 5 13 "$(sg_next_nonce)" BLOCK
+
+	sg_add_target "m2-none-proceed" 0 0 " " clean none behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 6 15 "$(sg_next_nonce)" PROCEED
+
+	local m2n2
+	m2n2="$(sg_next_near_dist)"
+	sg_add_target "m2-near-proceed" 3 0 "M" clean near behind "$m2n2" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 7 17 "$(sg_next_nonce)" PROCEED
+
+	local m2f1
+	m2f1="$(sg_next_far_dist)"
+	sg_add_target "m2-far-block-1" 1 0 " " clean far behind "$m2f1" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 8 19 "$(sg_next_nonce)" BLOCK
+
+	local m2f2
+	m2f2="$(sg_next_far_dist)"
+	sg_add_target "m2-far-proceed" 2 0 "M" clean far behind "$m2f2" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 9 21 "$(sg_next_nonce)" PROCEED
+
+	sg_add_target "m2-none-block" 0 0 "M" edited none behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 10 23 "$(sg_next_nonce)" BLOCK
+
+	sg_add_target "m2-none-proceed-enc" 1 1 " " clean none behind 0 \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 11 25 "$(sg_next_nonce)" PROCEED
+
+	local m2n3
+	m2n3="$(sg_next_near_dist)"
+	sg_add_target "m2 near block space" 2 0 " " edited near behind "$m2n3" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 12 27 "$(sg_next_nonce)" BLOCK
+
+	local m2f3
+	m2f3="$(sg_next_far_dist)"
+	sg_add_target "m2-far-block-2" 3 0 "M" edited far behind "$m2f3" \
+		"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" 13 29 "$(sg_next_nonce)" BLOCK
+
+	# Sixteen more PROCEED fillers, cycling the four PROCEED row-shapes
+	# (rows 7-10), to put the run's total past twenty-five while holding
+	# the BLOCK count fixed at the six built above.
+	local i shape dist filler_nonce filler_leaf
+	i=0
+	while [ "$i" -lt 16 ]; do
+		filler_nonce="$(sg_next_nonce)"
+		filler_leaf="m2-filler-${filler_nonce}"
+		shape=$((i % 4))
+		case "$shape" in
+		0)
+			sg_add_target "$filler_leaf" $((i % 5)) 0 " " clean none behind 0 \
+				"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" $((3 + i)) $((10 + i * 3)) "$filler_nonce" PROCEED
+			;;
+		1)
+			sg_add_target "$filler_leaf" $((i % 5)) 0 "M" clean none behind 0 \
+				"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" $((3 + i)) $((10 + i * 3)) "$filler_nonce" PROCEED
+			;;
+		2)
+			dist="$(sg_next_near_dist)"
+			sg_add_target "$filler_leaf" $((i % 5)) 0 "M" clean near behind "$dist" \
+				"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" $((3 + i)) $((10 + i * 3)) "$filler_nonce" PROCEED
+			;;
+		3)
+			dist="$(sg_next_far_dist)"
+			sg_add_target "$filler_leaf" $((i % 5)) 0 "M" clean far behind "$dist" \
+				"$OLD_EPOCH" "$NEW_EPOCH" "$OLDER_EPOCH" $((3 + i)) $((10 + i * 3)) "$filler_nonce" PROCEED
+			;;
+		esac
+		i=$((i + 1))
+	done
+
+	[ "${#STATUS_LINES[@]}" -ge 25 ]
+	[ "${#BLOCK_TARGETS[@]}" -eq 6 ]
+
+	write_status "${STATUS_LINES[@]}"
+	sg_run_guard
+
+	[ "$status" -ne 0 ]
+	[ ! -s "$READD_LOG" ]
+	sg_assert_multi_block_set
+}
+
+@test "sync-guard: the decision table holds in every cell" {
+	# Constitution C-1: thirteen rows, each built twice — plaintext and
+	# encrypted — for fifty-two builds total. Every non-axis detail is
+	# stratified by a fixed, deterministic scheme (never $RANDOM, never the
+	# wall clock) so no threshold anywhere in the guard's diff can sit
+	# outside every build's spread. The scheme, spelled out because C-1
+	# requires it written down rather than merely implemented:
+	#
+	#   - epochs: eight decade anchors (1980 through 2030), cycled by build
+	#     index. ct's ordering (ahead/behind) is layered on top of whichever
+	#     anchor a build lands on rather than replacing it, so the anchor
+	#     still varies while the ordering stays exactly what the row names.
+	#     Anchors stay >= 315532800: git's "@<epoch>" date parsing silently
+	#     rejects anything under nine digits (confirmed by hand — @99999999
+	#     fails, @100000000 doesn't), and a far build's filler commits walk
+	#     up to 30 days *below* a row's anchor, so the floor needs headroom
+	#     past nine digits, not merely nine digits itself.
+	#   - source-working-file mtime (a decoy the guard must not read):
+	#     offset from the live mtime by one of six magnitudes spanning a
+	#     minute to a year, with the sign flipping between a row's two
+	#     builds (arm 0 older, arm 1 newer) so every row takes both
+	#     orderings.
+	#   - content: 1-400 lines and roughly 20 bytes to 40KB of padding, both
+	#     functions of the build index, so sizes span the stratum's full
+	#     width and no two builds match.
+	#   - depth: build index mod 5 (0-4 all appear); a row's two adjacent
+	#     builds always land on different depths since consecutive indices
+	#     can never share a mod-5 remainder.
+	#   - near distance: alternates 1 and 2 (sg_next_near_dist).
+	#   - far distance: cycles 3-30 without repeating in this case
+	#     (sg_next_far_dist, 28 possible values against at most 12 far
+	#     builds here).
+	#   - filename: "f<nonce><padding>", padding length (build index * 3)
+	#     mod 40, so names run from a couple of characters to several
+	#     dozen. The very first build (row 1, plaintext, arm 0) — a BLOCK
+	#     row — embeds a literal space in its name.
+	fresh_repo
+	sg_reset_state
+	sg_age_setup
+
+	local -a ROWS=(
+		"1| |edited|head|behind|BLOCK|none"
+		"2| |edited|head|ahead|BLOCK|none"
+		"3| |clean|near|ahead|BLOCK|near"
+		"4| |clean|near|behind|BLOCK|near"
+		"5| |clean|far|ahead|BLOCK|far"
+		"6| |clean|far|behind|BLOCK|far"
+		"7| |clean|none|behind|PROCEED|none"
+		"8|M|clean|none|behind|PROCEED|none"
+		"9|M|clean|near|behind|PROCEED|near"
+		"10|M|clean|far|behind|PROCEED|far"
+		"11|M|clean|none|ahead|BLOCK|none"
+		"12|M|edited|none|behind|BLOCK|none"
+		"13| |edited|near|behind|BLOCK|near"
+	)
+	local -a DECADE_EPOCHS=(315532800 473385600 631152000 789033600 946684800 1262304000 1577836800 1893456000)
+	local -a MTIME_OFFSETS=(60 3600 86400 604800 2592000 31536000)
+
+	local k=0 row_entry row_num col1 src live ct required dist_kind
+	local enc arm anchor commit_epoch live_mtime_epoch offset src_mtime_epoch
+	local content_lines content_bytes depth nonce leaf pad_len pad j dist
+
+	for row_entry in "${ROWS[@]}"; do
+		IFS='|' read -r row_num col1 src live ct required dist_kind <<<"$row_entry"
+		for enc in 0 1; do
+			for arm in 0 1; do
+				nonce="$(sg_next_nonce)"
+
+				anchor="${DECADE_EPOCHS[$((k % 8))]}"
+				if [ "$ct" = "ahead" ]; then
+					commit_epoch=$((anchor + 500000))
+					live_mtime_epoch="$anchor"
+				else
+					commit_epoch="$anchor"
+					live_mtime_epoch=$((anchor + 500000))
+				fi
+
+				offset="${MTIME_OFFSETS[$((k % 6))]}"
+				if [ "$arm" -eq 0 ]; then
+					src_mtime_epoch=$((live_mtime_epoch - offset))
+				else
+					src_mtime_epoch=$((live_mtime_epoch + offset))
+				fi
+
+				content_lines=$((1 + (k * 7) % 400))
+				content_bytes=$((20 + (k * 733) % 40000))
+				depth=$((k % 5))
+
+				pad_len=$(((k * 3) % 40))
+				pad=""
+				j=0
+				while [ "$j" -lt "$pad_len" ]; do
+					pad="${pad}x"
+					j=$((j + 1))
+				done
+				leaf="f${nonce}${pad}"
+				if [ "$k" -eq 0 ]; then
+					leaf="f${nonce} sp${pad}"
+				fi
+
+				case "$dist_kind" in
+				near) dist="$(sg_next_near_dist)" ;;
+				far) dist="$(sg_next_far_dist)" ;;
+				*) dist=0 ;;
+				esac
+
+				sg_build_row_and_check "$leaf" "$depth" "$enc" "$col1" "$src" "$live" "$ct" \
+					"$dist" "$commit_epoch" "$live_mtime_epoch" "$src_mtime_epoch" \
+					"$content_lines" "$content_bytes" "$nonce" "$required" || {
+					echo "# FAILED: row $row_num, encrypted=$enc, arm=$arm, build index $k" >&2
+					return 1
+				}
+
+				k=$((k + 1))
+			done
+		done
+	done
 }

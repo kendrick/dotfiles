@@ -66,16 +66,99 @@ fi
 # never applied, the re-add below captured the stale live copies back over them, and the
 # commit phase shipped the reversion. Restored by hand in 60637c4 and f1239d3.
 #
-# `chezmoi status` can't answer this by itself. A file whose live copy differs from source
-# prints M in both columns whether live drifted forward (what re-add exists for) or source
-# moved ahead (the regression), so direction needs a second signal: a source commit newer
-# than the live file's mtime means source moved after this machine last wrote that file.
+# Comparing commit time to live mtime (arm 2 below) catches most of that, but it's a
+# timestamp race, not a direction check: an edit that was staged but never committed never
+# advances anything the comparison reads, and a live file rewritten with identical bytes,
+# routine for an app that resaves its own config, bumps mtime without meaning anything.
+# `chezmoi status`'s row code is a second, corroborating signal for the case timestamps
+# can't settle. Measured against chezmoi v2.72.0: ordinary live drift (what re-add exists
+# for) prints "MM", both columns, while an unapplied source edit (issue #29's two rows)
+# prints " M": column 1 blank, meaning the live file hasn't been rewritten since chezmoi
+# last applied it. Column 1 only corroborates, though. Delete chezmoi's persistent state,
+# or run on a machine that's never applied these files, and every row collapses to " M"
+# the same way, so a guard that trusts a blank column 1 alone refuses every first-run
+# capture. See guard_decide's arm 3 below for how the two signals combine.
 #
 # Has to run before the re-add. Afterwards source equals live for every capturable file
 # and the evidence is gone. That's also why this can't fold into the template-drift loop
 # below despite both reading `chezmoi status`: that one asks what capture structurally
 # missed, which is only answerable from post-re-add state.
 echo "==> Checking whether source moved ahead of this machine"
+
+# launchd hands this script a minimal PATH with no Homebrew on it, so `age` has to be
+# found by more than a PATH lookup or every encrypted path degrades on every unattended
+# run. The identity path matches this repo's own chezmoi.toml ([age].identity); there's no
+# way to ask chezmoi for it instead, since chezmoi is the thing this guard exists to check.
+AGE_IDENTITY="$HOME/.config/chezmoi/key.txt"
+AGE_BIN=""
+if command -v age &>/dev/null; then
+  AGE_BIN="$(command -v age)"
+else
+  for age_candidate in /opt/homebrew/bin/age /usr/local/bin/age /usr/bin/age /opt/local/bin/age; do
+    if [ -x "$age_candidate" ]; then
+      AGE_BIN="$age_candidate"
+      break
+    fi
+  done
+fi
+
+# Resolves one commit's target state for one path: the bytes chezmoi would write to
+# $HOME, not the bytes git tracked. For an encrypted_ source those differ, since the
+# tracked blob is age ciphertext, so arm 3 below would read every encrypted path as
+# permanently drifted without decrypting first. Never fails loudly: an unresolvable
+# commit (no key, no age binary, a corrupt blob) just leaves $3 empty, which the caller
+# reads as "doesn't match" rather than a crash.
+resolve_target_state() {
+  local rev="$1" rel="$2" out="$3"
+  : >"$out"
+  case "$rel" in
+  *.age)
+    [ -n "$AGE_BIN" ] && [ -f "$AGE_IDENTITY" ] || return 0
+    git -C "$SRC" show "$rev:$rel" 2>/dev/null | "$AGE_BIN" -d -i "$AGE_IDENTITY" >"$out" 2>/dev/null || : >"$out"
+    ;;
+  *)
+    git -C "$SRC" show "$rev:$rel" >"$out" 2>/dev/null || : >"$out"
+    ;;
+  esac
+  return 0
+}
+
+# The whole BLOCK/PROCEED decision, and the only place it's made. Takes the four axis
+# values below and nothing else: no global, no command substitution, no file test. That's
+# not caution for its own sake. Fourteen earlier attempts at this guard each smuggled the
+# decision through a condition on something else instead, a file's size, its nesting, how
+# many targets were queued, and each one held for a while and then quietly lost a real
+# file. A function that structurally cannot see any of that can't be made to depend on it
+# again by accident.
+guard_decide() {
+  local col1="$1" src="$2" live="$3" ct="$4"
+  # Arm 1: the source working copy itself carries an edit re-add would destroy. No commit
+  # holds it, so nothing past this point can recover it either. This reads the tracked
+  # bytes directly rather than the source file's own mtime, which a checkout, a restore,
+  # or re-add itself all rewrite.
+  if [ "$src" = "edited" ]; then
+    printf 'BLOCK'
+    return
+  fi
+  # Arm 2: today's comparison, unchanged. A commit this machine never applied is newer
+  # than what it last wrote to $HOME.
+  if [ "$ct" = "ahead" ]; then
+    printf 'BLOCK'
+    return
+  fi
+  # Arm 3: the live file hasn't moved since the last apply (col1 blank), and its bytes
+  # belong to some commit other than what source now holds: source moved on while this
+  # machine's copy sat still. "near" and "far" mean the same thing here; only the distance
+  # differs, and this rule was never supposed to care about that. Gating on col1 keeps a
+  # file that's genuinely drifted back onto an old value (col1 "M") out of this arm; that's
+  # ordinary drift, the thing re-add exists for, not source moving ahead.
+  if [ "$col1" = " " ] && { [ "$live" = "near" ] || [ "$live" = "far" ]; }; then
+    printf 'BLOCK'
+    return
+  fi
+  printf 'PROCEED'
+}
+
 behind=()
 while IFS= read -r line; do
   [[ "${line:1:1}" == "M" ]] || continue
@@ -88,11 +171,6 @@ while IFS= read -r line; do
   case "$src" in
   *.tmpl) continue ;;
   esac
-  # Commit time, not source mtime, which means an uncommitted source edit is invisible
-  # here and the re-add below will still capture over it. That's the scope #28 asked for
-  # ("edited in source, committed, and not applied"); widening it would mean trusting
-  # source mtimes, which a checkout, a restore, or re-add itself all rewrite.
-  #
   # Every degradation past this point skips the file rather than blocking the sync, which
   # is the right direction for an unattended job. A source path with no commits is the one
   # that needs its own test: git reports success with empty output, and `-gt` would read
@@ -100,8 +178,49 @@ while IFS= read -r line; do
   # that isn't a repo all fail their substitution instead.
   committed="$(git -C "$SRC" log -1 --format=%ct -- "$src" 2>/dev/null)" || continue
   [ -n "$committed" ] || continue
-  live="$(stat -f %m "$HOME/$tgt" 2>/dev/null)" || continue
-  if [ "$committed" -gt "$live" ]; then
+  live_mtime="$(stat -f %m "$HOME/$tgt" 2>/dev/null)" || continue
+
+  # The four axes below are computed fresh for this target and this target only. A value
+  # hoisted above this loop would carry the previous target's answer into whichever
+  # target's own computation exits early next, invisibly to any test that only ever runs
+  # one target at a time — see "the decision table holds when many targets share one run".
+  ax_col1="${line:0:1}"
+  ax_ct="behind"
+  [ "$committed" -gt "$live_mtime" ] && ax_ct="ahead"
+
+  # src axis: does the source working copy differ from its own committed HEAD? git show
+  # wants a path relative to the repo root for the "rev:path" form, unlike the log/rev-list
+  # pathspecs above, which take $src as chezmoi handed it back. A raw byte comparison is
+  # correct even for an encrypted_ path; re-add destroys an uncommitted edit whether or not
+  # anyone can read the plaintext underneath it.
+  ax_rel="${src#"$SRC"/}"
+  ax_src="clean"
+  cmp -s "$src" <(git -C "$SRC" show "HEAD:$ax_rel" 2>/dev/null) || ax_src="edited"
+
+  # live axis: walk every commit this path has ever held, no bound, since a windowed walk
+  # misses exactly the old commit a drifted-back or stale-behind file is sitting on, and
+  # stop the moment the live file's bytes match one's target state. Index 0 is HEAD;
+  # anything found after it is "some other commit," which arm 3 treats the same as near or
+  # far without needing to know which.
+  ax_live="none"
+  ax_idx=0
+  while IFS= read -r ax_rev; do
+    ax_target="$(mktemp)"
+    resolve_target_state "$ax_rev" "$ax_rel" "$ax_target"
+    if cmp -s "$ax_target" "$HOME/$tgt" 2>/dev/null; then
+      rm -f "$ax_target"
+      if [ "$ax_idx" -eq 0 ]; then
+        ax_live="head"
+      else
+        ax_live="near"
+      fi
+      break
+    fi
+    rm -f "$ax_target"
+    ax_idx=$((ax_idx + 1))
+  done < <(git -C "$SRC" rev-list --all -- "$src" 2>/dev/null)
+
+  if [ "$(guard_decide "$ax_col1" "$ax_src" "$ax_live" "$ax_ct")" = "BLOCK" ]; then
     behind+=("$tgt")
   fi
 done < <(chezmoi status)

@@ -57,6 +57,7 @@ dot_local/bin/executable_awssso
 {{ if or (not $key) (eq (int $key.size) 0) }}
 .claude/settings.json
 .claude/VOICE.md
+.claude/PROSE.md
 .claude/voice-samples-work.md
 .claude/voice-samples-personal.md
 {{ end }}

@@ -10,13 +10,9 @@ Run human-facing prose through the `humanizer` skill before merge. By "human-fac
 
 Do this proactively, as a default step — not something you offer. Never hand me un-humanized prose with a "say the word and I'll run the skill" caveat attached. By the time I see merge-bound prose (commit messages, PR descriptions, changesets, briefs, docs, code comments), it should already have been through the audit. Don't ask permission to humanize; just do it.
 
-Caveat on the humanizer's anti-list stance: I'm fine keeping bulleted and numbered lists. The rule I care about is the tripartite-list tic — try to avoid lists of exactly three items when a fourth fits naturally or one can be dropped without loss. When three is the genuinely correct count (three distinct things, no padding, no omission), keep it three. Don't pad or trim a list just to satisfy the heuristic.
+My house rules live in `~/.claude/PROSE.md`. Whenever you invoke the humanizer, read that file fresh—never from a remembered summary—and apply its overrides on top of the audit. It amends what the skill says about lists, list dissolution, em dashes, and heading case, and it adds a plain-speech pass the skill doesn't have.
 
-Second caveat, on the same axis: don't dissolve genuinely list-shaped content into prose. If you have N items that share an identical structure — say, four files where every entry reads "filename, then a short description" — keep it as a bulleted list. Humanizer pattern 16 is right that bolded inline headers with colons (`- **Performance:** Speed matters`) are a tell. A plain bullet of the form `- code-thing — description` is not. Don't bury parallel items in a paragraph that scans worse than the list it's hiding.
-
-Third caveat: ignore the humanizer's title-case rule (pattern #17). I prefer title-cased headings. Don't lowercase main words on the way through the audit; leave headings as I'd write them in a doc or blog post.
-
-Fourth caveat: loosen the humanizer's em-dash rule (pattern #14). Em dashes are part of how I write from time to time; keep a few of them, but not all of them. Use them when they're the most effective—when parenthesis, new sentences, semicolons, and the like would be less impactful. NEVER wrap em dashes in spaces (`—`) as that is never how I use them. Always chain em dashes directly with text directly on either side—like this—as that's how I typically write.
+One em-dash mechanic holds everywhere, chat included, and it applies before any skill fires. Always chain em dashes directly to the text on either side—like this—and never wrap them in spaces. PROSE.md carries the fuller rule about when an em dash is worth keeping.
 
 Never manually wrap lines in prose of any sort with hard returns. Let the terminal or git's own pager handle wrapping at display time. Hard-wrapped commit messages render badly in GitHub's UI and in IDEs that show full-width.
 

@@ -185,6 +185,120 @@ fresh_repo() {
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
 }
 
+# Both name sources get stubbed together, because the bug being guarded is precisely that
+# the two disagree. scutil lives in /usr/sbin, which setup()'s authoritative PATH leaves
+# out, so a case that doesn't call this exercises the absent-tool path for free.
+#
+# Args: what `scutil --get LocalHostName` answers, then what `hostname -s` answers. The
+# literal word "fail" makes scutil exit non-zero; an empty string makes it succeed and
+# print nothing, which is the case the issue calls out as distinct from failing.
+stub_host_names() {
+	local local_host="$1" net_host="$2"
+	if [ "$local_host" = "fail" ]; then
+		printf '#!/usr/bin/env bash\nexit 1\n' >"$STUBS/scutil"
+	else
+		cat >"$STUBS/scutil" <<STUB
+#!/usr/bin/env bash
+printf '%s\n' "$local_host"
+STUB
+	fi
+	cat >"$STUBS/hostname" <<STUB
+#!/usr/bin/env bash
+printf '%s\n' "$net_host"
+STUB
+	chmod +x "$STUBS/scutil" "$STUBS/hostname"
+}
+
+commit_subject() {
+	git -C "$REPO" log -1 --format=%s
+}
+
+@test "sync: the commit label comes from LocalHostName, not the network-following name" {
+	fresh_repo
+	stub_host_names "Stable-MacBook-Air" "Flapping-Air"
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	local subject
+	subject="$(commit_subject)"
+	assert_contains "[auto-sync from Stable-MacBook-Air]" "$subject"
+	assert_not_contains "Flapping-Air" "$subject"
+}
+
+# The whole point of #20: two commits a day apart from one laptop read as two machines.
+# Only the network-supplied name moves between these two runs.
+@test "sync: one machine on two networks writes one label" {
+	fresh_repo
+	stub_host_names "Stable-MacBook-Air" "Cafe-Wifi"
+	printf 'first\n' >"$REPO/first.txt"
+	run bash "$SCRIPT"
+	[ "$status" -eq 0 ]
+	local first_subject
+	first_subject="$(commit_subject)"
+
+	stub_host_names "Stable-MacBook-Air" "Office-Wifi"
+	printf 'second\n' >"$REPO/second.txt"
+	run bash "$SCRIPT"
+	[ "$status" -eq 0 ]
+
+	[ "$first_subject" = "$(commit_subject)" ]
+}
+
+@test "sync: the commit subject and the notification carry the same machine name" {
+	fresh_repo
+	stub_host_names "Stable-MacBook-Air" "Flapping-Air"
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Stable-MacBook-Air" "$(commit_subject)"
+	assert_contains "Stable-MacBook-Air" "$(cat "$OSA_LOG")"
+}
+
+# `[auto-sync from ]` tells a reader less than even a wrong name would, so every
+# degradation below still has to put something between the brackets.
+@test "sync: scutil failing still writes a name into the commit subject" {
+	fresh_repo
+	stub_host_names "fail" "Fallback-Air"
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	local subject
+	subject="$(commit_subject)"
+	assert_not_contains "[auto-sync from ]" "$subject"
+	assert_contains "Fallback-Air" "$subject"
+}
+
+@test "sync: an empty LocalHostName still writes a name into the commit subject" {
+	fresh_repo
+	stub_host_names "" "Fallback-Air"
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	local subject
+	subject="$(commit_subject)"
+	assert_not_contains "[auto-sync from ]" "$subject"
+	assert_contains "Fallback-Air" "$subject"
+}
+
+@test "sync: with no name source answering at all the label is still not empty" {
+	fresh_repo
+	stub_host_names "fail" ""
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_not_contains "[auto-sync from ]" "$(commit_subject)"
+}
+
 # The notification is what a person reads first, and the three guard arms used to
 # abbreviate their recovery command to fit it: `git switch -c` with no branch name,
 # `rebase --continue` with no `git` in front, `git commit` with no `-C "$SRC"` (#27).

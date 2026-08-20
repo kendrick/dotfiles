@@ -29,7 +29,9 @@ setup() {
 
 # Rendered with the real $HOME regardless of what setup() just pointed $HOME at,
 # so the claude-plugins template's decrypt gate sees the key that's actually
-# there. tests/licensed-fonts.bats:22 is the same move for the same reason.
+# there. That gate is why this file needs the real $HOME rather than just the
+# real source dir: tests/licensed-fonts.bats renders under the synthetic $HOME
+# with --source, which is enough only because its template reads no config data.
 render_script() {
 	local tmpl="$1" out="$BATS_TEST_TMPDIR/${1%.tmpl}"
 	HOME="$REAL_HOME" chezmoi execute-template <"$SRC/$tmpl" >"$out"

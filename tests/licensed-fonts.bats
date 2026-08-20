@@ -18,10 +18,19 @@ setup() {
 	export HOME="$BATS_TEST_TMPDIR/home"
 	export STUBS="$BATS_TEST_TMPDIR/stubs"
 	mkdir -p "$HOME/Library/Fonts" "$STUBS"
+	# Otherwise chezmoi resolves its config out of the real ~/.config no matter where
+	# $HOME points, the same reason font.bats and packages.bats unset these.
+	unset XDG_CONFIG_HOME XDG_CACHE_HOME
 
 	# Rendered rather than read raw: the manifest reaches the script through a Go
 	# template include, so the raw .tmpl has no font names in it to act on.
-	chezmoi execute-template <"$SCRIPT" >"$BATS_TEST_TMPDIR/fetch.sh"
+	#
+	# --source is load-bearing: chezmoi resolves its source dir from the user config,
+	# and the synthetic $HOME above has none, so it falls back to $HOME/.local/share/chezmoi
+	# and the include misses. Naming the source dir is enough on its own here, since this
+	# template reads no config data (a fake-$HOME render with --source is byte-identical
+	# to a real-$HOME one). CHEZMOI_SOURCE_DIR does not substitute for the flag.
+	chezmoi execute-template --source "$SRC" <"$SCRIPT" >"$BATS_TEST_TMPDIR/fetch.sh"
 	export PATH="$STUBS:$PATH"
 }
 

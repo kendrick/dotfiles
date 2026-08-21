@@ -1,0 +1,39 @@
+{{- /* Which registry entries THIS machine's running macOS is too old to install, as a
+       JSON array of {"name", "type", "min_macos"} objects — every field the two
+       consumers (the Brewfile's selection pass, dotfiles-doctor) need to match an
+       entry and explain why it's missing. Scoped to all of .pkg.packages regardless
+       of bundles, since intersecting with an enabled/tracked set is each consumer's
+       own job and doing it here would make this partial mean something different to
+       each caller.
+
+       Rendered at RENDER time, not install time — see run_onchange_install-
+       packages.sh.tmpl's own header. Its Brewfile hash line has to move when this
+       partial's answer changes, or an OS upgrade never re-triggers the install that
+       was blocked. Reading the OS version at install time instead would leave that
+       hash exactly where it was on the old OS forever.
+
+       FAIL OPEN. semverCompare hard-errors on anything that isn't a clean semantic
+       version ("invalid semantic version"), and a template error here doesn't just
+       skip a filter — it kills every `chezmoi apply` on the machine, including the
+       ones that install nothing gated by this at all. So every path that can't
+       produce a trustworthy version string bails to an empty array before
+       semverCompare is ever called, and holding nothing back is exactly today's
+       behavior for a machine with no such guard at all. */ -}}
+{{- $held := list -}}
+{{- $ver := "" -}}
+{{- if lookPath "sw_vers" -}}
+{{-   $raw := output "sw_vers" "-productVersion" | trim -}}
+{{-   if regexMatch "^[0-9]+(\\.[0-9]+)*$" $raw -}}
+{{-     $ver = $raw -}}
+{{-   end -}}
+{{- end -}}
+{{- if $ver -}}
+{{-   range $p := .pkg.packages -}}
+{{-     if and (hasKey $p "min_macos") (ne $p.min_macos "") -}}
+{{-       if not (semverCompare (printf ">=%s" $p.min_macos) $ver) -}}
+{{-         $held = append $held (dict "name" $p.name "type" $p.type "min_macos" $p.min_macos) -}}
+{{-       end -}}
+{{-     end -}}
+{{-   end -}}
+{{- end -}}
+{{- $held | toJson -}}

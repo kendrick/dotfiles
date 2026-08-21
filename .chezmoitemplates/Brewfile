@@ -9,6 +9,14 @@
        loops. Every line then starts at column 0 by construction instead of by getting the
        {{- -}} trimming right in eight places. */ -}}
 {{- $enabled := includeTemplate "bundles" . | fromJson -}}
+{{- /* Entries this machine's macOS is too old for (.chezmoitemplates/os-held), keyed
+       type/name because names can collide across types and a cask and a formula
+       sharing one name must not hold each other back. Read at RENDER time — see that
+       partial's own header for why an install-time read would leave zappy stuck. */ -}}
+{{- $held := dict -}}
+{{- range $h := (includeTemplate "os-held" . | fromJson) -}}
+{{-   $held = set $held (printf "%s/%s" $h.type $h.name) true -}}
+{{- end -}}
 {{- $lines := list -}}
 {{- range $t := .pkg.taps -}}
 {{-   $hit := false -}}
@@ -19,7 +27,7 @@
 {{- range $p := .pkg.packages -}}
 {{-   $hit := false -}}
 {{-   range $b := $p.bundles }}{{ if has $b $enabled }}{{ $hit = true }}{{ end }}{{ end -}}
-{{-   if $hit }}{{ $on = append $on $p }}{{ end -}}
+{{-   if and $hit (not (hasKey $held (printf "%s/%s" $p.type $p.name))) }}{{ $on = append $on $p }}{{ end -}}
 {{- end -}}
 {{- range $p := $on }}{{ if eq $p.type "brew" }}{{ $lines = append $lines (printf "brew \"%s\"" $p.name) }}{{ end }}{{ end -}}
 {{- range $p := $on }}{{ if eq $p.type "cask" }}{{ $lines = append $lines (printf "cask \"%s\"" $p.name) }}{{ end }}{{ end -}}

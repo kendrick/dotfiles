@@ -174,9 +174,13 @@ packages = [
   # ---- cloud ----
   # zappy is here because it's work-only, not because it's a cloud tool. It rode along in
   # the old `eq work` block; giving it its own bundle would be a tenth name for one cask.
+  #
+  # min_macos holds it back on any machine running an older macOS than the cask requires
+  # (see .chezmoitemplates/os-held) instead of failing that machine's install forever.
+  # Optional: only an entry with a real floor names one.
   { name = "aws-amplify",                 type = "brew", bundles = ["cloud"] },
   { name = "awscli",                      type = "brew", bundles = ["cloud"] },
   { name = "azure-cli",                   type = "brew", bundles = ["cloud"] },
   { name = "databricks/tap/databricks",   type = "brew", bundles = ["cloud"] },
-  { name = "zappy",                       type = "cask", bundles = ["cloud"] },
+  { name = "zappy",                       type = "cask", bundles = ["cloud"], min_macos = "15" },
 ]

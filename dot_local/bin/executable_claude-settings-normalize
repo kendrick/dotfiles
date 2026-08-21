@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Strip machine-local keys out of the synced Claude settings after a re-add.
+"""Keep the synced Claude settings free of machine-local keys and of pointless churn.
 
 `model` is the problem key. /model writes it into ~/.claude/settings.json by design
 ("saves your choice as the default for new sessions"), settings.json is an encrypted
@@ -17,6 +17,13 @@ Runs AFTER re-add, and edits source rather than the live file. That ordering is 
 whole point: strip the live copy instead and every sync would wipe the pin you just
 set. Left alone, live keeps your `/model` choice across restarts and only a manual
 `chezmoi apply` clears it, which is rare—the sync never applies.
+
+Two jobs, and the second one outlived the first. Stripping the pin is the reason this
+exists, but any path that leaves source holding HEAD's exact plaintext under fresh
+ciphertext gets the committed blob restored, pin or no pin. `chezmoi re-add` compares
+live against source rather than against HEAD, so an app that writes a key and later
+takes it back produces exactly that state with nothing to strip, and age's
+nondeterminism turns it into a full 9.9KB commit that changes nothing.
 
 Doing nothing is the common case and costs one decrypt. To pin a model durably
 enough to survive an apply, use ANTHROPIC_MODEL instead; it outranks this setting
@@ -91,20 +98,23 @@ def main():
         return 0
 
     removed = [key for key in LOCAL_KEYS if key in data]
-    if not removed:
-        return 0
-
     for key in removed:
         del data[key]
     # indent=2 with a trailing newline is byte-identical to what the CLI writes, so a
     # round-trip through here leaves every untouched key exactly as it was.
     payload = json.dumps(data, indent=2) + "\n"
 
-    # re-add already rewrote the ciphertext to pull the pin in, so git sees this file
-    # as modified no matter what. If stripping lands us back on the committed
-    # plaintext, restoring the committed blob is what actually leaves no diff. age
-    # encrypts nondeterministically, so re-encrypting identical content would just
-    # hand the sync a bogus commit to make.
+    # Checked before the "nothing to strip" exit, not after, because a pin is only one
+    # of the ways this file ends up re-encrypted for no reason. `chezmoi re-add`
+    # compares live against the *source's* plaintext, not against HEAD, so an app that
+    # writes a key and later takes it back leaves source holding HEAD's exact content
+    # under fresh ciphertext, with nothing local to strip. Gating this on `removed`
+    # meant that copy sat dirty until a sync committed 9.9KB of pure nondeterminism to
+    # a public repo's history. Four of the eight commits before this one were that.
+    #
+    # age encrypts nondeterministically, so restoring the committed blob is the only
+    # thing that actually leaves no diff. Re-encrypting identical content just hands
+    # the sync another bogus commit to make.
     if payload == head_plaintext(repo, src):
         # `checkout HEAD --`, not `checkout --`. The bare form restores from the index,
         # which is the wrong tree to compare against: a sync that died between `git add
@@ -115,7 +125,16 @@ def main():
         if checkout.returncode != 0:
             print(f"failed to restore {src}: {checkout.stderr}", file=sys.stderr)
             return 1
-        print(f"dropped {', '.join(removed)} from source (no net change)")
+        if removed:
+            print(f"dropped {', '.join(removed)} from source (no net change)")
+        else:
+            print("source already matches HEAD; restored the committed blob")
+        return 0
+
+    # Source genuinely differs from HEAD and carries nothing machine-local, so this is a
+    # real settings change. Leave it for the sync to commit; re-encrypting here would
+    # only swap one valid ciphertext for another.
+    if not removed:
         return 0
 
     encrypted = run(["chezmoi", "encrypt"], input=payload)

@@ -6,7 +6,15 @@
 
 ## Build / Test / Lint
 
-<!-- Copy exact commands so agents don't guess. -->
+```bash
+bats tests/              # the whole suite; green as of 2026-08-20 (164 passing, 0 failures, 0 skips)
+bats tests/doctor.bats   # one file
+tests/mutation-check.sh  # inverts each assertion and requires its case to report `not ok`
+```
+
+`bats tests/` is the only entry point anyone has to remember, and it exits 0. Treat any failure as a regression you caused—there are no grandfathered failures left to skip past. Run `mutation-check.sh` after changing an assertion, and read its per-file counts rather than its total.
+
+There is no build step, and no lint or format gate on the dotfiles themselves. `tests/lint.bats` is a suite-internal guard against bare `[[`/`((` in test code, not a repo linter.
 
 ## Working Memory
 

@@ -14,6 +14,18 @@
 <!-- The last line is the agent-targeted lever. Be specific. "Don't suggest    -->
 <!-- moving X to Y" beats "don't suggest big refactors."                       -->
 
+## 2026-08-20 — Don't identify a Mac with `hostname -s`
+**Tried:** Labeling auto-sync commits with the machine that made them, as `[auto-sync from $(hostname -s)]`, so a multi-machine log says which laptop captured what.
+**What broke:** On macOS `hostname` answers from whatever the current network hands back, not from a stable local identity. One machine wrote a different name per network, and on a network that supplies nothing it wrote an empty string, producing commits labeled `[auto-sync from ]`. The label is worthless in exactly the situation it exists for: reading history across machines.
+**Why we backed out:** `scutil --get LocalHostName` reads the local hostname the user set, which doesn't move with the network. `9afe1a9` uses it with two fallback rungs, `hostname -s` and then the literal `unknown-host`, so the label is never empty.
+**Don't suggest:** `hostname`, `hostname -s`, or `uname -n` for machine identity on macOS. Don't drop the `2>/dev/null || true` guard on the `scutil` call either—`scutil` lives in `/usr/sbin`, which is off launchd's minimal PATH, and under `set -e` a missing binary kills the whole scheduled sync over a commit label.
+
+## 2026-08-20 — Don't test for an absent tool by leaving out its stub
+**Tried:** Covering `dotfiles-doctor`'s "mas or jq not found — skipping" branch the obvious way: write no `mas` stub into `$STUBS` and assert the skip line appears.
+**What broke:** `tests/doctor.bats:65` sets `export PATH="$STUBS:$PATH"`, which prepends the stub dir and keeps the inherited PATH behind it. `mas` is really installed on this machine, so the un-stubbed case reached the real binary, the section ran, and the assertion measured the opposite of what it claimed to. A case like this passes or fails on which machine runs it.
+**Why we backed out:** Absence has to be constructed, not omitted. The `mas`-absent case narrows PATH to the stub dir plus a directory holding only `jq`, so the branch under test is the one that executes. `tests/sync.bats:53` avoids the whole class by replacing PATH outright (`export PATH="$STUBS:/usr/bin:/bin"`).
+**Don't suggest:** deleting or skipping a stub as the way to simulate a missing tool, in any suite that appends `$PATH`. Don't unify the two suites on the appending form either; `sync.bats`'s replacing form is the safer default and the reason it has never had this bug.
+
 ## 2026-08-09 — Don't detect a backwards capture from `chezmoi status` columns alone
 **Tried:** Reading the two-column `chezmoi status` output to decide which side of a source/live disagreement is newer, so `dotfiles-sync` could refuse to `chezmoi re-add` over a source edit nobody applied. A blank first column beside a non-blank second looks like a clean signal for "source moved, live didn't", and it is one.
 **What broke:** It is sound but incomplete, and the gap is the case that costs most. Measured on scratch source and destination dirs: source-ahead alone prints ` M`, live drift alone prints `MM`, and a file where source and live have **both** moved also prints `MM`. A guard reading only the columns sees `MM`, takes it for ordinary live drift, and captures backwards anyway, losing the source edit precisely when someone has changed both ends and can least reconstruct one from the other.

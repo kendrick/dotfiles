@@ -19,6 +19,12 @@ SCRIPT="$SRC/dot_local/bin/executable_dotfiles-doctor"
 # binary to render the repo's own templates.
 REAL_CHEZMOI="$(command -v chezmoi)"
 
+# Same capture-before-stub idiom, for the one case that has to narrow PATH far enough to
+# hide a tool that is genuinely installed. Guarded the way helpers.bash guards its own
+# captures: `load` runs under errexit, so an unguarded miss here would abort every case in
+# the file before one of them ran.
+REAL_JQ="$(command -v jq || true)"
+
 setup() {
 	export HOME="$BATS_TEST_TMPDIR/home"
 	export STUBS="$BATS_TEST_TMPDIR/stubs"
@@ -76,6 +82,33 @@ homebrew_section() {
 	bash "$SCRIPT" 2>&1 | sed -n '/== Homebrew ==/,/^$/p'
 }
 
+app_store_section() {
+	bash "$SCRIPT" 2>&1 | sed -n '/== App Store ==/,/^$/p'
+}
+
+# `mas list` prints "<id>  <Name>  (<version>)". Only the id column is read, but the stub
+# emits the whole shape so a change to which column gets parsed fails here rather than
+# passing against a stub that was already reduced to the convenient answer.
+#
+# Called with no arguments this is a machine with nothing from the App Store on it, which
+# is still a mas that runs — distinct from the no-mas-at-all case below.
+stub_mas() {
+	{
+		printf '#!/usr/bin/env bash\n'
+		printf 'case "$1" in\nlist)\n'
+		local entry
+		for entry in "$@"; do
+			printf '  echo "%s"\n' "$entry"
+		done
+		printf '  ;;\nesac\n'
+	} >"$STUBS/mas"
+	chmod +x "$STUBS/mas"
+}
+
+write_mas_packages() {
+	cat >"$FIXTURE/packages.json"
+}
+
 # Casks in the fonts bundle, which is the shape every roster font has.
 write_packages() {
 	printf '%s\n' "$@" | jq -Rs 'split("\n") | map(select(length > 0))
@@ -101,6 +134,130 @@ write_registry() {
 	[ "$status" -eq 0 ]
 	assert_contains "in a bundle you've enabled but not installed"
 	assert_contains "fixture-missing-formula"
+}
+
+# ---- App Store (mas) ----
+#
+# The registry's third package type, which the doctor read neither half of until #24. A
+# missing menu-bar utility is the self-concealing kind of gap: an uninstalled formula
+# announces itself the next time you reach for it, while "I thought I had that on this
+# machine" is not a thought that reliably arrives.
+
+@test "doctor: a tracked mas app that isn't installed is reported" {
+	write_bundles core
+	write_mas_packages <<'JSON'
+[{"name": "Hidden Bar", "type": "mas", "id": 1452453066, "bundles": ["core"]}]
+JSON
+	stub_mas
+
+	run app_store_section
+
+	[ "$status" -eq 0 ]
+	assert_contains "Hidden Bar"
+	assert_contains "1452453066"
+}
+
+@test "doctor: a tracked mas app that is installed is not reported" {
+	write_bundles core
+	write_mas_packages <<'JSON'
+[{"name": "Hidden Bar", "type": "mas", "id": 1452453066, "bundles": ["core"]}]
+JSON
+	stub_mas "1452453066  Hidden Bar  (1.9)"
+
+	run app_store_section
+
+	[ "$status" -eq 0 ]
+	assert_not_contains "Hidden Bar"
+}
+
+# The decision on #24: this machine tracks 2 App Store apps and has 12, and the other 10
+# are GarageBand, Keynote and friends that shipped with macOS. Reporting them would push
+# every machine toward carrying the same App Store set, which is the opposite of what
+# bundles are for. The Homebrew section reports both directions; this one deliberately
+# does not, and this case is what says so.
+@test "doctor: an installed mas app nobody tracks is not reported" {
+	write_bundles core
+	write_mas_packages <<'JSON'
+[]
+JSON
+	stub_mas "408981434  iMovie  (10.4)" "682658836  GarageBand  (10.4)"
+
+	run app_store_section
+
+	[ "$status" -eq 0 ]
+	assert_not_contains "iMovie"
+	assert_not_contains "GarageBand"
+}
+
+@test "doctor: a mas app in a bundle this machine hasn't enabled is not reported" {
+	write_bundles core
+	write_mas_packages <<'JSON'
+[{"name": "Presentify", "type": "mas", "id": 1507246666, "bundles": ["media"]}]
+JSON
+	stub_mas
+
+	run app_store_section
+
+	[ "$status" -eq 0 ]
+	assert_not_contains "Presentify"
+}
+
+# App Store display names change under you, and "Hidden Bar" carries a space, so the id is
+# the half worth matching on. Same id, renamed app: installed, and must stay quiet.
+@test "doctor: a mas app is matched on id, not on display name" {
+	write_bundles core
+	write_mas_packages <<'JSON'
+[{"name": "Hidden Bar", "type": "mas", "id": 1452453066, "bundles": ["core"]}]
+JSON
+	stub_mas "1452453066  Hidden Bar 2  (2.0)"
+
+	run app_store_section
+
+	[ "$status" -eq 0 ]
+	# The heading prints either way, the way the Homebrew section's does, so the id is what
+	# says whether this entry was reported: it appears only on a line naming a missing app.
+	assert_not_contains "1452453066"
+}
+
+# The mirror of the case above: a different app whose display name happens to match is not
+# the tracked one, so the tracked one is still missing.
+@test "doctor: a matching name under a different id does not satisfy the entry" {
+	write_bundles core
+	write_mas_packages <<'JSON'
+[{"name": "Hidden Bar", "type": "mas", "id": 1452453066, "bundles": ["core"]}]
+JSON
+	stub_mas "9999999999  Hidden Bar  (1.0)"
+
+	run app_store_section
+
+	[ "$status" -eq 0 ]
+	assert_contains "1452453066"
+}
+
+# Read-only tool: a machine without mas gets a skip line naming it, not a failure. mas
+# rides in the core bundle so it is normally present, which is exactly why the absent
+# case needs a test rather than an assumption.
+@test "doctor: skips rather than dies when mas is not installed" {
+	write_bundles core
+	write_mas_packages <<'JSON'
+[{"name": "Hidden Bar", "type": "mas", "id": 1452453066, "bundles": ["core"]}]
+JSON
+	# Removing the stub is not enough. setup() appends the inherited PATH rather than
+	# replacing it, and mas really is installed on a machine that tracks App Store apps, so
+	# the real binary would answer and this case would quietly assert the opposite of what
+	# it says. Narrow PATH to the stubs plus a directory holding only jq, which this section
+	# needs and nothing here stubs.
+	local only_jq="$BATS_TEST_TMPDIR/only-jq"
+	mkdir -p "$only_jq"
+	ln -sf "$REAL_JQ" "$only_jq/jq"
+	rm -f "$STUBS/mas"
+	PATH="$STUBS:$only_jq:/usr/bin:/bin"
+
+	run app_store_section
+
+	[ "$status" -eq 0 ]
+	assert_contains "mas"
+	assert_not_contains "1452453066"
 }
 
 # A roster entry that declares one cask per half, used as the shape the failure cases

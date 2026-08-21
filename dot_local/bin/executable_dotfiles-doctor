@@ -80,6 +80,48 @@ else
 fi
 
 echo
+echo "== App Store =="
+# The registry's third package type. This section read none of it until #24, so a tracked
+# App Store app that went missing went missing quietly — and that gap hides better than the
+# Homebrew one, because an uninstalled formula announces itself the next time you reach for
+# it while a missing menu-bar utility just isn't there.
+#
+# One direction only, unlike Homebrew above. `mas list` returns everything the App Store
+# ever installed, which on a normal machine includes GarageBand, Keynote and the rest of
+# what shipped with macOS. Reporting those would push every machine toward carrying the
+# same App Store set, and bundles exist so machines don't have to. So this asks one
+# question: did the registry promise something that isn't here.
+#
+# Matched on id rather than name. `mas list` prints "<id>  <Name>  (<version>)" and the
+# registry carries both, but App Store display names change under you and "Hidden Bar"
+# already has a space in it, so name matching would add a quoting bug to a correctness one.
+#
+# Its own guard rather than riding the brew block's: mas installs through Homebrew but the
+# check doesn't depend on it, and this tool is read-only and must not die on a machine
+# that lacks either. Its own `chezmoi execute-template` pair for the same reason, so a
+# machine without brew still gets this section.
+#
+# Known blind spot, not worth engineering around: `mas list` only sees apps installed
+# through the App Store, so one that arrived another way reads as missing here. Nothing
+# outside the App Store can tell those two apart.
+if command -v mas &>/dev/null && command -v jq &>/dev/null; then
+  mas_bundles="$(chezmoi execute-template '{{ template "bundles" . }}')"
+  mas_pkgs="$(chezmoi execute-template '{{ .pkg.packages | toJson }}')"
+  installed_mas="$(mas list 2>/dev/null | awk '{print $1}')"
+  tracked_mas="$(jq -r --argjson b "$mas_bundles" '
+    .[] | select(.type == "mas") | select(.bundles | any(IN($b[])))
+    | "\(.id)\t\(.name)"' <<<"$mas_pkgs")"
+
+  echo "-- in a bundle you've enabled but not installed (install by hand; apply won't retry until the package list changes):"
+  while IFS="$(printf '\t')" read -r mas_id mas_name; do
+    [ -n "$mas_id" ] || continue
+    grep -qxF "$mas_id" <<<"$installed_mas" || echo "    mas   $mas_name ($mas_id)"
+  done <<<"$tracked_mas"
+else
+  echo "    mas or jq not found — skipping"
+fi
+
+echo
 echo "== Config dependencies =="
 # The Homebrew section above is the right check on the wrong axis. It compares what's
 # installed against what's tracked, and never asks whether a managed config names a

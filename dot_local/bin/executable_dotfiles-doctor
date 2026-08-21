@@ -38,6 +38,13 @@ if command -v brew &>/dev/null && command -v jq &>/dev/null; then
   bundles="$(chezmoi execute-template '{{ template "bundles" . }}')"
   pkgs="$(chezmoi execute-template '{{ .pkg.packages | toJson }}')"
 
+  # Fourth `chezmoi execute-template` call, same pattern as the two above rather than a
+  # second reader for registry data: zappy needs macOS 15, one real machine here is still
+  # on Sonoma, and Lane A's Brewfile render already skips entries this macOS can't satisfy
+  # (#23). This is how doctor learns which registry entries got skipped for that reason,
+  # so it can stop reporting the gap as a package apply silently dropped.
+  held="$(chezmoi execute-template '{{ template "os-held" . }}')"
+
   # Two spellings of every tapped formula, because brew uses both: `brew leaves` reports
   # them qualified (sbcinnovation/tap/squoosh) and `brew list --formula` reports them bare.
   # Carrying both means neither direction of the comparison invents drift that isn't there.
@@ -48,6 +55,36 @@ if command -v brew &>/dev/null && command -v jq &>/dev/null; then
     | .name, (.name | split("/") | last)' <<<"$pkgs")"
   tracked_cask="$(jq -r --argjson b "$bundles" '
     .[] | select(.type == "cask") | select(.bundles | any(IN($b[]))) | .name' <<<"$pkgs")"
+
+  # os-held reports every held entry in the whole registry, not just the ones a bundle on
+  # this machine turns on — the partial doesn't know which bundles are enabled, doctor
+  # does. Narrowing to $pkgs filtered the same way tracked_brew/tracked_cask are keeps
+  # "held" scoped to what this machine would actually have installed if macOS allowed it.
+  held_enabled="$(jq -c --argjson pkgs "$pkgs" --argjson b "$bundles" '
+    map(select(. as $h | $pkgs | any(.type == $h.type and .name == $h.name
+      and (.bundles | any(IN($b[]))))))
+  ' <<<"$held")"
+
+  # Subtracted here, and only here — never from tracked_brew_any/tracked_cask above, which
+  # bucket A (just below) still reads unmodified. A held entry is still tracked, so bucket
+  # A must keep seeing it or an install outside chezmoi's view would misreport as
+  # untracked. Bucket B asks a different question — did apply install what it promised —
+  # and a held entry can never answer yes, so it has to leave this pair of lists before
+  # that loop runs or every held machine would nag about the same package forever.
+  held_brew="$(jq -r '.[] | select(.type == "brew") | .name' <<<"$held_enabled")"
+  held_cask="$(jq -r '.[] | select(.type == "cask") | .name' <<<"$held_enabled")"
+  # `|| true` on both: grep -v exits 1 when it filters out every line it was given, which
+  # is exactly what happens when a bundle's only tracked cask is also its only held one —
+  # the fully-subtracted case, not a failure. Under set -e an unguarded assignment here
+  # would abort the whole script the moment that happened.
+  tracked_brew_installable="$tracked_brew"
+  tracked_cask_installable="$tracked_cask"
+  if [[ -n "$held_brew" ]]; then
+    tracked_brew_installable="$(grep -vxFf <(echo "$held_brew") <<<"$tracked_brew" || true)"
+  fi
+  if [[ -n "$held_cask" ]]; then
+    tracked_cask_installable="$(grep -vxFf <(echo "$held_cask") <<<"$tracked_cask" || true)"
+  fi
 
   echo "-- here but not tracked at all (add it to .chezmoidata.toml, or uninstall):"
   while IFS= read -r formula; do
@@ -70,11 +107,55 @@ if command -v brew &>/dev/null && command -v jq &>/dev/null; then
   while IFS= read -r formula; do
     [[ -n "$formula" ]] || continue
     grep -qxF "${formula##*/}" <<<"$installed_brew" || echo "    brew  $formula"
-  done <<<"$tracked_brew"
+  done <<<"$tracked_brew_installable"
   while IFS= read -r cask; do
     [[ -n "$cask" ]] || continue
     grep -qxF "$cask" <<<"$installed_cask" || echo "    cask  $cask"
-  done <<<"$tracked_cask"
+  done <<<"$tracked_cask_installable"
+
+  # Printed as its own bucket rather than folded into the one above: a held entry isn't a
+  # gap to close, it's the boundary working as designed, and burying it inside "install by
+  # hand" would train you to try and fail on the one machine where that install can never
+  # succeed. The line shape (name first, type in parens) is deliberately not the "type
+  # name" shape the two buckets above use, so this can never read as one of their entries.
+  # The heading prints once and each entry carries its own floor, because two entries held
+  # at different versions is the shape this grows into — zappy is just the only one today,
+  # and a per-entry heading would repeat the whole line for each of them.
+  if [[ -n "$held_enabled" && "$held_enabled" != "[]" ]]; then
+    echo "-- held back by this macOS (correctly absent):"
+    while IFS=$'\t' read -r etype ename emin; do
+      [[ -n "$ename" ]] || continue
+      echo "    $ename  ($etype, needs macOS $emin)"
+    done < <(jq -r '.[] | "\(.type)\t\(.name)\t\(.min_macos)"' <<<"$held_enabled")
+  fi
+
+  # The typo GitHub #23 names — a registry min_macos that doesn't match what the cask
+  # actually requires — has a quieter twin: brew relaxing or dropping the requirement out
+  # from under a value the registry still pins. Nothing above catches that half, because a
+  # dropped requirement means nothing is held, so nothing above ever looks at it. This
+  # checks every enabled entry that declares a min_macos against brew directly, regardless
+  # of whether it's currently held, and says nothing at all when the two agree.
+  min_entries="$(jq -c --argjson b "$bundles" '
+    [.[] | select(.bundles | any(IN($b[]))) | select(has("min_macos") and .min_macos != null)
+     | {type, name, min_macos}]
+  ' <<<"$pkgs")"
+  while IFS=$'\t' read -r mtype mname mmin; do
+    [[ -n "$mname" ]] || continue
+    if ! info_json="$(brew info --json=v2 "$mname" 2>/dev/null)"; then
+      echo "-- couldn't check $mname's macOS requirement against brew"
+      continue
+    fi
+    brew_min="$(jq -r '
+      (.casks[0] // .formulae[0]) as $e
+      | if ($e.depends_on.macos // null) == null then "DROPPED"
+        else ($e.depends_on.macos[">="][0] // "DROPPED") end
+    ' <<<"$info_json" 2>/dev/null)"
+    if [[ "$brew_min" == "DROPPED" ]]; then
+      echo "-- $mname's macOS requirement mismatch: registry pins $mmin, but brew reports no macOS requirement (upstream may have dropped it)"
+    elif [[ "$brew_min" != "$mmin" ]]; then
+      echo "-- $mname's macOS requirement mismatch: registry says $mmin, brew says $brew_min"
+    fi
+  done < <(jq -r '.[] | "\(.type)\t\(.name)\t\(.min_macos)"' <<<"$min_entries")
 else
   echo "    brew or jq not found — skipping"
 fi

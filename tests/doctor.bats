@@ -34,9 +34,10 @@ setup() {
 	# $HOME points, the same reason font.bats and packages.bats unset these.
 	unset XDG_CONFIG_HOME XDG_CACHE_HOME
 
-	# The doctor asks chezmoi four things: where the source tree is, what's drifted, and since
-	# packages became data, what the registry holds and which bundles this machine has on.
-	# Answering all four from fixture files is the whole seam: every section then reads what
+	# The doctor asks chezmoi five things: where the source tree is, what's drifted, and
+	# since packages became data, what the registry holds, which bundles this machine has
+	# on, and — since #23 — which registry entries this machine's macOS holds back.
+	# Answering all five from fixture files is the whole seam: every section then reads what
 	# this test wrote rather than the repo it's running inside.
 	cat >"$STUBS/chezmoi" <<'STUB'
 #!/usr/bin/env bash
@@ -47,6 +48,7 @@ execute-template)
   case "$2" in
   *bundles*) cat "$FIXTURE/bundles.json" ;;
   *packages*) cat "$FIXTURE/packages.json" ;;
+  *os-held*) cat "$FIXTURE/os-held.json" ;;
   esac
   ;;
 esac
@@ -62,10 +64,13 @@ STUB
 	# happy with no input at all.
 	printf '#!/usr/bin/env bash\n:\n' >"$STUBS/brew"
 
-	# Defaults the cases below override. Both files have to be valid JSON even for tests
-	# that don't care, because the Homebrew section runs first and pipes them through jq.
+	# Defaults the cases below override. All three files have to be valid JSON even for
+	# tests that don't care, because the Homebrew section runs first and pipes them through
+	# jq — an unset os-held.json would fall through the stub's case arm to no output at all,
+	# and the section's jq calls would choke on empty input instead of an empty array.
 	write_bundles fonts
 	echo '[]' >"$FIXTURE/packages.json"
+	echo '[]' >"$FIXTURE/os-held.json"
 
 	chmod +x "$STUBS/chezmoi" "$STUBS/code" "$STUBS/brew"
 	export PATH="$STUBS:$PATH"
@@ -123,6 +128,13 @@ write_registry() {
 	cat >"$FIXTURE/dot_config/font/registry.json"
 }
 
+# The os-held partial's contract (#23): a JSON array of the registry entries the running
+# macOS holds back, each `{"name", "type", "min_macos"}`. Written straight to the fixture
+# the stub's *os-held* arm serves, same idiom as write_registry above.
+write_os_held() {
+	cat >"$FIXTURE/os-held.json"
+}
+
 # The Homebrew section, not Config dependencies: a formula tracked in an enabled bundle
 # that `brew list` doesn't return. The stubbed `brew` in setup() is `:`, so nothing ever
 # reads as installed — the fixture only has to name a formula in the default "fonts"
@@ -134,6 +146,152 @@ write_registry() {
 	[ "$status" -eq 0 ]
 	assert_contains "in a bundle you've enabled but not installed"
 	assert_contains "fixture-missing-formula"
+}
+
+# ---- macOS-held entries (#23) ----
+#
+# zappy needs macOS 15, and one real machine here still runs Sonoma, so every apply on it
+# failed the cask forever until Lane A taught the Brewfile render to skip entries this
+# machine's macOS can't satisfy. That fix turns "tracked but not installed" into a lie for
+# a held entry — it's the boundary working as designed, not a package apply silently
+# dropped — so this doctor half has to stop reporting it as install-by-hand, and separately
+# catch the registry disagreeing with brew about what the requirement even is.
+
+# Grows the stubbed `brew` beyond setup()'s no-op body with an `info --json=v2` arm,
+# modeled on tests/install-failures.bats:122-140. Every other subcommand keeps falling
+# through to nothing, same as setup()'s stub, since only the contradiction check calls
+# `brew info`.
+stub_brew_info() {
+	cat >"$STUBS/brew" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+info) cat "$FIXTURE/brew-info.json" ;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+}
+
+write_brew_info() {
+	cat >"$FIXTURE/brew-info.json"
+}
+
+@test "doctor: a macOS-held cask is reported as held, not as install-by-hand" {
+	write_packages "zappy"
+	write_os_held <<'JSON'
+[{"name": "zappy", "type": "cask", "min_macos": "15"}]
+JSON
+	run homebrew_section
+	[ "$status" -eq 0 ]
+	assert_contains "held back by this macOS"
+	assert_contains "zappy"
+	# Bucket B's exact line shape (four spaces, "cask", two spaces, the name) — its
+	# absence is what proves zappy left that bucket's input list, not just that the held
+	# heading printed somewhere else in the same section.
+	assert_not_contains "    cask  zappy"
+	# Each entry carries its own floor, so the heading doesn't have to name one.
+	assert_contains "needs macOS 15"
+}
+
+# zappy is the registry's only held entry today, and a bucket that prints its heading per
+# entry instead of once looks identical while that stays true. Two entries at different
+# floors is what tells those two implementations apart, so the case exists before the
+# second real entry does rather than after someone notices the report repeating itself.
+@test "doctor: two entries held at different versions print under one heading" {
+	write_packages "zappy" "someothercask"
+	write_os_held <<'JSON'
+[{"name": "zappy", "type": "cask", "min_macos": "15"},
+ {"name": "someothercask", "type": "cask", "min_macos": "26"}]
+JSON
+	run homebrew_section
+	[ "$status" -eq 0 ]
+	assert_contains "needs macOS 15"
+	assert_contains "needs macOS 26"
+	local headings
+	headings="$(grep -c "held back by this macOS" <<<"$output")"
+	[ "$headings" -eq 1 ]
+}
+
+@test "doctor: a held-but-installed cask still doesn't read as untracked" {
+	write_packages "zappy"
+	write_os_held <<'JSON'
+[{"name": "zappy", "type": "cask", "min_macos": "15"}]
+JSON
+	cat >"$STUBS/brew" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+list)
+  case "$2" in
+  --cask) echo "zappy" ;;
+  esac
+  ;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+	run homebrew_section
+	[ "$status" -eq 0 ]
+	# The asymmetric-subtraction pin: bucket A's inputs are never touched by the held
+	# subtraction, so an entry that's held yet somehow installed anyway must still read as
+	# tracked rather than as a stray install nobody declared. Same line shape as above —
+	# its absence covers both bucket A and bucket B in one assertion.
+	assert_not_contains "    cask  zappy"
+}
+
+@test "doctor: a macOS-requirement mismatch names the entry, the registry value, and brew's" {
+	jq -n '[{name: "zappy", type: "cask", bundles: ["fonts"], min_macos: "15"}]' \
+		>"$FIXTURE/packages.json"
+	write_brew_info <<'JSON'
+{"formulae": [], "casks": [{"token": "zappy", "depends_on": {"macos": {">=": ["14"]}}}]}
+JSON
+	stub_brew_info
+	run homebrew_section
+	[ "$status" -eq 0 ]
+	assert_contains "zappy"
+	assert_contains "registry says 15"
+	assert_contains "brew says 14"
+}
+
+@test "doctor: a macOS requirement that matches brew produces no output" {
+	jq -n '[{name: "zappy", type: "cask", bundles: ["fonts"], min_macos: "15"}]' \
+		>"$FIXTURE/packages.json"
+	write_brew_info <<'JSON'
+{"formulae": [], "casks": [{"token": "zappy", "depends_on": {"macos": {">=": ["15"]}}}]}
+JSON
+	stub_brew_info
+	run homebrew_section
+	[ "$status" -eq 0 ]
+	# All three of the contradiction check's own lines (mismatch, dropped, couldn't-check)
+	# share this phrase; its absence is agreement's whole signature; nothing else in the
+	# Homebrew section ever says it.
+	assert_not_contains "macOS requirement"
+}
+
+@test "doctor: brew dropping the macOS requirement is reported as upstream-dropped" {
+	jq -n '[{name: "zappy", type: "cask", bundles: ["fonts"], min_macos: "15"}]' \
+		>"$FIXTURE/packages.json"
+	write_brew_info <<'JSON'
+{"formulae": [], "casks": [{"token": "zappy", "depends_on": {}}]}
+JSON
+	stub_brew_info
+	run homebrew_section
+	[ "$status" -eq 0 ]
+	assert_contains "zappy"
+	assert_contains "upstream may have dropped it"
+}
+
+@test "doctor: a failing brew info produces one couldn't-check line, not silence" {
+	jq -n '[{name: "zappy", type: "cask", bundles: ["fonts"], min_macos: "15"}]' \
+		>"$FIXTURE/packages.json"
+	cat >"$STUBS/brew" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+info) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+	run homebrew_section
+	[ "$status" -eq 0 ]
+	assert_contains "couldn't check"
+	assert_contains "zappy"
 }
 
 # ---- App Store (mas) ----

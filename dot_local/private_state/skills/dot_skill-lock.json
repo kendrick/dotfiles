@@ -200,7 +200,7 @@
       "skillPath": "skills/defuddle/SKILL.md",
       "skillFolderHash": "db0b775af7e7d603f59fa2b67bdef615baf1a48f",
       "installedAt": "2026-06-10T02:25:17.940Z",
-      "updatedAt": "2026-06-10T02:25:17.940Z"
+      "updatedAt": "2026-08-22T04:56:40.484Z"
     },
     "json-canvas": {
       "source": "kepano/obsidian-skills",
@@ -209,7 +209,7 @@
       "skillPath": "skills/json-canvas/SKILL.md",
       "skillFolderHash": "9df7971db7ffebf96f2a207840b9f4765aa11b04",
       "installedAt": "2026-06-10T02:25:17.966Z",
-      "updatedAt": "2026-06-10T02:25:17.966Z"
+      "updatedAt": "2026-08-22T04:56:40.512Z"
     },
     "obsidian-bases": {
       "source": "kepano/obsidian-skills",
@@ -218,7 +218,7 @@
       "skillPath": "skills/obsidian-bases/SKILL.md",
       "skillFolderHash": "f3330f27de4d7907ead57d0f48672f4d3280bb77",
       "installedAt": "2026-06-10T02:25:17.981Z",
-      "updatedAt": "2026-06-10T02:25:17.981Z"
+      "updatedAt": "2026-08-22T04:56:40.531Z"
     },
     "obsidian-cli": {
       "source": "kepano/obsidian-skills",
@@ -227,7 +227,7 @@
       "skillPath": "skills/obsidian-cli/SKILL.md",
       "skillFolderHash": "96254a554e480359de7b685571876f2e7f9ba57d",
       "installedAt": "2026-06-10T02:25:17.995Z",
-      "updatedAt": "2026-06-10T02:25:17.995Z"
+      "updatedAt": "2026-08-22T04:56:40.546Z"
     },
     "obsidian-markdown": {
       "source": "kepano/obsidian-skills",
@@ -236,7 +236,7 @@
       "skillPath": "skills/obsidian-markdown/SKILL.md",
       "skillFolderHash": "4723197c6dc59abc29819da87863b1ac20b96095",
       "installedAt": "2026-06-10T02:25:18.006Z",
-      "updatedAt": "2026-06-10T02:25:18.006Z"
+      "updatedAt": "2026-08-22T04:56:40.559Z"
     },
     "vercel-composition-patterns": {
       "source": "vercel-labs/agent-skills",

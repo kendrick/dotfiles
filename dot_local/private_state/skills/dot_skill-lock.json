@@ -534,9 +534,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "handoff/SKILL.md",
-      "skillFolderHash": "b699008b1e7ac9387d17d5d1b1efe7ca6e48da67",
+      "skillFolderHash": "46afe1fc74b9f652809081a6aae60ec667d00c1a",
       "installedAt": "2026-07-27T17:29:02.387Z",
-      "updatedAt": "2026-08-20T18:56:55.770Z"
+      "updatedAt": "2026-08-21T19:23:54.482Z"
     },
     "file-issue": {
       "source": "kendrick/skills",

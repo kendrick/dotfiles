@@ -179,9 +179,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "13842f6ecf101505380739cbdf4e32acb96b3be5",
+      "skillFolderHash": "a5ec1588028e602c55ac9116b6bcc378f4d8f772",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-08-22T17:28:35.907Z"
+      "updatedAt": "2026-08-24T02:59:31.513Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -525,9 +525,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "readme-coauthorship/SKILL.md",
-      "skillFolderHash": "9e615741ac8a9d33135eb5eb88d06b870431f4d9",
+      "skillFolderHash": "0557c04ab8404ca3bcf97c01ec658f043584fd73",
       "installedAt": "2026-07-10T21:06:31.581Z",
-      "updatedAt": "2026-08-20T18:56:55.785Z"
+      "updatedAt": "2026-08-24T02:59:33.884Z"
     },
     "handoff": {
       "source": "kendrick/skills",
@@ -561,27 +561,36 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "technical-writing/SKILL.md",
-      "skillFolderHash": "13f56b0b72c20638a68b469dcf7c336990408f35",
+      "skillFolderHash": "7a5533ffcd0a96d188c299b5e31ba019e70e337b",
       "installedAt": "2026-08-20T17:19:36.512Z",
-      "updatedAt": "2026-08-21T00:43:02.584Z"
+      "updatedAt": "2026-08-24T02:59:36.127Z"
     },
     "jd-audit": {
       "source": "kendrick/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "jd-audit/SKILL.md",
-      "skillFolderHash": "ed4334004479f838d4dafdeb4fdf0d2df0609eb0",
+      "skillFolderHash": "af16ddb97d7b829eee2e503f4ada08caf67fb945",
       "installedAt": "2026-08-23T00:16:19.802Z",
-      "updatedAt": "2026-08-23T02:37:44.433Z"
+      "updatedAt": "2026-08-24T02:08:37.223Z"
     },
     "jd-file": {
       "source": "kendrick/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "jd-file/SKILL.md",
-      "skillFolderHash": "0d37c5edc6b45ab458dad96673f37271de752b02",
+      "skillFolderHash": "9b2e7c31dfb354fbaaf5cdc0edb2b36f7e543830",
       "installedAt": "2026-08-23T00:16:19.822Z",
-      "updatedAt": "2026-08-23T02:37:44.462Z"
+      "updatedAt": "2026-08-24T02:59:38.172Z"
+    },
+    "eli5": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "eli5/SKILL.md",
+      "skillFolderHash": "ca3eff3a19f6d2b24f0dd0c31a50af2a16f63735",
+      "installedAt": "2026-08-24T02:08:17.431Z",
+      "updatedAt": "2026-08-24T02:08:17.431Z"
     }
   },
   "dismissed": {

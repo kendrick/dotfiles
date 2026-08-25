@@ -279,45 +279,45 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
       "skillPath": "skills/accessibility/SKILL.md",
-      "skillFolderHash": "abdb452337317f5840e4298e46ad07663342dbe8",
+      "skillFolderHash": "90b7b38a892c625d19408df411e46cca7ff3819d",
       "installedAt": "2026-06-10T04:46:33.484Z",
-      "updatedAt": "2026-06-10T04:46:33.484Z"
+      "updatedAt": "2026-08-25T02:35:04.544Z"
     },
     "best-practices": {
       "source": "addyosmani/web-quality-skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
       "skillPath": "skills/best-practices/SKILL.md",
-      "skillFolderHash": "31953d33750e2be4444cf4f0bb8b2fd386116d50",
+      "skillFolderHash": "3f87de92fa71fc2e9741e6890fd991e8308db191",
       "installedAt": "2026-06-10T04:46:33.526Z",
-      "updatedAt": "2026-06-10T04:46:33.526Z"
+      "updatedAt": "2026-08-25T02:35:06.228Z"
     },
     "core-web-vitals": {
       "source": "addyosmani/web-quality-skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
       "skillPath": "skills/core-web-vitals/SKILL.md",
-      "skillFolderHash": "041da568684b2b15ccb8789253dd2df29c8de433",
+      "skillFolderHash": "79f9fe00ddd0855b35e7498e3752c6d02304eb65",
       "installedAt": "2026-06-10T04:46:33.540Z",
-      "updatedAt": "2026-06-10T04:46:33.540Z"
+      "updatedAt": "2026-08-25T02:35:07.800Z"
     },
     "performance": {
       "source": "addyosmani/web-quality-skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
       "skillPath": "skills/performance/SKILL.md",
-      "skillFolderHash": "62de2e9d8439998bd386f06a1c8acb96877f48fe",
+      "skillFolderHash": "69232372c8ae1d7f927267073560cbc762251662",
       "installedAt": "2026-06-10T04:46:33.552Z",
-      "updatedAt": "2026-06-10T04:46:33.552Z"
+      "updatedAt": "2026-08-25T02:35:09.151Z"
     },
     "web-quality-audit": {
       "source": "addyosmani/web-quality-skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/addyosmani/web-quality-skills.git",
       "skillPath": "skills/web-quality-audit/SKILL.md",
-      "skillFolderHash": "a927159d150e7681018cfb1eebefa8a2c951c5fb",
+      "skillFolderHash": "a04a8ccbc301e12a7a4680886981db4955ebafbb",
       "installedAt": "2026-06-10T04:46:33.562Z",
-      "updatedAt": "2026-06-10T04:46:33.562Z"
+      "updatedAt": "2026-08-25T02:35:10.698Z"
     },
     "find-skills": {
       "source": "vercel-labs/skills",
@@ -525,9 +525,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "readme-coauthorship/SKILL.md",
-      "skillFolderHash": "0557c04ab8404ca3bcf97c01ec658f043584fd73",
+      "skillFolderHash": "d178e95cbe20e362def9c6d810f0621d9a551e87",
       "installedAt": "2026-07-10T21:06:31.581Z",
-      "updatedAt": "2026-08-24T02:59:33.884Z"
+      "updatedAt": "2026-08-25T02:35:12.985Z"
     },
     "handoff": {
       "source": "kendrick/skills",
@@ -579,9 +579,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "jd-file/SKILL.md",
-      "skillFolderHash": "9b2e7c31dfb354fbaaf5cdc0edb2b36f7e543830",
+      "skillFolderHash": "fa5338b7ccdf4fa68c5e87d032c4607581d87ae2",
       "installedAt": "2026-08-23T00:16:19.822Z",
-      "updatedAt": "2026-08-24T02:59:38.172Z"
+      "updatedAt": "2026-08-25T02:52:48.451Z"
     },
     "eli5": {
       "source": "kendrick/skills",

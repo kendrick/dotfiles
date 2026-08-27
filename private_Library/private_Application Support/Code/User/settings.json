@@ -49,11 +49,12 @@
 	"editor.minimap.enabled": false,
 	"git.openRepositoryInParentFolders": "never",
 	"editor.lineHeight": 0,
-	"editor.fontSize": 15,
+	"editor.fontSize": 19,
 	"extensions.ignoreRecommendations": true,
 	"terminal.integrated.fontFamily": "DankMono Nerd Font",
 	"terminal.integrated.fontLigatures.enabled": true,
 	"terminal.integrated.fontLigatures.featureSettings": "'calt', 'liga'",
 	"terminal.integrated.fontSize": 14,
 	"chat.viewSessions.orientation": "stacked",
+	"chat.disableAIFeatures": true,
 }

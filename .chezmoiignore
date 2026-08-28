@@ -93,3 +93,11 @@ Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist
 # machine can be revoked without touching the others. Never let this into the repo.
 .ssh/quantified_claude_events_deploy
 .ssh/quantified_claude_events_deploy.pub
+
+# Obsidian's own vault registry. Application state, not config: Obsidian rewrites it on
+# every vault open, stamping a timestamp and which vault is currently open, so managing it
+# would leave `chezmoi diff` permanently dirty and let an apply stomp the registry
+# mid-session. Ignored on purpose rather than by omission, because it IS read by the
+# jd-file and jd-audit skills as their fallback for locating the vault. Read, never manage:
+# it stays correct the instant a vault moves, which JD_VAULT cannot until the next apply.
+Library/Application Support/obsidian/

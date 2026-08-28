@@ -1,0 +1,27 @@
+{{- /* Sourced by every zsh, interactive or not. exports.zsh only reaches interactive
+       shells via zshrc, which is why JD_VAULT lives here and not there: cron, LaunchAgents,
+       and `ssh host cmd` all need it and none of them read zshrc. Keep this file to the
+       exports that have to survive a non-interactive shell. PATH and the rest stay put.
+
+       JD_VAULT bootstraps the jd-file and jd-audit skills. It is the one path that cannot
+       live in 00.02 Vault Conventions, because that file sits inside the vault it would
+       point to. Everything else those skills need is declared in that block and read in one
+       go once this resolves. See kendrick/skills#55.
+
+       stat runs at apply time, so a machine with no vault gets no export rather than a
+       variable aimed at nothing, and a moved vault is corrected by the next apply. That
+       makes `chezmoi apply` the revalidation step, which is why there is no cache file
+       here to go stale. Verification globs for the conventions note rather than the
+       directory: a path that exists but is not a vault is the one ambiguous failure. */ -}}
+{{- $vault := "" -}}
+{{- range (list
+      "Library/Mobile Documents/iCloud~md~obsidian/Documents/notes"
+      "Documents/notes") -}}
+{{-   $c := joinPath $.chezmoi.homeDir . -}}
+{{-   if and (not $vault) (stat (joinPath $c "00-09 Admin & Meta" "00 System" "00.02 Vault Conventions.md")) -}}
+{{-     $vault = $c -}}
+{{-   end -}}
+{{- end -}}
+{{- if $vault -}}
+export JD_VAULT={{ $vault | quote }}
+{{ end -}}

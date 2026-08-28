@@ -49,7 +49,7 @@
 	"editor.minimap.enabled": false,
 	"git.openRepositoryInParentFolders": "never",
 	"editor.lineHeight": 0,
-	"editor.fontSize": 19,
+	"editor.fontSize": 15,
 	"extensions.ignoreRecommendations": true,
 	"terminal.integrated.fontFamily": "DankMono Nerd Font",
 	"terminal.integrated.fontLigatures.enabled": true,

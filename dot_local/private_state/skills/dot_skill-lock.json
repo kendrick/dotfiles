@@ -179,9 +179,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "ea0b13b95b008d42f5c91a0ff4095044d35adc17",
+      "skillFolderHash": "f7dd50fe6880f9f5b0acdbcdae74f2c72f44d9d2",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-08-27T02:44:33.904Z"
+      "updatedAt": "2026-08-28T21:14:58.997Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -261,9 +261,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
       "skillPath": "skills/react-view-transitions/SKILL.md",
-      "skillFolderHash": "d5c0250898ec0dd3fe06cd46a396cd500ebf5bd5",
+      "skillFolderHash": "13063dbbfc1b085cbc11b9bd5d4324aa2f41bb3a",
       "installedAt": "2026-06-10T04:45:25.788Z",
-      "updatedAt": "2026-08-21T00:42:28.722Z"
+      "updatedAt": "2026-08-28T21:15:03.464Z"
     },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
@@ -516,9 +516,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "inbox-to-memory/SKILL.md",
-      "skillFolderHash": "e81177d6fbe9bb9f59b8577af3a234fdcbfaf88a",
+      "skillFolderHash": "fd38d4f3c48b51f7a2867e1a72bba07de3635f88",
       "installedAt": "2026-07-10T21:06:31.566Z",
-      "updatedAt": "2026-08-27T02:44:37.145Z"
+      "updatedAt": "2026-08-28T21:15:10.001Z"
     },
     "readme-coauthorship": {
       "source": "kendrick/skills",
@@ -570,18 +570,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "jd-audit/SKILL.md",
-      "skillFolderHash": "af16ddb97d7b829eee2e503f4ada08caf67fb945",
+      "skillFolderHash": "4c60409d113494a1f8bff714b24ae3d9331d8518",
       "installedAt": "2026-08-23T00:16:19.802Z",
-      "updatedAt": "2026-08-24T02:08:37.223Z"
+      "updatedAt": "2026-08-28T21:15:13.471Z"
     },
     "jd-file": {
       "source": "kendrick/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "jd-file/SKILL.md",
-      "skillFolderHash": "fa5338b7ccdf4fa68c5e87d032c4607581d87ae2",
+      "skillFolderHash": "6eb96d500328c3bbe9be511913889d609ce9e700",
       "installedAt": "2026-08-23T00:16:19.822Z",
-      "updatedAt": "2026-08-25T02:52:48.451Z"
+      "updatedAt": "2026-08-28T21:31:37.679Z"
     },
     "eli5": {
       "source": "kendrick/skills",

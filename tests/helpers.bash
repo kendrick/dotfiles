@@ -533,11 +533,23 @@ ui_distinct_glyphs() {
 # without the trap the script dies at 129 before it can spill anything.
 ui_fail_open_fixture() {
 	local path="$1" kit="$2" direction="$3" injection="$4"
-	local inject=''
+	local inject='' sttydir
 	case "$injection" in
 	frames-unset) inject='unset SPINNER_FRAMES # INJECT:frames-unset' ;;
 	frames-empty) inject='SPINNER_FRAMES=() # INJECT:frames-empty' ;;
 	bar-nan) inject='progress_bar "not-a-number" >/dev/null # INJECT:bar-nan' ;;
+	stty-zero)
+		# The one injection that needs a binary rather than a variable, and the
+		# only place in this suite where a shell utility is stubbed. It is an
+		# injected fault here, not a venue: everywhere else `stty` resolves for
+		# real, because a harness that replaces the shell's own utilities ends
+		# up measuring a kit that cannot animate.
+		sttydir="$(dirname "$path")/stty-zero"
+		mkdir -p "$sttydir"
+		printf '#!/bin/bash\necho "0 0"\n' >"$sttydir/stty"
+		chmod +x "$sttydir/stty"
+		inject="PATH=\"$sttydir:\$PATH\" # INJECT:stty-zero"
+		;;
 	esac
 
 	local work='return 0'
@@ -883,4 +895,26 @@ s = s.replace(old2, old2 + '\nkill "$ui_spin" 2>/dev/null || true', 1)
 open(p, 'w').write(s)
 EOF
 	grep -q 'ui_spin=' "$script"
+}
+
+# The widest live line in a capture, in display columns.
+ui_widest_line() {
+	python3 "$(ui_src)/tests/support/line-width.py" "$1"
+}
+
+# A probe whose live line is as long as the real ones get. The licensed-fonts
+# loop ticks with entries like "Font: Operator Mono Lig Nerd Font", which blows
+# past 40 columns on its own, so a narrow-terminal check driven by a short
+# label proves nothing.
+ui_probe_body_wide() {
+	cat <<'BODY'
+step_begin 'licensed fonts'
+i=0
+while [ "$i" -lt 15 ]; do
+	step_tick "$i" 15 'Font: Operator Mono Lig Nerd Font'
+	sleep 0.1
+	i=$((i + 1))
+done
+step_ok 'licensed fonts' 'done'
+BODY
 }

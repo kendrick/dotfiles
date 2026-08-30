@@ -173,6 +173,20 @@ setup() {
 	# distinct glyphs and fewer than two carriage returns has drawn them side
 	# by side instead of over each other.
 	[ "$(LC_ALL=C tr -cd '\r' <"$v/tty" | wc -c | tr -d ' ')" -ge 2 ]
+
+	# The same live line on a narrow terminal. A wrapped line sends the next
+	# carriage return back to the wrong row, and the animation starts eating
+	# the scrollback above it.
+	#
+	# The width has to come from `stty size </dev/tty`. No script run by
+	# `chezmoi apply` has COLUMNS set or TERM exported, so a kit reading
+	# ${COLUMNS:-80} truncates nothing in production while passing any check
+	# that sets the variable, which is why this uses a real 40-column winsize.
+	local n="$BATS_TEST_TMPDIR/narrow"
+	ui_apply_venue "$n" "$(ui_probe_body_wide)"
+	ui_apply "$n" --cols 40 --glyphs "$g" --stdout "$n/out" \
+		--stderr "$n/err" --tty-capture "$n/tty" --timeout 90
+	[ "$(ui_widest_line "$n/tty")" -le 40 ]
 }
 
 # ---- C-7: a display fault never changes a script's exit status -------------
@@ -183,16 +197,13 @@ setup() {
 # same run reports 129 for chezmoi and 0 for the script. The noun this measures
 # is the script's own status throughout.
 #
-# `stty size` reporting zero columns is C-7's sixth injection and is not here
-# yet: the kit reads no terminal width, so the fault has nothing to land on. It
-# arrives with the width work, which is what gives it something to break.
 @test "fail-open: a broken display leaves the exit status exactly where it was" {
 	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" d="$BATS_TEST_TMPDIR"
 	ui_render_kit "$kit"
 	local g inj dir fx marker
 	g="$(ui_glyphs "$kit")"
 
-	for inj in none frames-unset frames-empty bar-nan; do
+	for inj in none frames-unset frames-empty bar-nan stty-zero; do
 		for dir in ok fail; do
 			fx="$d/fo-$inj-$dir.sh"
 			ui_fail_open_fixture "$fx" "$kit" "$dir" "$inj"

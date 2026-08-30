@@ -61,10 +61,10 @@ install_clt_headless() {
   rm -f "$log"
 
   if [ -z "$label" ]; then
-    warn "Couldn't find Command Line Tools in the software update catalog."
+    step_warn "xcode clt" "not in the update catalog"
     return 1
   fi
-  ok "$label"
+  say "Installer: $label"
 
   # Prime sudo in the foreground. Backgrounding the install is what lets us draw the
   # progress bar, and a background job can't own the terminal to ask for a password.

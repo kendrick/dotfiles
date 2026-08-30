@@ -71,7 +71,8 @@ spin_until() {
     n=0
     while [ "$n" -lt 20 ]; do
       _UI_FRAME=$((${_UI_FRAME:-0} + 1))
-      _ui_write "${_UI_ERASE}${_UI_HIDE}  $(_ui_glyph)  $label  ($(elapsed $start))${_UI_SHOW}"
+      _ui_measure
+      _ui_write "${_UI_ERASE}${_UI_HIDE}$(_ui_fit "  $(_ui_glyph)  $label  ($(elapsed $start))" "$_UI_COLS")${_UI_SHOW}"
       n=$((n + 1))
       sleep 0.1
     done
@@ -91,6 +92,7 @@ spin_on_log() {
     wait "$pid"
     return $?
   fi
+  _ui_measure
   while kill -0 "$pid" 2>/dev/null; do
     pct=$(tr '\r' '\n' <"$log" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)?%' | tail -1 | tr -d '%')
     pct=${pct%%.*}
@@ -98,11 +100,11 @@ spin_on_log() {
     [ -n "$phase" ] || phase=$label
     _UI_FRAME=$((${_UI_FRAME:-0} + 1))
     if [ -n "$pct" ]; then
-      _ui_write "${_UI_ERASE}${_UI_HIDE}$(printf '  %s  %-12s %s  %3s%%   (%s)' \
-        "$(_ui_glyph)" "$phase" "$(progress_bar "$pct")" "$pct" "$(elapsed $start)")${_UI_SHOW}"
+      _ui_write "${_UI_ERASE}${_UI_HIDE}$(_ui_fit "$(printf '  %s  %-12s %s  %3s%%   (%s)' \
+        "$(_ui_glyph)" "$phase" "$(progress_bar "$pct")" "$pct" "$(elapsed $start)")" "$_UI_COLS")${_UI_SHOW}"
     else
-      _ui_write "${_UI_ERASE}${_UI_HIDE}$(printf '  %s  %s  (%s)' \
-        "$(_ui_glyph)" "$phase" "$(elapsed $start)")${_UI_SHOW}"
+      _ui_write "${_UI_ERASE}${_UI_HIDE}$(_ui_fit "$(printf '  %s  %s  (%s)' \
+        "$(_ui_glyph)" "$phase" "$(elapsed $start)")" "$_UI_COLS")${_UI_SHOW}"
     fi
     sleep 0.1
   done
@@ -185,6 +187,54 @@ _ui_settled() {
   return 0
 }
 
+# Terminal width, from the terminal itself.
+#
+# `stty size </dev/tty` is the only thing that answers here. No script run by
+# `chezmoi apply` has COLUMNS set or TERM exported, so a kit reading
+# ${COLUMNS:-80} truncates nothing in production while passing any check that
+# sets the variable.
+#
+# Cached into a global rather than returned, because a caller reading it
+# through $( ) runs this in a subshell whose assignment dies with it, and the
+# fork would then happen ten times a second for the length of a download. A
+# terminal resized mid-apply keeps the width it started with, which costs one
+# wrapped line at the moment of the resize.
+_ui_measure() {
+  [ -n "${_UI_COLS:-}" ] && return 0
+  local size cols
+  size=$(stty size </dev/tty 2>/dev/null) || size=''
+  cols=${size##* }
+  # A terminal reporting nothing, or zero columns, is a display fault. It must
+  # not take the script down and must not produce a nonsense width.
+  case "$cols" in
+  '' | *[!0-9]*) cols=80 ;;
+  esac
+  [ "$cols" -ge 20 ] || cols=80
+  _UI_COLS=$cols
+  return 0
+}
+
+# Trim to a display-column budget. A wrapped live line sends the next carriage
+# return back to the wrong row, after which the animation eats the scrollback
+# above it.
+#
+# ${#s} counts characters rather than bytes under a UTF-8 locale, which is what
+# a braille or block glyph needs. Callers pass plain text with no escape
+# sequences in it, so what is counted here is what the terminal renders.
+_ui_fit() {
+  local s="$1" max="$2"
+  if [ "$max" -lt 2 ]; then
+    printf ''
+    return 0
+  fi
+  if [ "${#s}" -le "$max" ]; then
+    printf '%s' "$s"
+    return 0
+  fi
+  printf '%s…' "${s:0:$((max - 1))}"
+  return 0
+}
+
 # The current frame glyph.
 #
 # SPINNER_FRAMES unset and SPINNER_FRAMES empty are separate states on bash
@@ -215,7 +265,8 @@ step_begin() {
   _UI_STEP_LABEL="$1"
   _UI_STEP_START=$SECONDS
   ui_watching || return 0
-  _ui_write "${_UI_ERASE}${_UI_HIDE}  $(_ui_glyph)  $1${_UI_SHOW}"
+  _ui_measure
+  _ui_write "${_UI_ERASE}${_UI_HIDE}$(_ui_fit "  $(_ui_glyph)  $1" "$_UI_COLS")${_UI_SHOW}"
   return 0
 }
 
@@ -233,7 +284,8 @@ step_tick() {
   if [ -n "$n" ] && [ -n "$total" ]; then
     count="$n/$total "
   fi
-  _ui_write "${_UI_ERASE}${_UI_HIDE}  $(_ui_glyph)  ${_UI_STEP_LABEL:-}  ${count}${detail}${_UI_SHOW}"
+  _ui_measure
+  _ui_write "${_UI_ERASE}${_UI_HIDE}$(_ui_fit "  $(_ui_glyph)  ${_UI_STEP_LABEL:-}  ${count}${detail}" "$_UI_COLS")${_UI_SHOW}"
   return 0
 }
 

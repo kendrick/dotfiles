@@ -105,6 +105,7 @@ install_plugin {{ $spec }}
 {{   end -}}
 {{ else -}}
 step_warn "claude plugins" "no chezmoi decryption key"
+exit 0
 {{ end -}}
 # Counted before expanding: bash 3.2 renders an empty array as one empty word, so an
 # unconditional summary would announce a nameless failure on every clean apply.

@@ -183,7 +183,10 @@ _ui_erase() {
 # label, detail, elapsed—so ten scripts' worth of these read as one run
 # rather than as a changelog of unrelated tools.
 _ui_settled() {
-  printf '  %s  %-16s %-24s (%s)\n' "$1" "$2" "$3" "$4"
+  # Both fields are trimmed as well as padded. %-24s only pads, so one long
+  # detail pushes the elapsed column out of line and ten scripts stop reading
+  # as one run, which is the whole property these columns exist for.
+  printf '  %s  %-16s %-24s (%s)\n' "$1" "$(_ui_fit "$2" 16)" "$(_ui_fit "$3" 24)" "$4"
   return 0
 }
 

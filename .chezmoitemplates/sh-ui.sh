@@ -30,7 +30,15 @@ elapsed() {
 }
 
 progress_bar() {
-  local pct=$1 width=24 filled i out=''
+  local pct="${1:-0}" width=24 filled i out=''
+  # A percentage that isn't a number is a display fault, and a display fault
+  # must never take the script down. Under `set -u` the arithmetic below reads
+  # a non-numeric argument as a variable name and aborts the whole script with
+  # `unbound variable`, which is how a cosmetic bar stops a package install.
+  case "$pct" in
+  '' | *[!0-9]*) pct=0 ;;
+  esac
+  [ "$pct" -le 100 ] || pct=100
   filled=$((pct * width / 100))
   # Braces are load-bearing: bash 3.2 reads the block glyph's lead byte as part of the
   # variable name in a UTF-8 locale, so bare "$out█" silently truncates every append.

@@ -518,3 +518,75 @@ ui_distinct_glyphs() {
 	done
 	printf '%s' "$found"
 }
+
+# Builds one script for the fail-open matrix: a direction (does the underlying
+# work succeed or fail?) crossed with a display fault.
+#
+# In the failing direction the work's status has to reach the caller THROUGH a
+# kit helper, as spin_on_log's wrapped job. A fixture that ends in a bare
+# `exit 7` on its own tests nothing about the kit; it tests that `exit` works.
+#
+# `trap '' HUP` is required by the unwritable injection and harmless in the
+# rest: the only way to make /dev/tty present-but-unwritable is closing the pty
+# master, which raises SIGHUP on the whole foreground process group, and
+# without the trap the script dies at 129 before it can spill anything.
+ui_fail_open_fixture() {
+	local path="$1" kit="$2" direction="$3" injection="$4"
+	local inject=''
+	case "$injection" in
+	frames-unset) inject='unset SPINNER_FRAMES # INJECT:frames-unset' ;;
+	frames-empty) inject='SPINNER_FRAMES=() # INJECT:frames-empty' ;;
+	bar-nan) inject='progress_bar "not-a-number" >/dev/null # INJECT:bar-nan' ;;
+	esac
+
+	local work='return 0'
+	if [ "$direction" = "fail" ]; then
+		work='return 7'
+	fi
+
+	cat >"$path" <<FIXTURE
+#!/bin/bash
+set -eu
+trap '' HUP
+. '$kit'
+cleanup() {
+	st=\$?
+	ui_finalize "\$st"
+}
+trap cleanup EXIT
+$inject
+job() {
+	sleep 1
+	$work
+}
+log="\$(mktemp)"
+step_begin 'work'
+job >"\$log" 2>&1 &
+spin_on_log \$! 'work' "\$log"
+step_ok 'work' 'done'
+FIXTURE
+	chmod +x "$path"
+}
+
+# A kit whose frame write is unguarded, which is C-7's own failing example: a
+# cosmetic write to a vanished tty takes the script down under errexit, and
+# every package after that point goes uninstalled.
+ui_unguarded_kit() {
+	local src="$1" out="$2"
+	sed 's|^  ( printf .*$|  printf "%s" "$1" >\&9|' "$src" >"$out"
+	# Both halves of the guard have to be gone, not just the subshell. An
+	# earlier version of this replacement left the trailing `|| true` in place
+	# and produced a kit that still swallowed the failure, so the check it
+	# feeds passed while proving nothing.
+	grep -q '^  printf "%s" "\$1" >&9$' "$out"
+	grep -vq '|| true' <(grep -A1 '^_ui_write()' "$out")
+}
+
+# ui_pty's exit status, without errexit eating the case first. bats runs test
+# bodies under `set -e`, so a bare `ui_pty ...; st=$?` never reaches the
+# assignment on any run that fails, which is exactly the run worth measuring.
+ui_pty_status() {
+	local st=0
+	ui_pty "$@" || st=$?
+	printf '%s' "$st"
+}

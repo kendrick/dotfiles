@@ -174,3 +174,86 @@ setup() {
 	# by side instead of over each other.
 	[ "$(LC_ALL=C tr -cd '\r' <"$v/tty" | wc -c | tr -d ' ')" -ge 2 ]
 }
+
+# ---- C-7: a display fault never changes a script's exit status -------------
+
+# Judged standalone under a pty, never under `chezmoi apply`. The first
+# injection is why: the only way to make /dev/tty present-but-unwritable is
+# closing the pty master, which SIGHUPs the whole group, so under an apply the
+# same run reports 129 for chezmoi and 0 for the script. The noun this measures
+# is the script's own status throughout.
+#
+# `stty size` reporting zero columns is C-7's sixth injection and is not here
+# yet: the kit reads no terminal width, so the fault has nothing to land on. It
+# arrives with the width work, which is what gives it something to break.
+@test "fail-open: a broken display leaves the exit status exactly where it was" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" d="$BATS_TEST_TMPDIR"
+	ui_render_kit "$kit"
+	local g inj dir fx marker
+	g="$(ui_glyphs "$kit")"
+
+	for inj in none frames-unset frames-empty bar-nan; do
+		for dir in ok fail; do
+			fx="$d/fo-$inj-$dir.sh"
+			ui_fail_open_fixture "$fx" "$kit" "$dir" "$inj"
+
+			# The injection is asserted present on disk before anything is
+			# asserted about the result. An injection that silently failed to
+			# apply produces a clean run and reads as a pass.
+			if [ "$inj" != "none" ]; then
+				assert_contains "INJECT:$inj" "$(cat "$fx")"
+			fi
+
+			marker="$(ui_pty_status --glyphs "$g" --stdout "$d/o" \
+				--stderr "$d/e" --tty-capture "$d/t" --timeout 60 \
+				-- /bin/bash "$fx")"
+			if [ "$dir" = "ok" ]; then
+				[ "$marker" -eq 0 ]
+			else
+				[ "$marker" -eq 7 ]
+			fi
+		done
+	done
+
+	# Injection: /dev/tty present but its writes failing, built by closing the
+	# master while the kit is actively drawing.
+	for dir in ok fail; do
+		fx="$d/fo-unwritable-$dir.sh"
+		ui_fail_open_fixture "$fx" "$kit" "$dir" none
+		marker="$(ui_pty_status --glyphs "$g" --close-master-after-glyphs 2 \
+			--stdout "$d/o" --stderr "$d/e" --tty-capture "$d/t" \
+			--timeout 60 -- /bin/bash "$fx")"
+		if [ "$dir" = "ok" ]; then
+			[ "$marker" -eq 0 ]
+		else
+			[ "$marker" -eq 7 ]
+		fi
+	done
+
+	# Injection: /dev/tty failing to open at all. This is the one that covers
+	# the plain branch; the others all live on the animated one, so without it
+	# nothing tests the branch a detached run takes.
+	for dir in ok fail; do
+		fx="$d/fo-notty-$dir.sh"
+		ui_fail_open_fixture "$fx" "$kit" "$dir" none
+		marker="$(ui_pty_status --setsid --stdout "$d/o" --stderr "$d/e" \
+			--timeout 60 -- /bin/bash "$fx")"
+		if [ "$dir" = "ok" ]; then
+			[ "$marker" -eq 0 ]
+		else
+			[ "$marker" -eq 7 ]
+		fi
+	done
+
+	# The check demonstrates its own discrimination rather than assuming it: a
+	# kit whose frame write is unguarded must fail the succeeding direction
+	# under the unwritable injection. A check that cannot fail against the
+	# clause's own failing example has not been verified, only assumed.
+	local bad="$d/sh-ui-unguarded.sh"
+	ui_unguarded_kit "$kit" "$bad"
+	ui_fail_open_fixture "$d/fo-bad.sh" "$bad" ok none
+	marker="$(ui_pty_status --glyphs "$g" --close-master-after-glyphs 2 \
+		--stdout "$d/o" --stderr "$d/e" --tty-capture "$d/t" --timeout 60 \
+		-- /bin/bash "$d/fo-bad.sh")"
+	[ "$marker" -ne 0 ]
+}

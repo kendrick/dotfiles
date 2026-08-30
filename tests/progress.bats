@@ -257,3 +257,72 @@ setup() {
 		-- /bin/bash "$d/fo-bad.sh")"
 	[ "$marker" -ne 0 ]
 }
+
+# ---- C-6: a failed or interrupted script settles and restores the cursor ---
+
+# Four routes to a non-zero exit, because they fail differently and a script
+# can take any of them. An ERR trap alone would not cover the last one: an
+# explicit `exit N` fires no ERR trap at any `set -E` setting.
+@test "failure: a non-zero exit leaves a settled line and a restored cursor" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" d="$BATS_TEST_TMPDIR" route fx st
+	ui_render_kit "$kit"
+	local g
+	g="$(ui_glyphs "$kit")"
+
+	for route in helper-loop wrapped bare-region explicit-exit; do
+		fx="$d/fail-$route.sh"
+		ui_failure_fixture "$fx" "$kit" "$route"
+		st="$(ui_pty_status --glyphs "$g" --stdout "$d/o" --stderr "$d/e" \
+			--tty-capture "$d/t" --timeout 60 -- /bin/bash "$fx")"
+
+		[ "$st" -ne 0 ]
+		# The settled line goes to stdout, not to /dev/tty: the live line is
+		# erased before the summary is written, and settled lines are what a
+		# capture keeps.
+		[ "$(ui_count_matching '^  ✗  ' "$(cat "$d/o")")" -ge 1 ]
+		# Real bytes, not the eight characters `\033[?25h`.
+		ui_ends_with_restore "$d/t"
+	done
+}
+
+# Judged under a real pty-wrapped apply with the signal sent to the foreground
+# process group, which is what Ctrl-C actually is.
+#
+# Two axes are pinned because both were measured deciding the answer.
+# Redirection: chezmoi emits ESC]11;? and ESC[6n on a bare pty and waits about
+# four seconds for an answer no harness sends, so an unredirected run reaches
+# its first frame around 5s where a redirected one reaches it at 0.4s. Timing:
+# the signal fires on the second frame glyph, never on a clock. A fixed 0.2s
+# turned a conforming kit red with a zero-byte capture, and a fixed 2.0s
+# produced a capture identical to an uninterrupted run.
+@test "sigint: Ctrl-C during an apply leaves the cursor visible" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+
+	local v="$BATS_TEST_TMPDIR/sig"
+	ui_apply_venue "$v" "$(ui_probe_body 40)"
+	ui_apply "$v" --glyphs "$g" --sigint-after-glyphs 2 --stdout "$v/out" \
+		--stderr "$v/err" --tty-capture "$v/tty" --timeout 90 || true
+
+	# One: the kit really ran and animated across a full frame interval. A
+	# purely negative reading passes on a zero-byte capture from a run that
+	# silently never executed.
+	[ "$(ui_shape "$v/tty" "$g" glyphs)" -ge 2 ]
+	# Two: nothing left the terminal without a cursor.
+	[ "$(ui_shape "$v/tty" "$g" unmatched_hide)" -eq 0 ]
+	# Three, the rule that actually discriminates. With two frames in the
+	# capture a per-frame-restore kit holds every span at 1 whatever happens
+	# after the signal, while a hide-once kit's opening hide spans both.
+	[ "$(ui_shape "$v/tty" "$g" max_span)" -le 1 ]
+
+	# The clause's own failing example, run through the same harness: a kit
+	# that hides once before its first frame and restores once after its last.
+	# A rule that cannot fail against it has not been verified, only assumed.
+	local w="$BATS_TEST_TMPDIR/sig-hide-once"
+	ui_apply_venue "$w" "$(ui_probe_body 40)"
+	ui_hide_once_kit "$kit" "$w/src/.chezmoitemplates/sh-ui.sh"
+	ui_apply "$w" --glyphs "$g" --sigint-after-glyphs 2 --stdout "$w/out" \
+		--stderr "$w/err" --tty-capture "$w/tty" --timeout 90 || true
+	[ "$(ui_shape "$w/tty" "$g" max_span)" -ge 2 ]
+}

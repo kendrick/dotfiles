@@ -469,13 +469,14 @@ ui_apply_venue() {
 # A run_ script body that animates long enough for a harness to act on a frame,
 # then settles.
 ui_probe_body() {
-	cat <<'BODY'
+	local frames="${1:-15}"
+	cat <<BODY
 step_begin 'probe'
 i=0
-while [ "$i" -lt 15 ]; do
-	step_tick "$i" 15 'working'
+while [ "\$i" -lt $frames ]; do
+	step_tick "\$i" $frames 'working'
 	sleep 0.1
-	i=$((i + 1))
+	i=\$((i + 1))
 done
 step_ok 'probe' 'done'
 BODY
@@ -589,4 +590,74 @@ ui_pty_status() {
 	local st=0
 	ui_pty "$@" || st=$?
 	printf '%s' "$st"
+}
+
+# One field out of capture-shape.py's report, by name.
+ui_shape() {
+	local cap="$1" glyphs="$2" field="$3"
+	python3 "$(ui_src)/tests/support/capture-shape.py" "$cap" "$glyphs" |
+		tr ' ' '\n' | sed -n "s/^$field=//p"
+}
+
+# Does the capture end with the cursor restore, as real bytes rather than as
+# the eight characters `\033[?25h`?
+ui_ends_with_restore() {
+	LC_ALL=C tail -c 6 "$1" | LC_ALL=C od -An -tx1 | tr -d ' \n' |
+		grep -q '^1b5b3f323568$'
+}
+
+# A script that fails by one of four routes, each with its own way of reaching
+# a non-zero exit, all of them going through the caller's EXIT trap.
+#
+# The trap captures $? as its literal first statement. That ordering is the
+# whole point: install-prerequisites' real trap opens with `rm -f`, which
+# always returns 0, so a finalizer reading $? after it would settle a failing
+# script's line as a success.
+ui_failure_fixture() {
+	local path="$1" kit="$2" route="$3" work=''
+	case "$route" in
+	# The helper's own loop gives up. spin_until returns 1 on timeout, and
+	# that status has to reach the caller rather than being swallowed.
+	helper-loop) work='spin_until "waiting" 1 false' ;;
+	# The work a helper wraps fails, and its status comes back through the
+	# helper rather than around it.
+	wrapped) work='job() { sleep 1; return 7; }
+log="$(mktemp)"
+job >"$log" 2>&1 &
+spin_on_log $! "work" "$log"' ;;
+	# A region no helper owns aborts under errexit. Six of the ten scripts
+	# set -e, so a step settled as ✓ followed by an abort would otherwise
+	# exit non-zero with a tick as its last word.
+	bare-region) work='false' ;;
+	explicit-exit) work='exit 5' ;;
+	esac
+	cat >"$path" <<FIXTURE
+#!/bin/bash
+set -eu
+. '$kit'
+cleanup() {
+	st=\$?
+	ui_finalize "\$st"
+}
+trap cleanup EXIT
+step_begin 'work'
+step_tick 1 3 'running'
+step_tick 2 3 'running'
+$work
+step_ok 'work' 'done'
+FIXTURE
+	chmod +x "$path"
+}
+
+# C-6's failing example as a kit: the cursor is hidden once before the first
+# frame and restored once after the last, so every frame drawn in between sits
+# inside one open hide span. A clean run looks right and Ctrl-C during the
+# two-minute package install leaves the user with no cursor until they run
+# `reset`.
+ui_hide_once_kit() {
+	local src="$1" out="$2"
+	sed -e 's|_ui_write "${_UI_ERASE}${_UI_HIDE}  $(_ui_glyph)  $1${_UI_SHOW}"|_ui_write "${_UI_HIDE}"; _ui_write "${_UI_ERASE}  $(_ui_glyph)  $1"|' \
+		-e 's|_ui_write "${_UI_ERASE}${_UI_HIDE}  $(_ui_glyph)  ${_UI_STEP_LABEL:-}  ${count}${detail}${_UI_SHOW}"|_ui_write "${_UI_ERASE}  $(_ui_glyph)  ${_UI_STEP_LABEL:-}  ${count}${detail}"|' \
+		"$src" >"$out"
+	grep -q '_ui_write "${_UI_HIDE}"; ' "$out"
 }

@@ -23,6 +23,37 @@ function cdf() { # short for `cdfinder`
 	cd "$(osascript -e 'tell app "Finder" to POSIX path of (insertion location as alias)')";
 }
 
+# Copy the front Finder window's directory to the clipboard, and echo it.
+# Exists because `cdf && pwd | pbcopy && cd -` clobbers $OLDPWD, so a `cd -`
+# toggle between two work dirs starts landing in the Finder dir. This one
+# never cds, so $PWD and $OLDPWD come out untouched. Yes, `cfd` is one
+# transposed keystroke from `cdf`; mnemonic is "copy Finder dir" vs "cd Finder".
+function cfd() {
+	local dir
+	dir="$(osascript -e 'tell app "Finder" to POSIX path of (insertion location as alias)')" || return $?
+	printf '%s' "$dir" | pbcopy && printf '%s\n' "$dir"
+}
+
+# Copy the full path of each item selected in the front Finder window, one per
+# line in Finder's order, and echo them. An empty selection falls back to cfd,
+# and like cfd this never changes directory.
+function cff() { # "copy Finder file(s)"
+	local sel
+	sel="$(osascript \
+		-e 'set out to ""' \
+		-e 'tell application "Finder"' \
+		-e 'repeat with f in (get selection)' \
+		-e 'set out to out & POSIX path of (f as alias) & linefeed' \
+		-e 'end repeat' \
+		-e 'end tell' \
+		-e 'out')" || return $?
+	if [ -z "$sel" ]; then
+		cfd
+		return $?
+	fi
+	printf '%s' "$sel" | pbcopy && printf '%s\n' "$sel"
+}
+
 # Create a data URL from a file
 function dataurl() {
 	local mimeType=$(file -b --mime-type "$1");

@@ -56,7 +56,7 @@ sg_age_identity_path() {
 }
 
 # Generates one age identity for the whole case that calls it and leaves its
-# recipient (public key) in $SG_AGE_RECIPIENT. One key per case is enough —
+# recipient (public key) in $SG_AGE_RECIPIENT. One key per case is enough—
 # a real machine has exactly one — and $SG_AGE_KEYFILE is what the no-key
 # case removes to prove the fallback in C-5.
 sg_age_setup() {
@@ -229,7 +229,7 @@ sg_prepare_target() {
 
 	case "$live" in
 	near | far)
-		# $dist filler/match commits older than HEAD, so the match commit —
+		# $dist filler/match commits older than HEAD, so the match commit—
 		# the one whose target state the live file below will hold — sits
 		# exactly $dist commits behind HEAD in this path's own history.
 		match_body="$(sg_gen_body "$content_lines" "$content_bytes" "MATCH-${nonce}")"
@@ -260,7 +260,7 @@ sg_prepare_target() {
 	printf '%s' "$live_body" >"$home_abs"
 	touch_at "$live_mtime_epoch" "$home_abs"
 
-	# Every edited row in C-1's table is edited *after* HEAD is committed —
+	# Every edited row in C-1's table is edited *after* HEAD is committed—
 	# an uncommitted change sitting on top of real history, never the only
 	# state a path has ever had.
 	if [ "$src" = "edited" ]; then
@@ -346,4 +346,102 @@ sg_assert_multi_block_set() {
 	done
 	got="$(printf '%s\n' "$output" | grep -cE '^        \.')"
 	[ "$got" -eq "${#BLOCK_TARGETS[@]}" ] || return 1
+}
+
+# --- progress-display harness (constitution C-1..C-14, GitHub #16) ----------
+#
+# Everything below serves tests/progress.bats. It lives here rather than in
+# that file because tests/lint.bats scans this file too, so the bash 3.2
+# assertion rules above apply to it and stay enforced.
+
+# The repo root, resolved from BATS_TEST_DIRNAME rather than $PWD: a checker
+# that copies this suite into a scratch worktree has to measure the copy, not
+# whatever tree the process happens to be running from.
+ui_src() {
+	printf '%s' "${BATS_TEST_DIRNAME}/.."
+}
+
+# A chezmoi config carrying machine_role, written once per test into
+# $BATS_TEST_TMPDIR and echoed back by path.
+#
+# Rendering under a synthetic $HOME without one fails outright with
+# `map has no entry for key "machine_role"`, and that key decides the
+# Brewfile's size. tests/packages.bats:30-43 is the same idea; this is the
+# whole-script form of it.
+ui_fixture_config() {
+	local cfg="$BATS_TEST_TMPDIR/chezmoi.toml"
+	if [ ! -f "$cfg" ]; then
+		printf '[data]\n  machine_role = "work"\n' >"$cfg"
+	fi
+	printf '%s' "$cfg"
+}
+
+# Renders .chezmoitemplates/sh-ui.sh on its own, the way a run_ script's
+# `{{ template "sh-ui.sh" . }}` include would.
+#
+# Every flag here is load-bearing. --source is what makes the include resolve
+# at all: bare `execute-template` resolves its source dir from
+# $HOME/.local/share/chezmoi, so under a synthetic $HOME it finds nothing and
+# the include renders empty—the defect still live at
+# tests/install-failures.bats:37. --config and --destination pin the other two
+# resolution surfaces, because with XDG unset and $HOME real chezmoi still
+# falls back through $HOME to the user's own ~/.config.
+ui_render_kit() {
+	local out="$1"
+	env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
+		chezmoi execute-template \
+		--source "$(ui_src)" \
+		--config "$(ui_fixture_config)" \
+		--destination "$BATS_TEST_TMPDIR/dest" \
+		<<<'{{ template "sh-ui.sh" . }}' >"$out"
+}
+
+# Counts lines of $2 matching extended regex $1. Anchored assertions need a
+# regex, and assert_contains hands its needle to `grep -qF`, so a settled
+# line's shape (`^  ✓  `) cannot be expressed through it.
+ui_count_matching() {
+	printf '%s\n' "${2-$output}" | grep -cE "$1" || true
+}
+
+# Counts ESC (0x1b) bytes in a file. Bytes, not matching lines: `grep -c`
+# answers a different question and reads as a pass on a file whose every
+# escape sequence shares one line.
+ui_esc_count() {
+	LC_ALL=C tr -cd '\033' <"$1" | wc -c | tr -d ' '
+}
+
+# The pty driver. See tests/support/pty-run.py for what each mode measures.
+ui_pty() {
+	python3 "$(ui_src)/tests/support/pty-run.py" "$@"
+}
+
+# The kit's spinner glyphs, read out of the rendered kit rather than
+# hardcoded, so a kit that changes its frames does not silently stop being
+# measured. Passed to the pty driver as the thing it counts.
+ui_glyphs() {
+	local kit="$1"
+	sed -n 's/^SPINNER_FRAMES=(\(.*\))$/\1/p' "$kit" | tr -d ' \n'
+}
+
+# A fixture that animates: it draws frames on /dev/tty for long enough that a
+# harness can act on one, then settles. Every venue in this suite needs a
+# script under test that is genuinely mid-animation, and `trap '' HUP` is what
+# lets it survive the one injection built by closing the pty master.
+ui_write_animating_fixture() {
+	local path="$1" kit="$2" frames="${3:-12}"
+	cat >"$path" <<FIXTURE
+#!/bin/bash
+set -eu
+trap '' HUP
+. '$kit'
+step_begin 'work'
+i=0
+while [ "\$i" -lt $frames ]; do
+	step_tick "\$i" $frames 'running'
+	sleep 0.1
+	i=\$((i + 1))
+done
+step_ok 'work' 'done'
+FIXTURE
+	chmod +x "$path"
 }

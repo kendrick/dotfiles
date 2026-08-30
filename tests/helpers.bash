@@ -798,3 +798,89 @@ ui_run_ten() {
 		ui_pty "$@" -- /bin/bash "$v/script.sh"
 	)
 }
+
+# One field out of bundle-intervals.py's report, by name.
+ui_intervals() {
+	local cap="$1" glyphs="$2" field="$3"
+	python3 "$(ui_src)/tests/support/bundle-intervals.py" "$cap" "$glyphs" |
+		tr ' ' '\n' | sed -n "s/^$field=//p"
+}
+
+# A `brew` stub that holds each bundle interval open and brackets it on
+# /dev/tty.
+#
+# The dwell is load-bearing and was measured as the only variable that decided
+# the answer. Against a violating script the same check reported ok with an
+# instant stub and `301 tty bytes inside bundle 1` with the same stub holding
+# 0.6s. A stub that returns immediately leaves no window for a frame to land
+# in, so the check cannot fail and certifies whatever it is given.
+#
+# Regime `retry` produces the one state that reaches the second bundle: a fetch
+# phase failure with no `<Verb> <entry> has failed!` line, one `Failed to fetch`
+# line, and `brew info` resolving a strict subset of the batched names.
+ui_write_brew_bundle_stub() {
+	local v="$1" regime="$2" drop="$3" keep="$4"
+	cat >"$v/stubs/brew" <<STUB
+#!/bin/bash
+BUNDLE_LOG="$v/bundle-calls.log"
+case "\$1" in
+info)
+	if [ "\$2" = "$drop" ]; then exit 1; fi
+	exit 0
+	;;
+bundle)
+	n=\$((\$(wc -l <"\$BUNDLE_LOG" 2>/dev/null || echo 0) + 1))
+	echo "bundle \$n" >>"\$BUNDLE_LOG"
+	printf 'BUNDLE-ENTER-%s' "\$n" >/dev/tty 2>/dev/null || true
+	cat >/dev/null
+	sleep 0.6
+	printf 'BUNDLE-EXIT-%s' "\$n" >/dev/tty 2>/dev/null || true
+	if [ "$regime" = "retry" ] && [ "\$n" -eq 1 ]; then
+		echo "Fetching $keep, $drop"
+		echo '\`brew bundle\` failed! Failed to fetch $keep, $drop' >&2
+		echo 'Error: No available formula with the name "$drop".' >&2
+		exit 1
+	fi
+	echo "Homebrew Bundle complete! 0 Brewfile dependencies now installed."
+	exit 0
+	;;
+esac
+exit 0
+STUB
+	chmod +x "$v/stubs/brew"
+	: >"$v/bundle-calls.log"
+}
+
+# Two real Brewfile entry names. A name the render never contained would make
+# the drop-and-retry gate vacuous, the same reason install-failures.bats reads
+# its fixtures out of the render.
+ui_brewfile_names() {
+	local cfg
+	cfg="$(ui_fixture_config)"
+	env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME chezmoi execute-template \
+		--source "$(ui_src)" --config "$cfg" <<<'{{ template "Brewfile" . }}' |
+		grep '^brew "' | head -2 | sed -E 's/^brew "([^"]+)"$/\1/'
+}
+
+# The clause's own failing example: the installer with a frame loop running
+# across its `brew bundle`. C-4 still passes against this, because the settled
+# line still reaches stdout on every path, which is exactly why the guarantee
+# needs a venue that watches /dev/tty instead.
+ui_animate_over_bundle() {
+	local script="$1"
+	python3 - "$script" <<'EOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = 'brew bundle --file=/dev/stdin <<<"$brewfile" 2>&1 | tee "$bundle_log"'
+assert old in s, "bundle invocation not found in rendered script"
+s = s.replace(old,
+  '( while :; do step_tick 1 1 "installing"; sleep 0.1; done ) &\n'
+  'ui_spin=$!\n' + old, 1)
+old2 = 'bundle_status=${PIPESTATUS[0]}'
+assert old2 in s
+s = s.replace(old2, old2 + '\nkill "$ui_spin" 2>/dev/null || true', 1)
+open(p, 'w').write(s)
+EOF
+	grep -q 'ui_spin=' "$script"
+}

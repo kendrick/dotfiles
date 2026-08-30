@@ -78,7 +78,14 @@ handle_bundle_result() {
   local log="$1" status="$2" allow_retry="$3"
   local failed_entries fetch_batch missing
 
-  [ "$status" -eq 0 ] && return 0
+  # Recorded rather than inferred by the caller, because the caller only ever
+  # sees the FIRST bundle's status and a retry that succeeds would otherwise be
+  # reported as a failure. The retry reaches this same early return through the
+  # recursive call below.
+  [ "$status" -eq 0 ] && {
+    bundle_outcome=ok
+    return 0
+  }
 
   failed_entries=$(parse_failed_entries "$log")
   if [ -n "$failed_entries" ]; then
@@ -170,6 +177,7 @@ trap ui_exit EXIT
 # /dev/tty past any redirect, onto the same stream a spinner would redraw, so a
 # frame landing there can erase a password prompt and hang the apply on
 # something nobody was shown. The live display for this script is GitHub #33.
+bundle_outcome=failed
 step_begin "packages"
 
 # tee rather than capture-then-print: a fresh machine spends tens of minutes in here and
@@ -179,7 +187,7 @@ bundle_status=${PIPESTATUS[0]}
 
 handle_bundle_result "$bundle_log" "$bundle_status" 1
 
-if [ "$bundle_status" -eq 0 ]; then
+if [ "$bundle_outcome" = "ok" ]; then
   step_ok "packages" "Brewfile applied"
 else
   step_warn "packages" "Homebrew reported failures"

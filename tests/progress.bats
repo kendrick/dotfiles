@@ -386,3 +386,68 @@ EOF
 		return 1
 	}
 }
+
+# ---- C-13: no frame lands on the stream brew's password prompt uses --------
+
+# Two observations of the rendered installer, with fd 1 captured separately
+# from /dev/tty because the property is about one of those streams and an
+# assertion on the other cannot see it.
+#
+# Both bundle invocations count, and the run that reaches the second one is not
+# optional. A harness running only the happy path reports zero violations
+# against a script that animates across the retry and calls that a pass, so a
+# run in which the retry interval was never entered is a failed check rather
+# than a passed one.
+@test "tty-scope: no frame lands inside either brew bundle invocation" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" root="$BATS_TEST_TMPDIR/pkg" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$root"
+
+	local names keep drop
+	names="$(ui_brewfile_names)"
+	keep="$(printf '%s\n' "$names" | sed -n 1p)"
+	drop="$(printf '%s\n' "$names" | sed -n 2p)"
+	[ -n "$keep" ]
+	[ -n "$drop" ]
+
+	# One bundle, exiting clean.
+	local v
+	v="$(ui_ten_venue "$root/plain" run_onchange_install-packages.sh.tmpl)"
+	ui_write_brew_bundle_stub "$v" plain "$drop" "$keep"
+	ui_run_ten "$v" --glyphs "$g" --stdout "$v/out" --stderr "$v/err" \
+		--tty-capture "$v/tty" --timeout 120 || true
+	[ "$(ui_intervals "$v/tty" "$g" intervals)" -ge 1 ]
+	[ "$(ui_intervals "$v/tty" "$g" violations)" -eq 0 ]
+
+	# The settled line follows brew's last line rather than preceding it.
+	local brew_line settled_line
+	brew_line="$(grep -n 'Homebrew Bundle complete' "$v/out" | tail -1 | cut -d: -f1)"
+	settled_line="$(grep -n '^  [✓!✗]  packages' "$v/out" | tail -1 | cut -d: -f1)"
+	[ -n "$brew_line" ]
+	[ -n "$settled_line" ]
+	[ "$settled_line" -gt "$brew_line" ]
+
+	# Two bundles, the second reached through the drop-and-retry path.
+	local w
+	w="$(ui_ten_venue "$root/retry" run_onchange_install-packages.sh.tmpl)"
+	ui_write_brew_bundle_stub "$w" retry "$drop" "$keep"
+	ui_run_ten "$w" --glyphs "$g" --stdout "$w/out" --stderr "$w/err" \
+		--tty-capture "$w/tty" --timeout 120 || true
+	[ "$(wc -l <"$w/bundle-calls.log" | tr -d ' ')" -eq 2 ]
+	[ "$(ui_intervals "$w/tty" "$g" intervals)" -eq 2 ]
+	[ "$(ui_intervals "$w/tty" "$g" violations)" -eq 0 ]
+
+	# The clause's own failing example through the same harness. Without this
+	# the check has been assumed rather than verified, and the stub's dwell is
+	# what gives a frame room to land: the same violating script measured clean
+	# against an instant stub and dirty against one holding the interval open.
+	local b
+	b="$(ui_ten_venue "$root/bad" run_onchange_install-packages.sh.tmpl)"
+	ui_write_brew_bundle_stub "$b" plain "$drop" "$keep"
+	ui_animate_over_bundle "$b/script.sh"
+	ui_run_ten "$b" --glyphs "$g" --stdout "$b/out" --stderr "$b/err" \
+		--tty-capture "$b/tty" --timeout 120 || true
+	[ "$(ui_intervals "$b/tty" "$g" intervals)" -ge 1 ]
+	[ "$(ui_intervals "$b/tty" "$g" violations)" -gt 0 ]
+}

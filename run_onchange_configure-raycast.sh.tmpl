@@ -9,14 +9,35 @@
 
 set -e
 
+{{ template "sh-ui.sh" . }}
+
+# $? is read as the trap body's literal first statement. A finalizer that reads
+# it any later gets the status of whatever ran in between, and settles a failed
+# run as a success.
+ui_exit() {
+  ui_st=$?
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
+
 if ! command -v open &>/dev/null; then
   # This branch was a bare `exit 0`. Alone among the four installers it left no trace, so on
   # a non-macOS box the script did not read as skipped — it read as absent.
-  echo "open command not found — skipping Raycast configuration."
+  step_warn "raycast ext" "open not found, skipping Raycast configuration"
   exit 0
 fi
 
-echo "Requesting Raycast extension installs..."
+# Read into a variable before the loop: the live line needs a denominator, and
+# a process substitution gives the loop no way to know how many are coming.
+raycast_exts=$(
+  cat <<'EXTEOF'
+{{ include "dot_config/raycast-extensions.txt" }}
+EXTEOF
+)
+ray_total=$(printf '%s\n' "$raycast_exts" | grep -cE '^[^#[:space:]]' || true)
+ray_done=0
+
+step_begin "raycast ext"
 
 # The ceiling on what this script can honestly report. `open` hands the URL to launchd and
 # returns the moment macOS accepts it, well before Raycast has fetched, built, or rejected
@@ -28,15 +49,15 @@ refused=()
 while IFS= read -r ext; do
   # Skip comments and empty lines
   [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
-  echo "  → $ext"
+  ray_done=$((ray_done + 1))
+  step_tick "$ray_done" "$ray_total" "$ext"
   if ! open "raycast://extensions/install/$ext"; then
     refused+=("$ext")
   fi
   sleep 1
-done < <(cat <<'EXTEOF'
-{{ include "dot_config/raycast-extensions.txt" }}
+done <<EXTEOF
+$raycast_exts
 EXTEOF
-)
 
 # The hotkey write sits between the loop and the summary, and `set -e` is on, so an
 # unwritable domain used to abort the script right here — exiting non-zero over a preference
@@ -50,10 +71,11 @@ fi
 # Guarded on the count: bash 3.2 turns an empty array into one empty word, and a heading
 # with a blank line under it is a failure report nobody can act on.
 if [ "${#refused[@]}" -gt 0 ]; then
+  step_warn "raycast ext" "${#refused[@]} of $ray_total refused"
   echo "macOS would not hand these install URLs to Raycast (its errors are above):"
   printf '  raycast://extensions/install/%s\n' "${refused[@]}"
 else
-  echo "Raycast install requests sent. Raycast picks them up in the background."
+  step_ok "raycast ext" "$ray_total requested"
 fi
 
 # A URL Raycast never received is not grounds for stopping the apply, so: 0.

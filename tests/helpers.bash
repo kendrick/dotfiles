@@ -661,3 +661,140 @@ ui_hide_once_kit() {
 		"$src" >"$out"
 	grep -q '_ui_write "${_UI_HIDE}"; ' "$out"
 }
+
+# --- the ten templated run_ scripts ----------------------------------------
+
+ui_ten_scripts() {
+	cat <<'LIST'
+run_before_provision-age-key.sh.tmpl
+run_once_before_install-prerequisites.sh.tmpl
+run_onchange_after_fetch-licensed-fonts.sh.tmpl
+run_onchange_after_install-claude-plugins.sh.tmpl
+run_onchange_after_install-global-node-packages.sh.tmpl
+run_onchange_after_load-launchagents.sh.tmpl
+run_onchange_after_restore-agent-skills.sh.tmpl
+run_onchange_configure-raycast.sh.tmpl
+run_onchange_install-packages.sh.tmpl
+run_onchange_install-vscode-extensions.sh.tmpl
+LIST
+}
+
+# Stubs for every binary the ten drive as a tool, drawn by effect rather than
+# by location.
+#
+# A binary is stubbed when its real invocation's effect leaves the harness:
+# network, launchd, credentials, GUI and app state, package state. Two members
+# were measured doing live damage from a passthrough PATH. `launchctl bootout`
+# runs against the user's own auto-sync agent, and `defaults` sits on
+# /usr/bin, reads like a system utility, and writes com.raycast.macos for real
+# on every run.
+#
+# The shell's own utilities are never stubbed. `sleep`, `tr`, `grep`, `tail`,
+# `sed`, `awk`, `stty`, `mktemp`, `cat`, and `date` resolve from /usr/bin:/bin,
+# because a no-op `sleep` collapses the kit's frame loop and leaves the harness
+# measuring a kit that cannot animate.
+ui_write_stubs() {
+	local v="$1" name
+	mkdir -p "$v/stubs" "$v/clt/usr/bin"
+
+	for name in npm pnpm npx claude code curl launchctl open osascript killall \
+		defaults mas gh node corepack softwareupdate sudo pkgutil; do
+		printf '#!/bin/bash\nexit 0\n' >"$v/stubs/$name"
+		chmod +x "$v/stubs/$name"
+	done
+
+	# Present the Command Line Tools as installed. With have_clt false the
+	# script falls through to `spin_until "Waiting for the install to finish"
+	# 3600`, and a venue that closes every install route turns that bound into
+	# an hour.
+	: >"$v/clt/usr/bin/clang"
+	: >"$v/clt/usr/bin/git"
+	chmod +x "$v/clt/usr/bin/clang" "$v/clt/usr/bin/git"
+	cat >"$v/stubs/xcode-select" <<STUB
+#!/bin/bash
+if [ "\$1" = "-p" ]; then
+	echo "$v/clt"
+	exit 0
+fi
+exit 0
+STUB
+	chmod +x "$v/stubs/xcode-select"
+
+	# brew has to answer `command -v`, or install-prerequisites takes its miss
+	# branch and runs Homebrew's installer off the network. `bundle` reads the
+	# Brewfile from stdin and has to drain it.
+	cat >"$v/stubs/brew" <<'STUB'
+#!/bin/bash
+case "$1" in
+bundle)
+	cat >/dev/null
+	echo "Homebrew Bundle complete! 0 Brewfile dependencies now installed."
+	;;
+shellenv) : ;;
+esac
+exit 0
+STUB
+	chmod +x "$v/stubs/brew"
+
+	# Signed out, which is the branch a harness can honestly take: the real
+	# `op read` blocks on interactive auth for as long as you let it.
+	cat >"$v/stubs/op" <<'STUB'
+#!/bin/bash
+case "$1" in
+account) exit 1 ;;
+esac
+exit 1
+STUB
+	chmod +x "$v/stubs/op"
+}
+
+# Renders one of the ten into its own venue and returns that venue's path.
+#
+# Venue state is per script because one shared home is jointly unsatisfiable.
+# provision-age-key needs a seeded key to take its early exit, since without
+# one it sources brew's shellenv by absolute path and then blocks on real
+# 1Password auth. install-claude-plugins needs that same path empty, because
+# with a key present its render takes a decrypt branch no test config can
+# serve and fails outright.
+ui_ten_venue() {
+	local root="$1" tmpl="$2"
+	local v="$root/${tmpl%.sh.tmpl}"
+	mkdir -p "$v/home" "$v/dest"
+	printf '[data]\n  machine_role = "work"\n' >"$v/chezmoi.toml"
+	ui_write_stubs "$v"
+
+	if [ "$tmpl" = "run_before_provision-age-key.sh.tmpl" ]; then
+		mkdir -p "$v/home/.config/chezmoi"
+		printf 'AGE-SECRET-KEY-1TESTONLYNOTAREALKEY\n' \
+			>"$v/home/.config/chezmoi/key.txt"
+	fi
+
+	(
+		unset XDG_CONFIG_HOME XDG_CACHE_HOME
+		HOME="$v/home" chezmoi execute-template \
+			--source "$(ui_src)" --config "$v/chezmoi.toml" \
+			--destination "$v/dest" <"$(ui_src)/$tmpl" >"$v/script.sh"
+	)
+	printf '%s' "$v"
+}
+
+# Runs a rendered script under its stubs.
+#
+# NVM_DIR and HOMEBREW_PREFIX are SET to venue paths rather than unset, and the
+# difference is not cosmetic. Both scripts that consult them read
+# `${HOMEBREW_PREFIX:-/opt/homebrew}`, so unsetting the variable hands the
+# script the real Homebrew prefix, whose opt/nvm/nvm.sh exists on this machine.
+# Sourcing it prepends real node ahead of the stubs and the run reaches a live
+# `npm install -g`.
+ui_run_ten() {
+	local v="$1"
+	shift
+	(
+		unset XDG_CONFIG_HOME XDG_CACHE_HOME NO_COLOR DOTFILES_NO_PROGRESS
+		export HOME="$v/home"
+		export NVM_DIR="$v/home/.nvm"
+		export HOMEBREW_PREFIX="$v/home/.no-homebrew"
+		export PATH="$v/stubs:/usr/bin:/bin"
+		ui_pty "$@" -- /bin/bash "$v/script.sh"
+	)
+}

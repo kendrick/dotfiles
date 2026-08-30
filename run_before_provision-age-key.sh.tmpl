@@ -15,15 +15,25 @@
 
 {{ template "sh-ui.sh" . }}
 
-trap show_cursor EXIT
+# $? is read as the trap body's literal first statement. A finalizer that reads
+# it any later gets the status of whatever ran in between, and settles a failed
+# run as a success.
+ui_exit() {
+  ui_st=$?
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
 
 KEY_PATH="{{ joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt" }}"
 OP_REF="op://Personal/chezmoi age key/key.txt"
 WAIT_TIMEOUT=600
 
 if [ -s "$KEY_PATH" ] && grep -q 'AGE-SECRET-KEY-1' "$KEY_PATH" 2>/dev/null; then
+  step_ok "age key" "already provisioned"
   exit 0
 fi
+
+step_begin "age key"
 
 # brew lands on a non-login shell's PATH only once we add it (prerequisites installed it).
 [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -43,7 +53,8 @@ if ! command -v op >/dev/null 2>&1; then
 fi
 
 if ! command -v op >/dev/null 2>&1; then
-  warn "1Password CLI unavailable. Seed $KEY_PATH by hand, then re-apply."
+  step_warn "age key" "1Password CLI unavailable"
+  say "Seed $KEY_PATH by hand, then re-apply."
   exit 0
 fi
 
@@ -70,10 +81,10 @@ mkdir -p "$(dirname "$KEY_PATH")"
 if key=$(op read "$OP_REF" 2>/dev/null) && [ -n "$key" ]; then
   printf '%s\n' "$key" >"$KEY_PATH"
   chmod 600 "$KEY_PATH"
-  ok "Fetched age key from 1Password into $KEY_PATH."
+  step_ok "age key" "fetched from 1Password"
   say "(Encrypted Claude config deploys on the next apply, once chezmoi re-reads the key.)"
 else
-  warn "Couldn't read the age key from 1Password."
+  step_fail "age key" "1Password would not answer"
   say "Unlock 1Password and turn on its CLI integration (Settings > Developer), then:"
   say "  op read \"$OP_REF\" > \"$KEY_PATH\" && chmod 600 \"$KEY_PATH\" && chezmoi apply"
 fi

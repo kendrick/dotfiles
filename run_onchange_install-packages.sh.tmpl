@@ -8,8 +8,10 @@
 #
 # teardown:none
 
+{{ template "sh-ui.sh" . }}
+
 if ! command -v brew &>/dev/null; then
-  echo "Homebrew not found — skipping package install."
+  step_warn "packages" "Homebrew not found"
   exit 0
 fi
 
@@ -154,7 +156,21 @@ handle_bundle_result() {
 # unset trap reference just expands empty, so rm -f no-ops on the happy path instead of
 # needing a second trap registration.
 bundle_log=$(mktemp -t dotfiles-brew-bundle)
-trap 'rm -f "$bundle_log" "$retry_log"' EXIT
+# $? first, before the removals: rm -f always returns 0, so a finalizer reading
+# it afterward settles a failed run as a success.
+ui_exit() {
+  ui_st=$?
+  rm -f "$bundle_log" "$retry_log"
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
+
+# The step line opens here, before brew is entered, and closes after it exits.
+# Nothing is drawn in between on purpose: a cask's sudo prompt writes to
+# /dev/tty past any redirect, onto the same stream a spinner would redraw, so a
+# frame landing there can erase a password prompt and hang the apply on
+# something nobody was shown. The live display for this script is GitHub #33.
+step_begin "packages"
 
 # tee rather than capture-then-print: a fresh machine spends tens of minutes in here and
 # needs to see it working. PIPESTATUS[0] is brew's status; $? would be tee's, always 0.
@@ -162,6 +178,12 @@ brew bundle --file=/dev/stdin <<<"$brewfile" 2>&1 | tee "$bundle_log"
 bundle_status=${PIPESTATUS[0]}
 
 handle_bundle_result "$bundle_log" "$bundle_status" 1
+
+if [ "$bundle_status" -eq 0 ]; then
+  step_ok "packages" "Brewfile applied"
+else
+  step_warn "packages" "Homebrew reported failures"
+fi
 
 # Still 0, having named the failures. Stopping the apply here would strand every later
 # script over one unavailable formula; dotfiles-doctor is what carries the gap forward.

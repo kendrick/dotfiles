@@ -326,3 +326,63 @@ setup() {
 		--stderr "$w/err" --tty-capture "$w/tty" --timeout 90 || true
 	[ "$(ui_shape "$w/tty" "$g" max_span)" -ge 2 ]
 }
+
+# ---- C-4: all ten templated run_ scripts print a step line when they run ----
+
+# The judgement is on what the run PRINTS, not on what the source contains. A
+# step_ok call inside a branch the run never takes satisfies a source reading
+# and leaves the user watching raw tool output.
+#
+# This is a floor rather than a ceiling. A remaining bare echo elsewhere does
+# not violate it, and whether a script leans on raw tool output as its primary
+# signal is judged separately.
+@test "adoption: every one of the ten leaves a settled line behind" {
+	local root="$BATS_TEST_TMPDIR/ten" tmpl v missing=''
+	mkdir -p "$root"
+	while read -r tmpl; do
+		[ -n "$tmpl" ] || continue
+		v="$(ui_ten_venue "$root" "$tmpl")"
+		ui_run_ten "$v" --stdout "$v/out" --stderr "$v/err" --timeout 120 || true
+		if [ "$(ui_count_matching '^  (✓|!|✗)  ' "$(cat "$v/out")")" -lt 1 ]; then
+			missing="$missing $tmpl"
+		fi
+	done <<EOF
+$(ui_ten_scripts)
+EOF
+	# Named rather than counted: a failure that says "3 scripts" sends the
+	# reader back to run all ten by hand.
+	[ -z "$missing" ] || {
+		echo "no settled line from:$missing"
+		return 1
+	}
+}
+
+# The same ten with no controlling terminal. This is the degradation contract,
+# and the venue is real without launchd: an ssh session run without a tty, a
+# cron job, any setsid run.
+#
+# Two assertions, not one. The escape-code half alone is already true of a kit
+# that gates on stdout, so the settled-line half is what makes this discriminate
+# at all.
+@test "setsid-log: the ten still settle, and write no ESC to stdout, with no terminal" {
+	local root="$BATS_TEST_TMPDIR/ten-setsid" tmpl v bad=''
+	mkdir -p "$root"
+	while read -r tmpl; do
+		[ -n "$tmpl" ] || continue
+		v="$(ui_ten_venue "$root" "$tmpl")"
+		ui_run_ten "$v" --setsid --stdout "$v/out" --stderr "$v/err" \
+			--timeout 120 || true
+		if [ "$(ui_esc_count "$v/out")" -ne 0 ]; then
+			bad="$bad ESC:$tmpl"
+		fi
+		if [ "$(ui_count_matching '^  (✓|!|✗)  ' "$(cat "$v/out")")" -lt 1 ]; then
+			bad="$bad NOLINE:$tmpl"
+		fi
+	done <<EOF
+$(ui_ten_scripts)
+EOF
+	[ -z "$bad" ] || {
+		echo "detached run defects:$bad"
+		return 1
+	}
+}

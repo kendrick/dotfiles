@@ -19,7 +19,8 @@ warn() { printf '  !  %s\n' "$1"; }
 # Callers set their own EXIT trap (they have their own temp files to clear), so the
 # cursor restore lives here rather than in a trap of its own.
 show_cursor() {
-  [ -t 1 ] && printf '\033[?25h'
+  ui_watching || return 0
+  _ui_write "$_UI_SHOW"
   return 0
 }
 
@@ -45,8 +46,8 @@ progress_bar() {
 spin_until() {
   local label=$1 timeout=$2
   shift 2
-  local start=$SECONDS i=0 n
-  if [ ! -t 1 ]; then
+  local start=$SECONDS n
+  if ! ui_watching; then
     say "$label..."
     while ! "$@"; do
       [ $((SECONDS - start)) -lt "$timeout" ] || return 1
@@ -54,21 +55,20 @@ spin_until() {
     done
     return 0
   fi
-  printf '\033[?25l'
   while ! "$@"; do
     if [ $((SECONDS - start)) -ge "$timeout" ]; then
-      printf '\r\033[K\033[?25h'
+      _ui_erase
       return 1
     fi
     n=0
     while [ "$n" -lt 20 ]; do
-      printf '\r  %s  %s  (%s)\033[K' "${SPINNER_FRAMES[i % 10]}" "$label" "$(elapsed $start)"
-      i=$((i + 1))
+      _UI_FRAME=$((${_UI_FRAME:-0} + 1))
+      _ui_write "${_UI_ERASE}${_UI_HIDE}  $(_ui_glyph)  $label  ($(elapsed $start))${_UI_SHOW}"
       n=$((n + 1))
       sleep 0.1
     done
   done
-  printf '\r\033[K\033[?25h'
+  _ui_erase
   return 0
 }
 
@@ -77,28 +77,28 @@ spin_until() {
 # log as the truth and fall back to a bare spinner when nothing parses.
 spin_on_log() {
   local pid=$1 label=$2 log=$3
-  local start=$SECONDS i=0 pct phase
-  if [ ! -t 1 ]; then
+  local start=$SECONDS pct phase
+  if ! ui_watching; then
     say "$label..."
     wait "$pid"
     return $?
   fi
-  printf '\033[?25l'
   while kill -0 "$pid" 2>/dev/null; do
     pct=$(tr '\r' '\n' <"$log" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)?%' | tail -1 | tr -d '%')
     pct=${pct%%.*}
     phase=$(tr '\r' '\n' <"$log" 2>/dev/null | grep -oE '^(Downloading|Downloaded|Installing|Preparing|Waiting)' | tail -1)
     [ -n "$phase" ] || phase=$label
+    _UI_FRAME=$((${_UI_FRAME:-0} + 1))
     if [ -n "$pct" ]; then
-      printf '\r  %s  %-12s %s  %3d%%   (%s)\033[K' \
-        "${SPINNER_FRAMES[i % 10]}" "$phase" "$(progress_bar "$pct")" "$pct" "$(elapsed $start)"
+      _ui_write "${_UI_ERASE}${_UI_HIDE}$(printf '  %s  %-12s %s  %3s%%   (%s)' \
+        "$(_ui_glyph)" "$phase" "$(progress_bar "$pct")" "$pct" "$(elapsed $start)")${_UI_SHOW}"
     else
-      printf '\r  %s  %s  (%s)\033[K' "${SPINNER_FRAMES[i % 10]}" "$phase" "$(elapsed $start)"
+      _ui_write "${_UI_ERASE}${_UI_HIDE}$(printf '  %s  %s  (%s)' \
+        "$(_ui_glyph)" "$phase" "$(elapsed $start)")${_UI_SHOW}"
     fi
-    i=$((i + 1))
     sleep 0.1
   done
-  printf '\r\033[K\033[?25h'
+  _ui_erase
   wait "$pid"
 }
 

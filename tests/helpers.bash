@@ -445,3 +445,76 @@ step_ok 'work' 'done'
 FIXTURE
 	chmod +x "$path"
 }
+
+# Builds a self-contained chezmoi source dir holding a copy of the kit and one
+# run_ script, plus its own destination, home, and config.
+#
+# The kit is copied in rather than referenced because a `{{ template
+# "sh-ui.sh" . }}` include resolves against the CONFIGURED source dir, not the
+# file being rendered. A venue that points --source at a fixture and expects
+# the repo's kit gets an empty include and a script that calls helpers nothing
+# defined.
+ui_apply_venue() {
+	local v="$1" body="$2"
+	mkdir -p "$v/src/.chezmoitemplates" "$v/dest" "$v/home"
+	cp "$(ui_src)/.chezmoitemplates/sh-ui.sh" "$v/src/.chezmoitemplates/sh-ui.sh"
+	{
+		printf '#!/bin/bash\n'
+		printf '{{ template "sh-ui.sh" . }}\n'
+		printf '%s\n' "$body"
+	} >"$v/src/run_onchange_probe.sh.tmpl"
+	printf '[data]\n  machine_role = "work"\n' >"$v/chezmoi.toml"
+}
+
+# A run_ script body that animates long enough for a harness to act on a frame,
+# then settles.
+ui_probe_body() {
+	cat <<'BODY'
+step_begin 'probe'
+i=0
+while [ "$i" -lt 15 ]; do
+	step_tick "$i" 15 'working'
+	sleep 0.1
+	i=$((i + 1))
+done
+step_ok 'probe' 'done'
+BODY
+}
+
+# Runs `chezmoi apply` against a venue, under whichever pty mode the caller
+# names.
+#
+# Every flag and every unset here was measured. The three path flags bypass
+# chezmoi's resolution entirely, which is the only deterministic way to keep a
+# test off the user's live config: with XDG unset and $HOME real, chezmoi still
+# falls back through $HOME to the same ~/.config. The env scrub is the backstop
+# for what the SCRIPTS resolve on their own, and NVM_DIR is why it exists. The
+# login shell exports it, so `${NVM_DIR:-$HOME/.nvm}` never takes its default
+# and a synthetic home is ignored.
+ui_apply() {
+	local v="$1"
+	shift
+	(
+		unset NVM_DIR HOMEBREW_PREFIX XDG_CONFIG_HOME XDG_CACHE_HOME
+		unset NO_COLOR DOTFILES_NO_PROGRESS
+		export HOME="$v/home"
+		ui_pty "$@" -- chezmoi apply \
+			--source "$v/src" --destination "$v/dest" --config "$v/chezmoi.toml"
+	)
+}
+
+# How many of the kit's frame glyphs appear anywhere in a capture.
+#
+# Distinct glyphs, not total frames: a single static draw satisfies "escape
+# codes were emitted" while showing a frozen character, which is
+# indistinguishable from the hang this whole job exists to rule out.
+ui_distinct_glyphs() {
+	local cap="$1" g="$2" i=0 found=0
+	while [ "$i" -lt "${#g}" ]; do
+		if grep -qF -- "${g:$i:1}" "$cap"; then
+			found=$((found + 1))
+		fi
+		i=$((i + 1))
+	done
+	printf '%s' "$found"
+}

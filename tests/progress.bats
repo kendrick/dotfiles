@@ -113,3 +113,64 @@ setup() {
 	tail="$(LC_ALL=C tail -c 12 "$d/m1.tty" | od -An -c | tr -s ' ')"
 	assert_contains "\\r 033 [ K 033 [ ? 2 5 h" "$tail"
 }
+
+# ---- C-1: the detector asks whether a human is watching --------------------
+
+# The venue is redirected-but-watched, and no other venue answers. Under a bare
+# pty apply, and under setsid, `[ -t 1 ]`, `[ -t 2 ]`, and a /dev/tty open all
+# agree, so a case run in either of those goes green against the exact
+# detectors this forbids. Pinning fd 2 as well as fd 1 is what stops a
+# relocation of the original bug to `[ -t 2 ]` from passing.
+@test "detector: animation follows the terminal, not whether stdout is a tty" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh"
+	ui_render_kit "$kit"
+
+	# No `-t 1` survives in executable code. A comment recording the removal
+	# is not a violation, so comment lines come out first. This assertion
+	# lives here because the clause gets exactly one case, and one homed
+	# anywhere else is homed nowhere.
+	[ "$(grep -vE '^[[:space:]]*#' "$kit" | grep -cE '\-t 1')" -eq 0 ]
+
+	local v="$BATS_TEST_TMPDIR/watched"
+	ui_apply_venue "$v" "$(ui_probe_body)"
+	local g
+	g="$(ui_glyphs "$kit")"
+
+	# Watched: fd 1 and fd 2 are both files, and /dev/tty is still open. A
+	# human piping or capturing an apply is standing right here.
+	ui_apply "$v" --glyphs "$g" --stdout "$v/out" --stderr "$v/err" \
+		--tty-capture "$v/tty" --timeout 90
+	[ "$(ui_distinct_glyphs "$v/tty" "$g")" -ge 1 ]
+	[ "$(ui_esc_count "$v/out")" -eq 0 ]
+
+	# Blind: no controlling terminal, so plain lines and nothing else.
+	local w="$BATS_TEST_TMPDIR/blind"
+	ui_apply_venue "$w" "$(ui_probe_body)"
+	ui_apply "$w" --setsid --stdout "$w/out" --stderr "$w/err" --timeout 90
+	[ "$(ui_esc_count "$w/out")" -eq 0 ]
+	[ "$(ui_distinct_glyphs "$w/out" "$g")" -eq 0 ]
+	[ "$(ui_count_matching '^  ✓  ' "$(cat "$w/out")")" -ge 1 ]
+}
+
+# ---- C-3: the animation actually animates under a pty ----------------------
+
+@test "animates: the frame advances rather than sitting on one glyph" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh"
+	ui_render_kit "$kit"
+	local v="$BATS_TEST_TMPDIR/anim" g
+	ui_apply_venue "$v" "$(ui_probe_body)"
+	g="$(ui_glyphs "$kit")"
+
+	# Redirecting the script's stdout is required, not tidiness: under a pty,
+	# /dev/tty and chezmoi's forwarded stdout are the same stream, and a
+	# combined capture cannot tell an animation on /dev/tty from one wrongly
+	# drawn to stdout.
+	ui_apply "$v" --glyphs "$g" --stdout "$v/out" --stderr "$v/err" \
+		--tty-capture "$v/tty" --timeout 90
+
+	[ "$(ui_distinct_glyphs "$v/tty" "$g")" -ge 2 ]
+	# Each frame opens by returning to column 0, so a capture carrying two
+	# distinct glyphs and fewer than two carriage returns has drawn them side
+	# by side instead of over each other.
+	[ "$(LC_ALL=C tr -cd '\r' <"$v/tty" | wc -c | tr -d ' ')" -ge 2 ]
+}

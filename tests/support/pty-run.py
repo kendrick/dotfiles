@@ -47,6 +47,30 @@ def set_winsize(fd, rows, cols):
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
 
 
+class Timeout(Exception):
+    pass
+
+
+def arm_hard_timeout(seconds):
+    """Bound the run with SIGALRM, independent of the drain loop.
+
+    The loop below checks a deadline of its own on every iteration, and that
+    check is the one that produces a clean kill and a readable message. This is
+    the backstop for the case where the loop is not iterating: a real
+    `chezmoi apply` overran a 1500-second bound by eleven minutes and the
+    in-loop check never fired, on a run that could not be reproduced in
+    isolation afterward. A bound that only works when the code around it is
+    correct is not a bound, and this harness exists to keep a hung check from
+    looking like a slow one.
+    """
+
+    def fire(_signum, _frame):
+        raise Timeout()
+
+    signal.signal(signal.SIGALRM, fire)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stdout", required=True, help="file to receive the child's fd 1")
@@ -84,9 +108,22 @@ def main():
         sys.stderr.write("pty-run: no command given\n")
         return 2
 
-    if args.setsid:
-        return run_setsid(args, argv)
-    return run_pty(args, argv)
+    # Armed with a margin over the in-loop deadline, so a healthy run still
+    # reports its own timeout with the message and the clean process-group kill
+    # that go with it. This only speaks when that path did not.
+    arm_hard_timeout(args.timeout + 30)
+    try:
+        if args.setsid:
+            return run_setsid(args, argv)
+        return run_pty(args, argv)
+    except Timeout:
+        sys.stderr.write(
+            "pty-run: HARD TIMEOUT after %.1fs (in-loop deadline never fired)\n"
+            % (args.timeout + 30)
+        )
+        return EXIT_TIMEOUT
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
 
 
 def child_exec(args, argv):

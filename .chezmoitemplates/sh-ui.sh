@@ -305,8 +305,8 @@ step_ok() { _ui_close '✓' "$1" "${2:-}"; }
 step_warn() { _ui_close '!' "$1" "${2:-}"; }
 step_fail() { _ui_close '✗' "$1" "${2:-}"; }
 
-# Chained from each caller's EXIT trap, which must capture $? into a local as
-# its very first statement and pass it here. Without that the finalizer reads
+# Chained from each caller's EXIT trap, which must capture $? into a variable
+# as the trap body's very first statement and pass it here. Without that the finalizer reads
 # whatever the trap body's own first command returned—and
 # run_once_before_install-prerequisites' trap opens with `rm -f`, which always
 # returns 0, so a failing script would settle its line as a success.

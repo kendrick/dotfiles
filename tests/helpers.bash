@@ -668,10 +668,17 @@ FIXTURE
 # `reset`.
 ui_hide_once_kit() {
 	local src="$1" out="$2"
-	sed -e 's|_ui_write "${_UI_ERASE}${_UI_HIDE}  $(_ui_glyph)  $1${_UI_SHOW}"|_ui_write "${_UI_HIDE}"; _ui_write "${_UI_ERASE}  $(_ui_glyph)  $1"|' \
-		-e 's|_ui_write "${_UI_ERASE}${_UI_HIDE}  $(_ui_glyph)  ${_UI_STEP_LABEL:-}  ${count}${detail}${_UI_SHOW}"|_ui_write "${_UI_ERASE}  $(_ui_glyph)  ${_UI_STEP_LABEL:-}  ${count}${detail}"|' \
+	# Written as generic substitutions rather than as whole-line matches. The
+	# line-matching version stopped biting the moment the frame writers gained
+	# their width trim, and a builder that silently produces an unmodified kit
+	# hands the check a failing example that cannot fail. The greps below are
+	# what turn that into a loud failure instead of a quiet pass.
+	sed -e 's|${_UI_ERASE}${_UI_HIDE}|${_UI_ERASE}|g' \
+		-e 's|)${_UI_SHOW}"|)"|g' \
+		-e 's|^  _ui_measure$|  _ui_measure; [ -n "${_UI_HIDDEN:-}" ] \|\| { _ui_write "$_UI_HIDE"; _UI_HIDDEN=1; }|' \
 		"$src" >"$out"
-	grep -q '_ui_write "${_UI_HIDE}"; ' "$out"
+	[ "$(grep -c '\${_UI_ERASE}\${_UI_HIDE}' "$out")" -eq 0 ]
+	grep -q '_UI_HIDDEN=1' "$out"
 }
 
 # --- the ten templated run_ scripts ----------------------------------------

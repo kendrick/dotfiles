@@ -29,6 +29,11 @@ OP_VAULT="Personal"
 # font feature follows: it must never take `chezmoi apply` down with it.
 skip() {
   step_warn "licensed fonts" "$*"
+  # The settled line is trimmed to its column, and these reasons run past it.
+  # "1Password would not authorize (unlock the app and re-run `chezmoi apply`)"
+  # loses everything after the fortieth character, which is where the
+  # instruction lives.
+  say "$*"
   exit 0
 }
 

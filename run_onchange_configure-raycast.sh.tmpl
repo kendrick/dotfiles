@@ -23,7 +23,8 @@ trap ui_exit EXIT
 if ! command -v open &>/dev/null; then
   # This branch was a bare `exit 0`. Alone among the four installers it left no trace, so on
   # a non-macOS box the script did not read as skipped — it read as absent.
-  step_warn "raycast ext" "open not found, skipping Raycast configuration"
+  step_warn "raycast ext" "open not found"
+  say "open command not found, skipping Raycast configuration."
   exit 0
 fi
 

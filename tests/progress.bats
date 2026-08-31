@@ -1,11 +1,16 @@
 #!/usr/bin/env bats
 #
-# The display kit's own suite (GitHub #16). Ten cases, one per constitution
-# clause that names a filter, each named so `--filter "^<token>:"` selects
-# exactly one:
+# The display kit's own suite (GitHub #16). Twelve cases, each named so
+# `--filter "^<token>:"` selects exactly one:
 #
 #   detector  stdout  animates  adoption  failure
 #   sigint    fail-open  bash32  tty-scope  setsid-log
+#   interleave  interleave-scripts
+#
+# The first ten are one per constitution clause that names a filter. The last
+# two answer #38, which no clause covers, and they are the only cases here that
+# do not read /dev/tty separately from stdout. That separation is what the
+# other ten are measured through, and it is also what hides #38.
 #
 # The anchor is not decoration. `bats --filter` matches a regex against test
 # NAMES, so a bare token is satisfied by any name containing it—an
@@ -473,4 +478,136 @@ EOF
 		--tty-capture "$b/tty" --timeout 120 || true
 	[ "$(ui_intervals "$b/tty" "$g" intervals)" -ge 1 ]
 	[ "$(ui_intervals "$b/tty" "$g" violations)" -gt 0 ]
+}
+
+# ---- #38: no terminal row carries both a frame and a tool's own output -----
+
+# The one property every case above is blind to, and blind by design. Those
+# venues capture fd 1 to a file and /dev/tty to the pty, because under a pty a
+# combined capture cannot tell an animation on /dev/tty from one wrongly drawn
+# to stdout. On a real terminal the two are one device, so the separation that
+# makes the channel properties measurable is exactly what hides a tool's output
+# landing on the live line's row. --stdout-to-tty gives that separation up on
+# purpose, and it is the only venue in which this defect exists to be seen.
+#
+# What makes the collision possible: a frame write ends with the cursor parked
+# at the end of the drawn text and never emits a newline, so whatever a tool
+# prints next continues that same row.
+@test "interleave: no row carries both a frame and a tool's stdout" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" p="$BATS_TEST_TMPDIR/probe" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$p/stubs"
+	ui_write_chatty_stub "$p" tool
+
+	# One probe, run twice. $WRAP is empty for the failing example and
+	# step_run for the conforming one, so the two runs differ in exactly the
+	# thing under test and nothing else.
+	#
+	# The sleep is the step's own work, and it is what makes the frame count
+	# mean something. Without it the only window a frame can land in is the
+	# race between step_tick forking the ticker and step_run killing it,
+	# microseconds wide and settled by scheduler luck, so the conforming run
+	# would assert on a coin flip.
+	cat >"$p/probe.sh" <<PROBE
+#!/bin/bash
+set -eu
+. '$kit'
+step_begin 'probe'
+i=0
+while [ "\$i" -lt 3 ]; do
+	step_tick "\$i" 3 'working'
+	sleep 0.25
+	\$WRAP '$p/stubs/tool'
+	i=\$((i + 1))
+done
+step_ok 'probe' 'done'
+PROBE
+
+	# The failing example first, so the check is verified rather than
+	# assumed. The stub's dwell is what gives frames room to land ahead of
+	# its output; against an instant stub this same probe measures clean and
+	# would certify whatever it was handed.
+	WRAP='' ui_pty --stdout-to-tty --stderr "$p/bad.err" \
+		--tty-capture "$p/bad.tty" --glyphs "$g" --timeout 60 \
+		-- /bin/bash "$p/probe.sh" || true
+	[ "$(ui_interleave "$p/bad.tty" "$g" XTOOLOUTX glyph_rows)" -ge 1 ]
+	[ "$(ui_interleave "$p/bad.tty" "$g" XTOOLOUTX marker_rows)" -ge 1 ]
+	[ "$(ui_interleave "$p/bad.tty" "$g" XTOOLOUTX violations)" -gt 0 ]
+
+	# The same probe with step_run around the tool. Both non-vacuity counts
+	# are asserted again: a run that drew no frame, or one whose tool never
+	# spoke, reports zero violations while proving nothing.
+	WRAP='step_run' ui_pty --stdout-to-tty --stderr "$p/good.err" \
+		--tty-capture "$p/good.tty" --glyphs "$g" --timeout 60 \
+		-- /bin/bash "$p/probe.sh" || true
+	[ "$(ui_interleave "$p/good.tty" "$g" XTOOLOUTX glyph_rows)" -ge 1 ]
+	[ "$(ui_interleave "$p/good.tty" "$g" XTOOLOUTX marker_rows)" -ge 1 ]
+	[ "$(ui_interleave "$p/good.tty" "$g" XTOOLOUTX violations)" -eq 0 ]
+}
+
+# The four scripts that hold a live line open while a tool writes to stdout,
+# driven for real through the same combined-stream venue.
+#
+# install-packages is deliberately absent. It opens its step with
+# step_begin_quiet and owns no live line, which is what C-13 requires of it for
+# an unrelated reason, so there is no row here for its output to collide with.
+@test "interleave-scripts: the four live-line scripts keep tool output off the frame row" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" root="$BATS_TEST_TMPDIR/four" g
+	local tmpl stubs s v bad=''
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$root"
+
+	while read -r tmpl stubs; do
+		[ -n "$tmpl" ] || continue
+		# claude-plugins decides at render time whether its body exists at
+		# all: with no decryption key its template emits a two-line early
+		# exit, and the install calls this measures are never written. Its
+		# venue carries a throwaway key and fixtures encrypted to it, so the
+		# real body renders without reaching for the user's own key.
+		if [ "$tmpl" = "run_onchange_after_install-claude-plugins.sh.tmpl" ]; then
+			v="$(ui_claude_plugins_venue "$root")"
+		else
+			v="$(ui_ten_venue "$root" "$tmpl")"
+		fi
+		for s in $stubs; do
+			ui_write_chatty_stub "$v" "$s"
+		done
+
+		# Without an entry the lockfile cannot satisfy, the script takes its
+		# "all present" exit and never reaches the npx call this measures.
+		if [ "$tmpl" = "run_onchange_after_restore-agent-skills.sh.tmpl" ]; then
+			mkdir -p "$v/home/.local/state/skills"
+			printf '%s\n' '{"skills":{"alpha":{"source":"acme/skills"}}}' \
+				>"$v/home/.local/state/skills/.skill-lock.json"
+		fi
+
+		ui_run_ten "$v" --stdout-to-tty --stderr "$v/err" \
+			--tty-capture "$v/tty" --glyphs "$g" --timeout 120 || true
+
+		# Named rather than counted, and the two non-vacuity misses are named
+		# apart from the collision itself: a venue whose tool never ran is a
+		# broken fixture, not a passing script, and the two need different
+		# fixes.
+		if [ "$(ui_interleave "$v/tty" "$g" XTOOLOUTX marker_rows)" -lt 1 ]; then
+			bad="$bad NOTOOL:$tmpl"
+		fi
+		if [ "$(ui_interleave "$v/tty" "$g" XTOOLOUTX glyph_rows)" -lt 1 ]; then
+			bad="$bad NOFRAME:$tmpl"
+		fi
+		if [ "$(ui_interleave "$v/tty" "$g" XTOOLOUTX violations)" -ne 0 ]; then
+			bad="$bad COLLIDED:$tmpl"
+		fi
+	done <<EOF
+run_onchange_install-vscode-extensions.sh.tmpl code
+run_onchange_after_install-claude-plugins.sh.tmpl claude
+run_onchange_after_install-global-node-packages.sh.tmpl npm pnpm
+run_onchange_after_restore-agent-skills.sh.tmpl npx
+EOF
+
+	[ -z "$bad" ] || {
+		echo "row collisions:$bad"
+		return 1
+	}
 }

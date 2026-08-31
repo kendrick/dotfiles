@@ -21,6 +21,13 @@ Modes, and the measurement behind each:
   --cols N    pty winsize. Live lines are judged for wrapping at 40 columns, and
               only `stty size </dev/tty` can answer there: no script under
               `chezmoi apply` has COLUMNS set or TERM exported.
+  --stdout-to-tty
+              fd 1 stays on the pty slave instead of moving to a file, so
+              stdout and /dev/tty collapse onto one device the way they do on
+              a real terminal. Every mode above depends on the opposite: a
+              spinner drawn to /dev/tty is otherwise indistinguishable from
+              one drawn to stdout. Issue #38 only shows up once that
+              separation is gone, so this mode gives it up on purpose.
 
 Every run is bounded. This tree has two ways to hang for an hour: an unanswered
 prompt at install-prerequisites:111, and a spin_until at :99 waiting on Command
@@ -73,10 +80,18 @@ def arm_hard_timeout(seconds):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stdout", required=True, help="file to receive the child's fd 1")
+    ap.add_argument(
+        "--stdout", help="file to receive the child's fd 1 (required unless --stdout-to-tty)"
+    )
     ap.add_argument("--stderr", required=True, help="file to receive the child's fd 2")
     ap.add_argument("--tty-capture", help="file to receive the pty master stream")
     ap.add_argument("--setsid", action="store_true", help="no controlling terminal")
+    ap.add_argument(
+        "--stdout-to-tty",
+        action="store_true",
+        help="leave the child's fd 1 on the pty slave instead of --stdout, so stdout "
+        "and /dev/tty collapse onto one device as they do on a real terminal",
+    )
     ap.add_argument("--cols", type=int, default=80)
     ap.add_argument("--rows", type=int, default=24)
     ap.add_argument("--timeout", type=float, default=120.0)
@@ -103,6 +118,15 @@ def main():
     ap.add_argument("cmd", nargs=argparse.REMAINDER)
     args = ap.parse_args()
 
+    if not args.stdout_to_tty and not args.stdout:
+        sys.stderr.write("pty-run: --stdout is required unless --stdout-to-tty is given\n")
+        return 2
+    if args.stdout_to_tty and args.setsid:
+        # run_setsid never opens a pty, so there is no slave for fd 1 to
+        # land on. The combination has nothing to mean.
+        sys.stderr.write("pty-run: --stdout-to-tty has no pty slave under --setsid\n")
+        return 2
+
     argv = args.cmd[1:] if args.cmd and args.cmd[0] == "--" else args.cmd
     if not argv:
         sys.stderr.write("pty-run: no command given\n")
@@ -127,12 +151,23 @@ def main():
 
 
 def child_exec(args, argv):
-    """Common child-side setup: fd 0 from /dev/null, fd 1 and fd 2 to real files."""
+    """Common child-side setup: fd 0 from /dev/null, fd 2 to a real file.
+
+    fd 1 goes to a real file too, except under --stdout-to-tty, where it is
+    left on the pty slave already parked at CTTY_KEEPALIVE_FD by run_pty(). That
+    slave is never a candidate for the close loop below: on BSD the last close
+    of a controlling terminal revokes it, and this is the one mode that needs
+    it to survive past exec.
+    """
     devnull = os.open(os.devnull, os.O_RDONLY)
     os.dup2(devnull, 0)
-    out = os.open(args.stdout, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    out = -1
+    if args.stdout_to_tty:
+        os.dup2(CTTY_KEEPALIVE_FD, 1)
+    else:
+        out = os.open(args.stdout, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+        os.dup2(out, 1)
     err = os.open(args.stderr, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
-    os.dup2(out, 1)
     os.dup2(err, 2)
     for fd in (devnull, out, err):
         if fd > 2:

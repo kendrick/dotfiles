@@ -60,10 +60,15 @@ fi
 
 skill_total=$(printf '%s\n' "$needed" | wc -l | tr -d ' ')
 skill_done=0
-step_begin "agent skills"
 
 # The kendrick/* skill repos are private and need GitHub auth to clone. Prompt rather than
 # skip, so the restore comes back complete instead of quietly partial.
+#
+# Ahead of step_begin on purpose. `gh auth login` is interactive, and a frame drawn over a
+# prompt erases it, leaving the apply blocked on something the terminal showed for 100ms.
+# That is the hazard C-13 keeps frames off brew's sudo prompt for, reached here by a
+# different route. Still after the no-work exit above, so a machine with every skill
+# already present is never asked to authenticate.
 if command -v gh >/dev/null 2>&1; then
   if ! gh auth status >/dev/null 2>&1; then
     echo "GitHub auth needed to clone private skill repos. Launching gh auth login..."
@@ -73,6 +78,8 @@ if command -v gh >/dev/null 2>&1; then
 else
   echo "gh not found; private skill repos may fail to clone."
 fi
+
+step_begin "agent skills"
 
 # Which agents get the skills. `-a '*'` reaches every agent in the CLI's registry, 75 of
 # them at last count, and a couple (eve, promptscript) only support project-level skills,
@@ -98,7 +105,7 @@ for src in $(printf '%s\n' "$needed" | cut -f1 | sort -u); do
   done < <(printf '%s\n' "$needed" | awk -F'\t' -v s="$src" '$1==s{print $2}')
   skill_done=$((skill_done + 1))
   step_tick "$skill_done" "$skill_total" "$src"
-  npx --yes skills add "$src" -g -y "${a_args[@]}" "${s_args[@]}" || echo "    some skills from $src failed (a name may have changed upstream)"
+  step_run npx --yes skills add "$src" -g -y "${a_args[@]}" "${s_args[@]}" || echo "    some skills from $src failed (a name may have changed upstream)"
 done
 
 step_ok "agent skills" "$skill_total restored"

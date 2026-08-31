@@ -53,7 +53,7 @@ install_globals() {
     [[ "$pkg" =~ ^#.*$ || -z "$pkg" ]] && continue
     done_n=$((done_n + 1))
     step_tick "$done_n" "$total" "$pkg"
-    if ! command "$manager" $subcommand "$pkg"; then
+    if ! step_run command "$manager" $subcommand "$pkg"; then
       echo "    skipped: '$pkg' failed to install (often an outdated node)"
     fi
   done <<<"$list_content"

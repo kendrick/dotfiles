@@ -14,6 +14,12 @@
 <!-- The last line is the agent-targeted lever. Be specific. "Don't suggest    -->
 <!-- moving X to Y" beats "don't suggest big refactors."                       -->
 
+## 2026-08-31 — Don't trust a red-before-green run without checking that the setup ran
+**Tried:** Proving #38's two new cases fail against unfixed code, by saving the five source files, `git checkout HEAD --` on them, running the suite, then restoring. The loop was `FILES="a b c"; for f in $FILES; do cp "$f" "$SP/$f"; done`.
+**What broke:** The suite reported both new cases green, which reads as a check that cannot detect the defect it was written for. Nothing had been reverted. The Bash tool's shell here is zsh, which does not word-split an unquoted parameter expansion, so the loop ran once with the whole space-separated string as a single filename. `cp` and `git checkout` each errored on that one bogus path, both messages scrolled past above the test output, and the run measured the fixed tree.
+**Why we backed out:** Rewrote the loop as a bash array under `/bin/bash -c`, which reverted the files and gave the real answer, all four scripts reporting a collision. Nothing was damaged, and that is the trap worth remembering. A setup step that quietly no-ops leaves the test measuring the wrong tree and reporting a clean pass.
+**Don't suggest:** An unquoted `$var` loop in a Bash tool call. Use a real array with `"${arr[@]}"`, or wrap the script in `/bin/bash -c '...'` when it needs bash semantics. Interactive zsh aliases are live in that shell too, so `mkdir` is `mkdir -pv` and `grep` is wrapped. When a run exists to prove a check can fail, confirm the setup changed the tree before believing the result.
+
 ## 2026-08-31 — Don't measure terminal interleaving with a split-stream capture
 **Tried:** Reading #38 out of the progress venues as they stood. Every one of them runs the script under a real pty with fd 1 and fd 2 pointed at files, which is what lets the `/dev/tty` stream be read apart from stdout.
 **What broke:** Nothing did, which was the problem. The suite stayed green through a defect that every attended apply put on screen. The collision only exists when stdout and `/dev/tty` are the same device, which is what a real terminal gives you and exactly what a split capture takes away.

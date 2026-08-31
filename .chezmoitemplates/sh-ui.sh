@@ -10,6 +10,13 @@
 # Targets bash 3.2, which is what /bin/bash is on a factory Mac. The before phase runs
 # ahead of Homebrew, so nothing newer exists yet for anything that includes this.
 
+# How often the live line redraws itself while the caller is blocked. The frame
+# cannot ride on step_tick alone: every adopted script ticks once per item and
+# then sits inside an install for seconds, so a tick-driven frame freezes for
+# exactly as long as the work takes, which is the silence this kit exists to
+# break. One number, change it to taste.
+_UI_TICK_INTERVAL=1
+
 SPINNER_FRAMES=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
 
 say() { printf '  %s\n' "$1"; }
@@ -264,12 +271,56 @@ _ui_glyph() {
 # Open a step: remember its label and start time, and put a first frame on the
 # screen. Writes nothing to stdout—a step that has only begun has no outcome
 # to record yet, and a line written now would have to be unwritten later.
+# The live line's own clock. Forked by step_begin and re-forked by step_tick,
+# because the text between two ticks never changes — only the glyph does — so
+# re-forking once per item is cheaper than a state file both processes read.
+#
+# Exactly one process writes the live line at a time. Two writers interleave
+# mid-escape-sequence and leave the cursor wherever the loser stopped.
+_ui_start_ticker() {
+  ui_watching || return 0
+  [ "${_UI_NO_LIVE:-0}" = 1 ] && return 0
+  local text="$1"
+  (
+    local i="${_UI_FRAME:-0}"
+    while :; do
+      _UI_FRAME=$i
+      _ui_write "${_UI_ERASE}${_UI_HIDE}$(_ui_fit "  $(_ui_glyph)  ${text}" "$_UI_COLS")${_UI_SHOW}"
+      i=$((i + 1))
+      sleep "$_UI_TICK_INTERVAL"
+    done
+  ) &
+  _UI_TICK_PID=$!
+  return 0
+}
+
+# Guarded end to end. A ticker that cannot be signalled is a cosmetic problem;
+# a finalizer that aborts on one is a display fault changing the exit status.
+_ui_stop_ticker() {
+  [ -n "${_UI_TICK_PID:-}" ] || return 0
+  kill "$_UI_TICK_PID" 2>/dev/null || true
+  wait "$_UI_TICK_PID" 2>/dev/null || true
+  _UI_TICK_PID=""
+  return 0
+}
+
 step_begin() {
   _UI_STEP_LABEL="$1"
   _UI_STEP_START=$SECONDS
   ui_watching || return 0
   _ui_measure
-  _ui_write "${_UI_ERASE}${_UI_HIDE}$(_ui_fit "  $(_ui_glyph)  $1" "$_UI_COLS")${_UI_SHOW}"
+  _ui_start_ticker "$1"
+  return 0
+}
+
+# A step that owns a settled line and no live one. The installer needs this:
+# a frame drawn while `brew bundle` holds /dev/tty can erase a cask's sudo
+# prompt, and the apply then blocks forever on something shown for 100ms.
+# Making it a separate entry point keeps that guarantee structural rather than
+# a matter of where the frames happen to land.
+step_begin_quiet() {
+  _UI_STEP_LABEL="$1"
+  _UI_STEP_START=$SECONDS
   return 0
 }
 
@@ -288,13 +339,15 @@ step_tick() {
     count="$n/$total "
   fi
   _ui_measure
-  _ui_write "${_UI_ERASE}${_UI_HIDE}$(_ui_fit "  $(_ui_glyph)  ${_UI_STEP_LABEL:-}  ${count}${detail}" "$_UI_COLS")${_UI_SHOW}"
+  _ui_stop_ticker
+  _ui_start_ticker "${_UI_STEP_LABEL:-}  ${count}${detail}"
   return 0
 }
 
 _ui_close() {
   local glyph="$1" label="$2" detail="${3:-}"
   local start="${_UI_STEP_START:-$SECONDS}"
+  _ui_stop_ticker
   _ui_erase
   _ui_settled "$glyph" "$label" "$detail" "$(elapsed "$start")"
   _UI_STEP_LABEL=""
@@ -322,6 +375,7 @@ ui_finalize() {
   case "$st" in
   '' | *[!0-9]*) st=0 ;;
   esac
+  _ui_stop_ticker || true
   if [ -n "${_UI_STEP_LABEL:-}" ] && [ "$st" -ne 0 ]; then
     step_fail "$_UI_STEP_LABEL" "failed (exit $st)" || true
   fi

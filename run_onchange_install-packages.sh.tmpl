@@ -178,7 +178,7 @@ trap ui_exit EXIT
 # frame landing there can erase a password prompt and hang the apply on
 # something nobody was shown. The live display for this script is GitHub #33.
 bundle_outcome=failed
-step_begin "packages"
+step_begin_quiet "packages"
 
 # tee rather than capture-then-print: a fresh machine spends tens of minutes in here and
 # needs to see it working. PIPESTATUS[0] is brew's status; $? would be tee's, always 0.

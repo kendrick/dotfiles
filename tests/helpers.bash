@@ -913,6 +913,20 @@ ui_widest_line() {
 # loop ticks with entries like "Font: Operator Mono Lig Nerd Font", which blows
 # past 40 columns on its own, so a narrow-terminal check driven by a short
 # label proves nothing.
+# A caller that opens a step and then blocks without ticking. This is the shape
+# every adopted script actually has: it ticks once per item, then sits inside an
+# install for seconds. ui_probe_body ticks in a tight loop, which proves only
+# that step_tick redraws when called — it cannot see a kit that never redraws on
+# its own, and that kit shows one frozen glyph for the whole item.
+ui_probe_body_blocking() {
+	local secs="${1:-3}"
+	cat <<BODY
+step_begin 'blocking'
+sleep $secs
+step_ok 'blocking' 'done'
+BODY
+}
+
 ui_probe_body_wide() {
 	cat <<'BODY'
 step_begin 'licensed fonts'

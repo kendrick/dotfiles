@@ -174,6 +174,18 @@ setup() {
 	# by side instead of over each other.
 	[ "$(LC_ALL=C tr -cd '\r' <"$v/tty" | wc -c | tr -d ' ')" -ge 2 ]
 
+	# The frame has to advance while the caller is blocked, not only when it
+	# ticks. Every adopted script ticks once per item and then sits inside an
+	# install for seconds, so a kit that redraws only on step_tick shows one
+	# frozen glyph for the whole item. That is C-3's failing example reached
+	# through the path the ten scripts actually take, and the tick-in-a-loop
+	# fixture above cannot see it.
+	local b="$BATS_TEST_TMPDIR/blocking"
+	ui_apply_venue "$b" "$(ui_probe_body_blocking 3)"
+	ui_apply "$b" --glyphs "$g" --stdout "$b/out" --stderr "$b/err" \
+		--tty-capture "$b/tty" --timeout 90
+	[ "$(ui_distinct_glyphs "$b/tty" "$g")" -ge 2 ]
+
 	# The same live line on a narrow terminal. A wrapped line sends the next
 	# carriage return back to the wrong row, and the animation starts eating
 	# the scrollback above it.

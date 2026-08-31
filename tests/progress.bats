@@ -1,16 +1,21 @@
 #!/usr/bin/env bats
 #
-# The display kit's own suite (GitHub #16). Twelve cases, each named so
+# The display kit's own suite (GitHub #16). Sixteen cases, each named so
 # `--filter "^<token>:"` selects exactly one:
 #
 #   detector  stdout  animates  adoption  failure
 #   sigint    fail-open  bash32  tty-scope  setsid-log
 #   interleave  interleave-scripts
+#   fetch-display  gate-verbs  fetch-replay  fetch-setsid
 #
-# The first ten are one per constitution clause that names a filter. The last
+# The first ten are one per constitution clause that names a filter. The next
 # two answer #38, which no clause covers, and they are the only cases here that
 # do not read /dev/tty separately from stdout. That separation is what the
 # other ten are measured through, and it is also what hides #38.
+#
+# The last four are #33, the installer's fetch-phase line. They live here rather
+# than beside the installer's other cases because what they measure is which
+# stream a frame landed on, and that is this file's whole apparatus.
 #
 # The anchor is not decoration. `bats --filter` matches a regex against test
 # NAMES, so a bare token is satisfied by any name containing it—an
@@ -421,12 +426,21 @@ EOF
 # from /dev/tty because the property is about one of those streams and an
 # assertion on the other cannot see it.
 #
+# What the interval forbids is one half of itself. Frames are expected while
+# brew downloads in silence, and forbidden from its first install-phase line
+# onward, which is where a cask's sudo prompt starts owning /dev/tty.
+# bundle-intervals.py splits the two on the stub's BUNDLE-INSTALL marker.
+#
+# fetch_frames is asserted beside every violations count, and it is not
+# decoration. A run that drew nothing at all reports zero violations while
+# proving nothing, which is the shape this case would decay into first.
+#
 # Both bundle invocations count, and the run that reaches the second one is not
 # optional. A harness running only the happy path reports zero violations
 # against a script that animates across the retry and calls that a pass, so a
 # run in which the retry interval was never entered is a failed check rather
 # than a passed one.
-@test "tty-scope: no frame lands inside either brew bundle invocation" {
+@test "tty-scope: no frame lands after brew's first install-phase line" {
 	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" root="$BATS_TEST_TMPDIR/pkg" g
 	ui_render_kit "$kit"
 	g="$(ui_glyphs "$kit")"
@@ -446,9 +460,13 @@ EOF
 	ui_run_ten "$v" --glyphs "$g" --stdout "$v/out" --stderr "$v/err" \
 		--tty-capture "$v/tty" --timeout 120 || true
 	[ "$(ui_intervals "$v/tty" "$g" intervals)" -ge 1 ]
+	[ "$(ui_intervals "$v/tty" "$g" fetch_frames)" -ge 1 ]
 	[ "$(ui_intervals "$v/tty" "$g" violations)" -eq 0 ]
 
-	# The settled line follows brew's last line rather than preceding it.
+	# The settled line follows brew's last line rather than preceding it. This
+	# survives the withhold-and-replay the live line needs: what brew wrote
+	# while the line was up reaches stdout when the line comes down, so the
+	# ordering the reader sees is unchanged.
 	local brew_line settled_line
 	brew_line="$(grep -n 'Homebrew Bundle complete' "$v/out" | tail -1 | cut -d: -f1)"
 	settled_line="$(grep -n '^  [✓!✗]  packages' "$v/out" | tail -1 | cut -d: -f1)"
@@ -456,7 +474,9 @@ EOF
 	[ -n "$settled_line" ]
 	[ "$settled_line" -gt "$brew_line" ]
 
-	# Two bundles, the second reached through the drop-and-retry path.
+	# Two bundles, the second reached through the drop-and-retry path. The
+	# retry gets no fetch carve-out at all: nothing animates around it, so
+	# every glyph inside its interval is a violation.
 	local w
 	w="$(ui_ten_venue "$root/retry" run_onchange_install-packages.sh.tmpl)"
 	ui_write_brew_bundle_stub "$w" retry "$drop" "$keep"
@@ -464,6 +484,7 @@ EOF
 		--tty-capture "$w/tty" --timeout 120 || true
 	[ "$(wc -l <"$w/bundle-calls.log" | tr -d ' ')" -eq 2 ]
 	[ "$(ui_intervals "$w/tty" "$g" intervals)" -eq 2 ]
+	[ "$(ui_intervals "$w/tty" "$g" fetch_frames)" -ge 1 ]
 	[ "$(ui_intervals "$w/tty" "$g" violations)" -eq 0 ]
 
 	# The clause's own failing example through the same harness. Without this
@@ -473,11 +494,196 @@ EOF
 	local b
 	b="$(ui_ten_venue "$root/bad" run_onchange_install-packages.sh.tmpl)"
 	ui_write_brew_bundle_stub "$b" plain "$drop" "$keep"
-	ui_animate_over_bundle "$b/script.sh"
+	ui_break_bundle_gate "$b/script.sh"
 	ui_run_ten "$b" --glyphs "$g" --stdout "$b/out" --stderr "$b/err" \
 		--tty-capture "$b/tty" --timeout 120 || true
 	[ "$(ui_intervals "$b/tty" "$g" intervals)" -ge 1 ]
 	[ "$(ui_intervals "$b/tty" "$g" violations)" -gt 0 ]
+}
+
+# ---- #33: the fetch phase narrates itself ----------------------------------
+
+# The display the whole issue is about, read off /dev/tty.
+#
+# Three things have to be true at once for the line to be worth drawing, and
+# each fails differently. A spinner that does not advance is the frozen glyph a
+# hung download is indistinguishable from. An elapsed clock is what separates a
+# slow fetch from a stuck one. And the count is the only part carrying
+# information the user could not already guess.
+#
+# The second venue is what pins where the count comes from. brew's stub never
+# prints a `Fetching` line in the plain regime, so there is nothing in its
+# output to parse; seeding one entry into the inventory moves the number by one,
+# which only a count derived from the machine's own state can do.
+@test "fetch-display: a spinner, an elapsed clock, and a count of what's absent" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" root="$BATS_TEST_TMPDIR/fetch" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$root"
+
+	local names keep drop total
+	names="$(ui_brewfile_names)"
+	keep="$(printf '%s\n' "$names" | sed -n 1p)"
+	drop="$(printf '%s\n' "$names" | sed -n 2p)"
+	total="$(ui_brewfile_entry_count)"
+	[ -n "$keep" ]
+	[ "$total" -gt 1 ]
+
+	local v
+	v="$(ui_ten_venue "$root/all" run_onchange_install-packages.sh.tmpl)"
+	ui_write_brew_bundle_stub "$v" plain "$drop" "$keep"
+	ui_run_ten "$v" --glyphs "$g" --stdout "$v/out" --stderr "$v/err" \
+		--tty-capture "$v/tty" --timeout 120 || true
+
+	assert_contains "fetching $total entries" "$(cat "$v/tty")"
+	[ "$(ui_distinct_glyphs "$v/tty" "$g")" -ge 2 ]
+	[ "$(ui_count_matching '\([0-9]+:[0-9][0-9]\)' "$(cat "$v/tty")")" -ge 1 ]
+	# The animation stayed on the screen and off the record.
+	[ "$(ui_esc_count "$v/out")" -eq 0 ]
+
+	# The same venue with one Brewfile formula already on the machine. brew
+	# reports its inventory in short names, so a tap-qualified entry has to be
+	# seeded the way `brew list` would answer for it.
+	local w
+	w="$(ui_ten_venue "$root/one" run_onchange_install-packages.sh.tmpl)"
+	ui_write_brew_bundle_stub "$w" plain "$drop" "$keep"
+	printf '%s\n' "${keep##*/}" >"$w/installed-formulae"
+	ui_run_ten "$w" --glyphs "$g" --stdout "$w/out" --stderr "$w/err" \
+		--tty-capture "$w/tty" --timeout 120 || true
+
+	assert_contains "fetching $((total - 1)) entries" "$(cat "$w/tty")"
+}
+
+# Every verb brew opens its install phase with, one venue each.
+#
+# The gate is the safety property, not the display one: it is what stops a frame
+# landing on the stream a cask's sudo prompt writes to. A gate matching only
+# `Installing` passes every case that never upgrades anything and fails exactly
+# where it costs the most, because an upgrading cask is the entry most likely to
+# ask for a password.
+#
+# `Using` earns its place for a different reason. It is what brew prints for an
+# entry already satisfied, so it is the verb an almost-current machine sees
+# first—which makes it the common case rather than the exotic one.
+@test "gate-verbs: Installing, Upgrading and Using each stop the animation" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" root="$BATS_TEST_TMPDIR/verbs" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$root"
+
+	local names keep drop verb v bad=''
+	names="$(ui_brewfile_names)"
+	keep="$(printf '%s\n' "$names" | sed -n 1p)"
+	drop="$(printf '%s\n' "$names" | sed -n 2p)"
+	[ -n "$keep" ]
+
+	for verb in Installing Upgrading Using; do
+		v="$(ui_ten_venue "$root/$verb" run_onchange_install-packages.sh.tmpl)"
+		ui_write_brew_bundle_stub "$v" plain "$drop" "$keep" "$verb"
+		ui_run_ten "$v" --glyphs "$g" --stdout "$v/out" --stderr "$v/err" \
+			--tty-capture "$v/tty" --timeout 120 || true
+		if [ "$(ui_intervals "$v/tty" "$g" fetch_frames)" -lt 1 ]; then
+			bad="$bad NOFRAMES:$verb"
+		fi
+		if [ "$(ui_intervals "$v/tty" "$g" violations)" -ne 0 ]; then
+			bad="$bad LATEFRAMES:$verb"
+		fi
+	done
+
+	# Named rather than counted: which verb went unrecognised is the whole
+	# diagnosis, and a count sends the reader back to run all three by hand.
+	[ -z "$bad" ] || {
+		echo "gate defects:$bad"
+		return 1
+	}
+}
+
+# What the live line withheld still reaches stdout.
+#
+# The fetch phase's own output is held back while the line is up, because a tool
+# printing beside a live line lands on the live line's row (#38). Held back is
+# not dropped, and the case that proves it is the one where the screen received
+# nothing at all: a fetch-phase failure returns before brew installs anything,
+# so the gate never opens and every byte brew wrote is still waiting when the
+# line comes down. That is also the run whose output a user most needs, since it
+# carries the reason the packages are missing.
+@test "fetch-replay: withheld output reaches stdout, in brew's own order" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" root="$BATS_TEST_TMPDIR/replay" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$root"
+
+	local names keep drop
+	names="$(ui_brewfile_names)"
+	keep="$(printf '%s\n' "$names" | sed -n 1p)"
+	drop="$(printf '%s\n' "$names" | sed -n 2p)"
+	[ -n "$keep" ]
+	[ -n "$drop" ]
+
+	local w
+	w="$(ui_ten_venue "$root/retry" run_onchange_install-packages.sh.tmpl)"
+	ui_write_brew_bundle_stub "$w" retry "$drop" "$keep"
+	ui_run_ten "$w" --glyphs "$g" --stdout "$w/out" --stderr "$w/err" \
+		--tty-capture "$w/tty" --timeout 120 || true
+
+	# brew's own narration of the failure, and the script's reading of it.
+	assert_contains "Failed to fetch" "$(cat "$w/out")"
+	assert_contains "$drop" "$(cat "$w/out")"
+	assert_contains "don't exist" "$(cat "$w/out")"
+	[ "$(ui_esc_count "$w/out")" -eq 0 ]
+
+	# The replay lands before the script's reading of it rather than after.
+	# Out of order, the summary names entries whose errors have not arrived
+	# yet and reads as being about the wrong thing.
+	local fetch_line verdict_line
+	fetch_line="$(grep -n 'Failed to fetch' "$w/out" | head -1 | cut -d: -f1)"
+	verdict_line="$(grep -n "don't exist" "$w/out" | head -1 | cut -d: -f1)"
+	[ -n "$fetch_line" ]
+	[ -n "$verdict_line" ]
+	[ "$verdict_line" -gt "$fetch_line" ]
+
+	# The install phase streams instead of being withheld: the line is down by
+	# then, so brew's per-entry narration arrives while it is happening.
+	local v
+	v="$(ui_ten_venue "$root/plain" run_onchange_install-packages.sh.tmpl)"
+	ui_write_brew_bundle_stub "$v" plain "$drop" "$keep"
+	ui_run_ten "$v" --glyphs "$g" --stdout "$v/out" --stderr "$v/err" \
+		--tty-capture "$v/tty" --timeout 120 || true
+	assert_contains "Installing $keep" "$(cat "$v/out")"
+	assert_contains "Homebrew Bundle complete" "$(cat "$v/out")"
+}
+
+# The installer with no terminal to draw on.
+#
+# setsid-log already covers all ten scripts for escape codes and a settled line.
+# What it cannot see is this script's second path: with no /dev/tty the
+# installer does not merely skip the animation, it takes a different pipeline
+# entirely, and brew's full narration reaching stdout is that path's whole
+# reason for existing. A capture is what the auto-sync log is made of.
+@test "fetch-setsid: no terminal means plain lines and brew's whole log" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" root="$BATS_TEST_TMPDIR/detached" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$root"
+
+	local names keep drop total v
+	names="$(ui_brewfile_names)"
+	keep="$(printf '%s\n' "$names" | sed -n 1p)"
+	drop="$(printf '%s\n' "$names" | sed -n 2p)"
+	total="$(ui_brewfile_entry_count)"
+	[ -n "$keep" ]
+
+	v="$(ui_ten_venue "$root/plain" run_onchange_install-packages.sh.tmpl)"
+	ui_write_brew_bundle_stub "$v" plain "$drop" "$keep"
+	ui_run_ten "$v" --setsid --glyphs "$g" --stdout "$v/out" \
+		--stderr "$v/err" --timeout 120 || true
+
+	[ "$(ui_esc_count "$v/out")" -eq 0 ]
+	[ "$(ui_distinct_glyphs "$v/out" "$g")" -eq 0 ]
+	assert_contains "fetching $total entries" "$(cat "$v/out")"
+	assert_contains "Installing $keep" "$(cat "$v/out")"
+	assert_contains "Homebrew Bundle complete" "$(cat "$v/out")"
+	[ "$(ui_count_matching '^  (✓|!|✗)  packages' "$(cat "$v/out")")" -ge 1 ]
 }
 
 # ---- #38: no terminal row carries both a frame and a tool's own output -----
@@ -549,9 +755,11 @@ PROBE
 # The four scripts that hold a live line open while a tool writes to stdout,
 # driven for real through the same combined-stream venue.
 #
-# install-packages is deliberately absent. It opens its step with
-# step_begin_quiet and owns no live line, which is what C-13 requires of it for
-# an unrelated reason, so there is no row here for its output to collide with.
+# install-packages is deliberately absent, and #33 did not change that. It now
+# owns a live line during brew's fetch phase, but brew's output is withheld in
+# $bundle_log for exactly as long as the line is up and replayed only once the
+# line has been erased, so there is never a frame and a tool's output competing
+# for the same row. Nothing there has a step_run obligation to check.
 @test "interleave-scripts: the four live-line scripts keep tool output off the frame row" {
 	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" root="$BATS_TEST_TMPDIR/four" g
 	local tmpl stubs s v bad=''

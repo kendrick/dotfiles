@@ -797,6 +797,76 @@ ui_ten_venue() {
 	printf '%s' "$v"
 }
 
+# Renders install-claude-plugins with its real body intact, rather than the
+# two-line early exit ui_ten_venue takes for it on purpose (see that
+# function's comment above: a *fake* key there would send the render down the
+# decrypt branch against this repo's real .age files, encrypted to the
+# user's own key, and fail outright). The template decides which branch to
+# take at RENDER time, by stat-ing ~/.config/chezmoi/key.txt, so exercising
+# the add_marketplace/install_plugin body needs a render that takes the
+# decrypt branch and succeeds. The only way there is a venue that owns both a
+# throwaway age keypair and its own fixtures encrypted to it, so nothing here
+# ever depends on the user's real key or reads the repo's real ciphertext.
+ui_claude_plugins_venue() {
+	local root="$1"
+	local v="$root/claude-plugins"
+	mkdir -p "$v/src/.chezmoitemplates" "$v/src/dot_claude/private_plugins" \
+		"$v/home/.config/chezmoi" "$v/dest"
+
+	if [ -z "$REAL_AGE" ] || [ -z "$REAL_AGE_KEYGEN" ]; then
+		skip "age/age-keygen not installed on this machine"
+	fi
+
+	# age-keygen writes the secret key to -o and the matching public key to
+	# stderr as a comment line; the stderr copy is discarded here and -y below
+	# re-derives the same public key from the file instead, so there is only
+	# one place this recipient can ever come from.
+	"$REAL_AGE_KEYGEN" -o "$v/home/.config/chezmoi/key.txt" 2>/dev/null
+	local recipient
+	recipient="$("$REAL_AGE_KEYGEN" -y "$v/home/.config/chezmoi/key.txt")"
+
+	# Copied in rather than referenced, the same reason ui_apply_venue's
+	# comment gives above: a `{{ template "sh-ui.sh" . }}` include resolves
+	# against the CONFIGURED source dir, not the file being rendered.
+	cp "$(ui_src)/.chezmoitemplates/sh-ui.sh" "$v/src/.chezmoitemplates/sh-ui.sh"
+	cp "$(ui_src)/run_onchange_after_install-claude-plugins.sh.tmpl" "$v/src/"
+
+	# Two plugins under one marketplace, so the rendered body calls
+	# install_plugin more than once rather than exercising it as a singleton.
+	# Piped straight into age rather than staged through a plaintext temp file:
+	# this helper also runs outside bats (see the module's manual verification
+	# steps), where $BATS_TEST_TMPDIR does not exist to hold one.
+	printf '%s' '{"acme-marketplace":{"source":{"repo":"acme/plugins"}}}' |
+		"$REAL_AGE" -r "$recipient" \
+			-o "$v/src/dot_claude/private_plugins/encrypted_known_marketplaces.json.age"
+	printf '%s' '{"plugins":{"alpha@acme-marketplace":{},"beta@acme-marketplace":{}}}' |
+		"$REAL_AGE" -r "$recipient" \
+			-o "$v/src/dot_claude/private_plugins/encrypted_installed_plugins.json.age"
+
+	# machine_role = "work" matters: the template gates every fixture entry
+	# behind `ne $.machine_role "personal"`, so "personal" here would render
+	# the same empty-body shape this venue exists to get past.
+	{
+		printf 'encryption = "age"\n'
+		printf '[age]\n'
+		printf '  identity = "%s"\n' "$v/home/.config/chezmoi/key.txt"
+		printf '  recipient = "%s"\n' "$recipient"
+		printf '[data]\n'
+		printf '  machine_role = "work"\n'
+	} >"$v/chezmoi.toml"
+
+	ui_write_stubs "$v"
+
+	(
+		unset XDG_CONFIG_HOME XDG_CACHE_HOME
+		HOME="$v/home" chezmoi execute-template \
+			--source "$v/src" --config "$v/chezmoi.toml" \
+			--destination "$v/dest" \
+			<"$v/src/run_onchange_after_install-claude-plugins.sh.tmpl" >"$v/script.sh"
+	)
+	printf '%s' "$v"
+}
+
 # Runs a rendered script under its stubs.
 #
 # NVM_DIR and HOMEBREW_PREFIX are SET to venue paths rather than unset, and the
@@ -822,6 +892,17 @@ ui_run_ten() {
 ui_intervals() {
 	local cap="$1" glyphs="$2" field="$3"
 	python3 "$(ui_src)/tests/support/bundle-intervals.py" "$cap" "$glyphs" |
+		tr ' ' '\n' | sed -n "s/^$field=//p"
+}
+
+# One field out of interleave-check.py's report, by name. Mirrors
+# ui_intervals in shape; the analyzer takes an extra MARKER argument because a
+# chatty stub's output has to be told apart from the kit's own escape
+# sequences on the same combined capture, which bundle-intervals.py never had
+# to do.
+ui_interleave() {
+	local cap="$1" glyphs="$2" marker="$3" field="$4"
+	python3 "$(ui_src)/tests/support/interleave-check.py" "$cap" "$glyphs" "$marker" |
 		tr ' ' '\n' | sed -n "s/^$field=//p"
 }
 
@@ -868,6 +949,36 @@ exit 0
 STUB
 	chmod +x "$v/stubs/brew"
 	: >"$v/bundle-calls.log"
+}
+
+# A stub that writes to stdout and exits 0, for the other half of #38: a live
+# spinner frame and a tool's own output landing on the same terminal row.
+# Every stub in ui_write_stubs prints nothing, so even on a combined stream
+# there is no tool output to collide with a frame; this stub supplies the
+# missing half.
+#
+# DWELL is load-bearing for the same reason it is on
+# ui_write_brew_bundle_stub (see "certifies whatever it is given" there): a
+# stub that echoes and exits immediately leaves no window for a frame to land
+# in before it, so the check cannot fail and certifies whatever it is given.
+# The dwell buys the freshly forked ticker time to draw frames first.
+#
+# XTOOLOUTX is deliberately not a substring of any real plugin, marketplace,
+# package, or skill name. Several of the ten probe with
+# `tool list | grep -q "$name"` and take an early return on a match; a marker
+# that collided with one of those names would silently skip the install path
+# the test exists to exercise. The stub is invoked for every subcommand,
+# including those probe calls, so it has to stay valid there too: `exit 0`
+# with unmatched output is exactly right.
+ui_write_chatty_stub() {
+	local v="$1" name="$2" dwell="${3:-0.3}"
+	cat >"$v/stubs/$name" <<STUB
+#!/bin/bash
+sleep $dwell
+echo "XTOOLOUTX $name"
+exit 0
+STUB
+	chmod +x "$v/stubs/$name"
 }
 
 # Two real Brewfile entry names. A name the render never contained would make

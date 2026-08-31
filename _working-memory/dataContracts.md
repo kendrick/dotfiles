@@ -163,4 +163,12 @@ Every Nerd Font cask registers three families, the base name plus a ` Mono` and 
 Tier C's patcher has nothing to run on this machine: `docker` is only a zsh alias pointing at podman (`dot_config/zsh/aliases.zsh:15`) and neither podman nor Docker nor FontForge is installed. The alias also can't help a `run_onchange` script, since aliases don't survive into non-interactive shells. `op` is present and `op account list` succeeds against two accounts, so the vault half of Tier C is reachable. _(2026-08-05)_
 
 ## sh-ui.sh (shared shell helpers)
-`.chezmoitemplates/sh-ui.sh` is the terminal-chrome interface the before-phase scripts include. It defines `say` / `ok` / `warn`, `elapsed`, `progress_bar`, `spin_until`, `spin_on_log`, `show_cursor`, and the `SPINNER_FRAMES` array. Consumers pull it in with a Go template include and set their own EXIT trap that calls `show_cursor`, since each has its own temp files to clear. Targets bash 3.2, because the before phase runs ahead of Homebrew. _(.chezmoitemplates/sh-ui.sh, run_once_before_install-prerequisites.sh.tmpl, run_before_provision-age-key.sh.tmpl)_
+`.chezmoitemplates/sh-ui.sh` is the terminal-chrome interface every `run_` script includes. Consumers pull it in with a Go template include. Targets bash 3.2, because the before phase runs ahead of Homebrew.
+
+The older half is line-at-a-time output: `say` / `ok` / `warn`, `elapsed`, `progress_bar`, `spin_until`, `spin_on_log`, `show_cursor`, and the `SPINNER_FRAMES` array.
+
+The step vocabulary (#16, shipped in #37) is what the ten scripts actually drive. A step opens with `step_begin`, which puts a live line on `/dev/tty` and animates it from a background ticker, or with `step_begin_quiet`, which takes a settled line and no live line at all. `step_tick` advances the live line. `step_ok` / `step_warn` / `step_fail` erase it and write one settled line to stdout. `ui_watching` reports whether anything is being drawn.
+
+`step_run` wraps a tool call: it stops the ticker, erases the live line, and runs the command with its exit status handed back untouched. Every invocation that writes to the terminal while a step is live has to go through it. Without it the tool's output continues the live line's row, because a frame write parks the cursor at the end of the drawn text and never emits a newline (#38).
+
+Each consumer sets its own EXIT trap. The trap must read `$?` as its literal first statement and pass it to `ui_finalize`, which stops the ticker, settles a failed step, and restores the cursor. A trap that reads `$?` any later reports the status of whatever ran in between. _(.chezmoitemplates/sh-ui.sh, run_once_before_install-prerequisites.sh.tmpl, run_before_provision-age-key.sh.tmpl)_

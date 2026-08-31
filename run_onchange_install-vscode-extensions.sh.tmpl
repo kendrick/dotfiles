@@ -49,7 +49,7 @@ while IFS= read -r ext; do
   [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
   ext_done=$((ext_done + 1))
   step_tick "$ext_done" "$ext_total" "$ext"
-  if ! code --install-extension "$ext" --force; then
+  if ! step_run code --install-extension "$ext" --force; then
     failed+=("$ext")
   fi
 done <<EXTEOF

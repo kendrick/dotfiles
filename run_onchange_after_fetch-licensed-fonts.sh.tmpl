@@ -16,6 +16,8 @@
 
 set -uo pipefail
 
+{{ template "sh-ui.sh" . }}
+
 FONT_DIR="$HOME/Library/Fonts/Licensed"
 # Two accounts are signed in on this machine. Without pinning, `op` may resolve
 # against the work account, where none of these exist.
@@ -26,7 +28,12 @@ OP_VAULT="Personal"
 # script is the one deliberate exception to the fail-loud rule the rest of the
 # font feature follows: it must never take `chezmoi apply` down with it.
 skip() {
-  echo "Licensed fonts: $* — skipping."
+  step_warn "licensed fonts" "$*"
+  # The settled line is trimmed to its column, and these reasons run past it.
+  # "1Password would not authorize (unlock the app and re-run `chezmoi apply`)"
+  # loses everything after the fortieth character, which is where the
+  # instruction lives.
+  say "$*"
   exit 0
 }
 
@@ -45,14 +52,27 @@ items=$(echo "$manifest" | grep -vE '^\s*(#|$)' || true)
 workdir=$(mktemp -d)
 # Fires on failure too, so a fetch that dies partway doesn't leave licensed font
 # bytes sitting in /tmp.
-trap 'rm -rf "$workdir"' EXIT
+# $? first, before the removal: rm always returns 0, so a finalizer reading it
+# afterward would settle a failed fetch as a success.
+ui_exit() {
+  ui_st=$?
+  rm -rf "$workdir"
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
 
 mkdir -p "$FONT_DIR"
 installed=0
 skipped=0
+font_total=$(printf '%s\n' "$items" | grep -c . || true)
+font_done=0
+
+step_begin "licensed fonts"
 
 while IFS= read -r title; do
   [ -n "$title" ] || continue
+  font_done=$((font_done + 1))
+  step_tick "$font_done" "$font_total" "$title"
   archive="$workdir/item.zip"
 
   # Reading from /dev/null so `op` can't eat the manifest this loop is reading.
@@ -97,4 +117,4 @@ while IFS= read -r title; do
   rm -f "$archive"
 done <<<"$items"
 
-echo "Licensed fonts: $installed installed or updated, $skipped skipped."
+step_ok "licensed fonts" "$installed installed, $skipped skipped"

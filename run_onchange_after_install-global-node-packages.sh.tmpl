@@ -15,13 +15,27 @@
 
 set -e
 
+{{ template "sh-ui.sh" . }}
+
+# $? is read as the trap body's literal first statement. A finalizer that reads
+# it any later gets the status of whatever ran in between, and settles a failed
+# run as a success.
+ui_exit() {
+  ui_st=$?
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
+
 install_globals() {
   local manager="$1"
   local list_content="$2"
   if ! command -v "$manager" &>/dev/null; then
-    echo "$manager not found, skipping global package install."
+    step_warn "$manager -g" "$manager not found"
     return 0
   fi
+  local total done_n=0
+  total=$(printf '%s\n' "$list_content" | grep -cE '^[^#[:space:]]' || true)
+  step_begin "$manager -g"
   local subcommand
   case "$manager" in
     npm)  subcommand="install -g" ;;
@@ -37,12 +51,14 @@ install_globals() {
   set +e
   while IFS= read -r pkg; do
     [[ "$pkg" =~ ^#.*$ || -z "$pkg" ]] && continue
-    echo "  $manager $subcommand $pkg"
+    done_n=$((done_n + 1))
+    step_tick "$done_n" "$total" "$pkg"
     if ! command "$manager" $subcommand "$pkg"; then
       echo "    skipped: '$pkg' failed to install (often an outdated node)"
     fi
   done <<<"$list_content"
   set -e
+  step_ok "$manager -g" "$total packages"
 }
 
 # Ensure a current default node before installing globals. brew installs nvm but no
@@ -74,20 +90,18 @@ if command -v nvm >/dev/null 2>&1; then
     corepack enable pnpm 2>/dev/null || true
   fi
 else
-  echo "nvm not found, skipping node setup and global installs."
+  step_warn "node" "nvm not found"
 fi
 set -e
 
-echo "Installing global npm packages..."
 install_globals npm "$(cat <<'NPMEOF'
 {{ include "dot_config/npm-globals.txt" }}
 NPMEOF
 )"
 
-echo "Installing global pnpm packages..."
 install_globals pnpm "$(cat <<'PNPMEOF'
 {{ include "dot_config/pnpm-globals.txt" }}
 PNPMEOF
 )"
 
-echo "Global node packages installed."
+say "Global node packages installed."

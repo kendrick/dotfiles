@@ -20,9 +20,13 @@ set -e
 
 CLT_SENTINEL=/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
 
+# $? is read first, before the removal. rm -f always returns 0, so a finalizer
+# reading it afterward would settle a failed run as a success and the first
+# script of a factory Mac's apply would end on a tick.
 cleanup() {
+  ui_st=$?
   rm -f "$CLT_SENTINEL"
-  show_cursor # cursor back, however we exited
+  ui_finalize "$ui_st"
   return 0
 }
 trap cleanup EXIT
@@ -57,10 +61,10 @@ install_clt_headless() {
   rm -f "$log"
 
   if [ -z "$label" ]; then
-    warn "Couldn't find Command Line Tools in the software update catalog."
+    step_warn "xcode clt" "not in the update catalog"
     return 1
   fi
-  ok "$label"
+  say "Installer: $label"
 
   # Prime sudo in the foreground. Backgrounding the install is what lets us draw the
   # progress bar, and a background job can't own the terminal to ask for a password.
@@ -100,8 +104,9 @@ install_clt_gui() {
 }
 
 if have_clt; then
-  ok "Xcode Command Line Tools already installed."
+  step_ok "xcode clt" "already installed"
 else
+  step_begin "xcode clt"
   say "Xcode Command Line Tools are missing. Homebrew and git need them."
 
   # Only ask when someone's there to answer. The auto-sync LaunchAgent must never
@@ -111,7 +116,8 @@ else
     read -r reply || reply=""
     case "$reply" in
       [nN] | [nN][oO])
-        warn "Skipped. Install them with 'xcode-select --install', then re-run 'chezmoi apply'."
+        step_warn "xcode clt" "skipped by request"
+        say "Install them with 'xcode-select --install', then re-run 'chezmoi apply'."
         exit 1
         ;;
     esac
@@ -119,12 +125,12 @@ else
 
   start=$SECONDS
   if install_clt_headless; then
-    ok "Xcode Command Line Tools installed  ($(elapsed $start))"
+    step_ok "xcode clt" "installed"
   elif install_clt_gui; then
-    ok "Xcode Command Line Tools installed  ($(elapsed $start))"
+    step_ok "xcode clt" "installed"
   else
-    warn "Xcode Command Line Tools didn't install."
-    warn "Run 'xcode-select --install' by hand, then re-run 'chezmoi apply'."
+    step_fail "xcode clt" "did not install"
+    say "Run 'xcode-select --install' by hand, then re-run 'chezmoi apply'."
     exit 1
   fi
 fi
@@ -132,12 +138,13 @@ fi
 # --- Homebrew ---------------------------------------------------------------------
 
 if command -v brew &>/dev/null; then
-  ok "Homebrew already installed."
+  step_ok "homebrew" "already installed"
 else
+  step_begin "homebrew"
   say "Installing Homebrew..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   eval "$(/opt/homebrew/bin/brew shellenv)"
-  ok "Homebrew installed."
+  step_ok "homebrew" "installed"
 fi
 
 say "Prerequisites ready."

@@ -13,6 +13,17 @@
 # teardown:secret ~/.local/state/dotfiles
 set -e
 
+{{ template "sh-ui.sh" . }}
+
+# $? is read as the trap body's literal first statement. A finalizer that reads
+# it any later gets the status of whatever ran in between, and settles a failed
+# run as a success.
+ui_exit() {
+  ui_st=$?
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
+
 SCHEDULE="{{ $sched }}"
 PLIST="{{ .chezmoi.homeDir }}/Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist"
 LABEL="com.k-arnett.dotfiles-auto-sync"
@@ -24,13 +35,14 @@ launchctl bootout "${TARGET}/${LABEL}" 2>/dev/null || true
 
 if [[ "$SCHEDULE" == "off" ]]; then
   rm -f "$PLIST"
-  echo "Auto-sync off; LaunchAgent unloaded."
+  step_ok "launchagents" "off, agent unloaded"
   exit 0
 fi
 
 if [[ -f "$PLIST" ]]; then
   launchctl bootstrap "$TARGET" "$PLIST"
-  echo "Auto-sync loaded on the '$SCHEDULE' schedule."
+  step_ok "launchagents" "loaded, $SCHEDULE"
 else
-  echo "Schedule is '$SCHEDULE' but no plist at $PLIST; nothing loaded."
+  step_warn "launchagents" "$SCHEDULE, but no plist"
+  say "Expected it at $PLIST."
 fi

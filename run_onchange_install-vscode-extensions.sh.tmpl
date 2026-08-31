@@ -9,12 +9,34 @@
 
 set -e
 
+{{ template "sh-ui.sh" . }}
+
+# $? is read as the trap body's literal first statement. A finalizer that reads
+# it any later gets the status of whatever ran in between, and settles a failed
+# run as a success.
+ui_exit() {
+  ui_st=$?
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
+
 if ! command -v code &>/dev/null; then
-  echo "VS Code CLI not found — skipping extension install."
+  step_warn "vscode ext" "VS Code CLI not found"
   exit 0
 fi
 
-echo "Installing VS Code extensions..."
+# Read into a variable before the loop rather than straight off a heredoc: the
+# live line needs a denominator, and a heredoc redirect gives the loop no way
+# to know how many entries are coming.
+extensions=$(
+  cat <<'EXTEOF'
+{{ include "dot_config/vscode-extensions.txt" }}
+EXTEOF
+)
+ext_total=$(printf '%s\n' "$extensions" | grep -cE '^[^#[:space:]]' || true)
+ext_done=0
+
+step_begin "vscode ext"
 
 # This loop used to end `2>/dev/null || true`, which threw away the exit code and the
 # reason together: an extension pulled from the marketplace read exactly like a machine
@@ -25,21 +47,24 @@ failed=()
 
 while IFS= read -r ext; do
   [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
+  ext_done=$((ext_done + 1))
+  step_tick "$ext_done" "$ext_total" "$ext"
   if ! code --install-extension "$ext" --force; then
     failed+=("$ext")
   fi
-done <<'EXTEOF'
-{{ include "dot_config/vscode-extensions.txt" }}
+done <<EXTEOF
+$extensions
 EXTEOF
 
 # The count test is not decoration. bash 3.2 expands an empty array to a single empty word,
 # so an unconditional summary would print a heading with a blank line under it on a clean
 # run — a failure with no name attached, which is the bug wearing the fix's clothes.
 if [ "${#failed[@]}" -gt 0 ]; then
+  step_warn "vscode ext" "${#failed[@]} of $ext_total refused"
   echo "VS Code ran, but could not install these extensions (its errors are above):"
   printf '  %s\n' "${failed[@]}"
 else
-  echo "VS Code extensions installed."
+  step_ok "vscode ext" "$ext_total installed"
 fi
 
 # Named the failures and still succeeded, on purpose: a stale extension id is not a reason

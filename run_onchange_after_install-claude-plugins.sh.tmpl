@@ -20,10 +20,24 @@
 
 set -e
 
+{{ template "sh-ui.sh" . }}
+
+# $? is read as the trap body's literal first statement. A finalizer that reads
+# it any later gets the status of whatever ran in between, and settles a failed
+# run as a success.
+ui_exit() {
+  ui_st=$?
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
+
 if ! command -v claude &>/dev/null; then
-  echo "claude CLI not found — skipping plugin install."
+  step_warn "claude plugins" "claude CLI not found"
   exit 0
 fi
+
+plugin_done=0
+step_begin "claude plugins"
 
 # What the CLI turned down. The rendered body below is a flat run of add_marketplace and
 # install_plugin calls rather than a loop, so the accumulator lives out here where both
@@ -37,7 +51,8 @@ add_marketplace() {
   # 2>/dev/null survives on the probe, not on the install: `marketplace list` grumbles on a
   # machine that has none registered yet, and "none yet" is the normal first-run state.
   claude plugin marketplace list 2>/dev/null | grep -q "$name" && return 0
-  echo "Adding marketplace $name ($repo)..."
+  plugin_done=$((plugin_done + 1))
+  step_tick "$plugin_done" "" "marketplace $name"
   if ! claude plugin marketplace add "$repo"; then
     failed+=("marketplace $name ($repo)")
   fi
@@ -46,7 +61,8 @@ add_marketplace() {
 install_plugin() {
   local spec="$1"
   claude plugin list 2>/dev/null | grep -q "${spec%@*}" && return 0
-  echo "Installing $spec..."
+  plugin_done=$((plugin_done + 1))
+  step_tick "$plugin_done" "" "$spec"
   if ! claude plugin install "$spec"; then
     failed+=("plugin $spec")
   fi
@@ -88,15 +104,17 @@ install_plugin {{ $spec }}
 {{     end -}}
 {{   end -}}
 {{ else -}}
-echo "No chezmoi decryption key present — skipping plugin reinstall."
+step_warn "claude plugins" "no chezmoi decryption key"
+exit 0
 {{ end -}}
 # Counted before expanding: bash 3.2 renders an empty array as one empty word, so an
 # unconditional summary would announce a nameless failure on every clean apply.
 if [ "${#failed[@]}" -gt 0 ]; then
+  step_warn "claude plugins" "${#failed[@]} refused"
   echo "The claude CLI ran, but these did not install (its errors are above):"
   printf '  %s\n' "${failed[@]}"
 else
-  echo "Claude Code plugins ready."
+  step_ok "claude plugins" "$plugin_done handled"
 fi
 
 # Exit 0 with failures named. A marketplace that was unreachable for thirty seconds must not

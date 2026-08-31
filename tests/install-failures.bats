@@ -30,11 +30,17 @@ setup() {
 # Rendered with the real $HOME regardless of what setup() just pointed $HOME at,
 # so the claude-plugins template's decrypt gate sees the key that's actually
 # there. That gate is why this file needs the real $HOME rather than just the
-# real source dir: tests/licensed-fonts.bats renders under the synthetic $HOME
-# with --source, which is enough only because its template reads no config data.
+# real source dir.
+#
+# --source is separate and equally required. Without it the script body comes
+# from the tree under test while `{{ template "sh-ui.sh" . }}` resolves against
+# whatever source dir the config names, so a run from a copied tree renders a
+# script that calls step_begin and defines it nowhere. That produced twelve
+# failures at exit 127, none of them on a string assertion, which is a
+# confusing way to learn the render was wrong.
 render_script() {
 	local tmpl="$1" out="$BATS_TEST_TMPDIR/${1%.tmpl}"
-	HOME="$REAL_HOME" chezmoi execute-template <"$SRC/$tmpl" >"$out"
+	HOME="$REAL_HOME" chezmoi execute-template --source "$SRC" <"$SRC/$tmpl" >"$out"
 	echo "$out"
 }
 
@@ -52,7 +58,7 @@ first_raycast_extension() {
 # fixture name the render never contained would make "not the dropped name" vacuously
 # true, per the constitution's C-1.
 render_brewfile() {
-	HOME="$REAL_HOME" chezmoi execute-template <<<'{{ template "Brewfile" . }}'
+	HOME="$REAL_HOME" chezmoi execute-template --source "$SRC" <<<'{{ template "Brewfile" . }}'
 }
 
 # Raycast's hotkey write ignores $HOME and lands in the real
@@ -403,7 +409,7 @@ STUB
 	chmod +x "$STUBS/code"
 	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
-	assert_contains "VS Code extensions installed."
+	assert_contains "  ✓  vscode ext"
 	assert_not_contains "could not install"
 }
 
@@ -566,6 +572,6 @@ STUB
 	chmod +x "$STUBS/claude"
 	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
-	assert_contains "Claude Code plugins ready."
+	assert_contains "  ✓  claude plugins"
 	assert_not_contains "did not install"
 }

@@ -13,10 +13,21 @@
 # teardown:secret ~/.config/gh/hosts.yml
 # teardown:data ~/.agents/skills
 
+{{ template "sh-ui.sh" . }}
+
+# $? is read as the trap body's literal first statement. A finalizer that reads
+# it any later gets the status of whatever ran in between, and settles a failed
+# run as a success.
+ui_exit() {
+  ui_st=$?
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
+
 LOCKFILE="{{ joinPath .chezmoi.homeDir ".local" "state" "skills" ".skill-lock.json" }}"
 SKILLS_DIR="{{ joinPath .chezmoi.homeDir ".agents" "skills" }}"
 
-[ -f "$LOCKFILE" ] || { echo "No skill lockfile at $LOCKFILE; nothing to restore."; exit 0; }
+[ -f "$LOCKFILE" ] || { step_warn "agent skills" "no lockfile"; exit 0; }
 
 # node/npx live under nvm, which every run_ script must re-source (PATH doesn't carry over).
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
@@ -30,7 +41,7 @@ command -v nvm >/dev/null 2>&1 && nvm use default >/dev/null 2>&1
 
 for tool in npx jq; do
   if ! command -v "$tool" >/dev/null 2>&1; then
-    echo "$tool not found; skipping skill restore."
+    step_warn "agent skills" "$tool not found"
     exit 0
   fi
 done
@@ -43,11 +54,13 @@ needed=$(jq -r '.skills | to_entries[] | "\(.value.source)\t\(.key)"' "$LOCKFILE
     done)
 
 if [ -z "$needed" ]; then
-  echo "All lockfile skills already installed."
+  step_ok "agent skills" "all present"
   exit 0
 fi
 
-echo "Restoring $(printf '%s\n' "$needed" | wc -l | tr -d ' ') missing agent skill(s)."
+skill_total=$(printf '%s\n' "$needed" | wc -l | tr -d ' ')
+skill_done=0
+step_begin "agent skills"
 
 # The kendrick/* skill repos are private and need GitHub auth to clone. Prompt rather than
 # skip, so the restore comes back complete instead of quietly partial.
@@ -83,8 +96,10 @@ for src in $(printf '%s\n' "$needed" | cut -f1 | sort -u); do
   while IFS= read -r name; do
     s_args+=(-s "$name")
   done < <(printf '%s\n' "$needed" | awk -F'\t' -v s="$src" '$1==s{print $2}')
-  echo "  skills add $src ${a_args[*]} ${s_args[*]}"
+  skill_done=$((skill_done + 1))
+  step_tick "$skill_done" "$skill_total" "$src"
   npx --yes skills add "$src" -g -y "${a_args[@]}" "${s_args[@]}" || echo "    some skills from $src failed (a name may have changed upstream)"
 done
 
-echo "Skill restore done. If you signed into GitHub mid-run, re-run 'chezmoi apply' to pick up any private skills it skipped."
+step_ok "agent skills" "$skill_total restored"
+say "If you signed into GitHub mid-run, re-run 'chezmoi apply' to pick up any private skills it skipped."

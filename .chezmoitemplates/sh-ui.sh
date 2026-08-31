@@ -349,6 +349,39 @@ step_tick() {
   return 0
 }
 
+# Run a tool with the live line out of the way, handing back its exit status
+# untouched. Every tool that writes to the terminal while a step is live owes
+# its call to this.
+#
+# A frame write parks the cursor at the end of the drawn text and never emits a
+# newline, so a tool printing while the ticker is up continues the frame's row
+# rather than starting one. On an attended apply that is every tool, because
+# stdout and /dev/tty are the same device there (#38). It is also why the
+# suite's split-stream venues cannot see the collision: they are the one venue
+# where the two streams are not the same device.
+#
+# Buffering the tool and replaying it once the step settles would erase the
+# collision too, and it is ruled out. A failing tool's stderr has to stay on
+# screen beside the item that failed, and a slow tool's scrollback is the only
+# liveness signal there is while it holds the run.
+#
+# No ticker restart on the way out. step_tick forks one at the top of the next
+# iteration, and restarting here would put a live line back in front of the
+# caller's own failure echo, which is the same collision one line further down.
+# The cost is real: in a loop that ticks and then immediately shells out, the
+# live line is drawn and erased inside a millisecond, so these steps are
+# carried by their settled line and the tool's own output rather than by the
+# animation.
+#
+# step_run closes the tool's window, not the race. _ui_stop_ticker waits on the
+# ticker, so no frame lands once it returns, but anything printing outside a
+# step_run call still arrives mid-frame.
+step_run() {
+  _ui_stop_ticker
+  _ui_erase
+  "$@"
+}
+
 _ui_close() {
   local glyph="$1" label="$2" detail="${3:-}"
   local start="${_UI_STEP_START:-$SECONDS}"

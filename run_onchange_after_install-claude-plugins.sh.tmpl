@@ -53,7 +53,7 @@ add_marketplace() {
   claude plugin marketplace list 2>/dev/null | grep -q "$name" && return 0
   plugin_done=$((plugin_done + 1))
   step_tick "$plugin_done" "" "marketplace $name"
-  if ! claude plugin marketplace add "$repo"; then
+  if ! step_run claude plugin marketplace add "$repo"; then
     failed+=("marketplace $name ($repo)")
   fi
 }
@@ -63,7 +63,7 @@ install_plugin() {
   claude plugin list 2>/dev/null | grep -q "${spec%@*}" && return 0
   plugin_done=$((plugin_done + 1))
   step_tick "$plugin_done" "" "$spec"
-  if ! claude plugin install "$spec"; then
+  if ! step_run claude plugin install "$spec"; then
     failed+=("plugin $spec")
   fi
 }

@@ -124,6 +124,47 @@ spin_on_log() {
   wait "$pid"
 }
 
+# Spin while a background job runs, and stop for good the moment $log grows a
+# line matching $gate_re. Whichever comes first, the gate or the job's death,
+# ends the animation; nothing here ever starts it again.
+#
+# That one-way shape is the whole point, and it is why this is not spin_on_log
+# with a predicate bolted on. It exists for a caller whose tool goes from silent
+# to owning the terminal partway through its run: brew, which downloads in
+# silence and then hands /dev/tty to a cask's sudo prompt. A frame drawn after
+# that handover can erase "Password:" a hundred milliseconds after it appears,
+# and the apply then blocks forever on a question nobody was shown.
+#
+# Two differences from spin_on_log follow from that, both deliberate:
+#
+# It does not wait on the pid. The caller still has a live job, an open log, and
+# a status to collect after the gate opens, so waiting here would strand all
+# three. Every caller owes its own wait.
+#
+# The gate is read before each draw rather than after, so no frame can follow a
+# line this loop has already seen. Reading it after would leave exactly one
+# frame on the far side of the gate, which is the frame that erases the prompt.
+#
+# Polling the log costs a `tr | grep` per frame, the same order as spin_on_log's
+# own per-frame read, and for the same reason: the log is the only thing that
+# knows what phase the tool is in.
+spin_until_log_gate() {
+  local pid=$1 label=$2 log=$3 gate_re=$4
+  local start=$SECONDS
+  ui_watching || return 0
+  _ui_measure
+  while kill -0 "$pid" 2>/dev/null; do
+    if tr '\r' '\n' <"$log" 2>/dev/null | grep -Eq "$gate_re"; then
+      break
+    fi
+    _UI_FRAME=$((${_UI_FRAME:-0} + 1))
+    _ui_write "${_UI_ERASE}${_UI_HIDE}$(_ui_fit "  $(_ui_glyph)  ${label}  ($(elapsed "$start"))" "$_UI_COLS")${_UI_SHOW}"
+    sleep "$_UI_TICK_INTERVAL"
+  done
+  _ui_erase
+  return 0
+}
+
 # --- step vocabulary -------------------------------------------------------
 #
 # fd 9 is the screen. It is opened once, lazily, by ui_watching.

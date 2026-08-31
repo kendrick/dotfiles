@@ -69,8 +69,118 @@ parse_fetch_batch() {
   ' "$1"
 }
 
+# The moment brew stops being silent, as a regex over its log.
+#
+# parallel_installer.rb:298 prints "#{verb} #{name}" where verb is Installing or
+# Upgrading, and :301 prints "Using #{name}" for an entry already satisfied.
+# Matching only Installing would miss the upgrade case, and an upgrading cask is
+# the entry most likely to ask for a password.
+#
+# Every part of this leans toward matching too eagerly, because the two failure
+# directions are not comparable. Matching a line early costs some animation
+# nobody will miss. Failing to match costs the spinner running on into the phase
+# where a cask's sudo prompt owns /dev/tty, which is a hung apply.
+#
+# So both prefixes are tolerated on the cheap side of that trade. brew writes no
+# color into a file, and neither of these two lines carries the `==>` some of
+# its others do, but a gate that shrugs at both survives the day one of them
+# changes.
+BUNDLE_GATE_RE=$'^(\033\\[[0-9;]*m)*(==> )?(Installing|Upgrading|Using) '
+
+# How many Brewfile entries brew will have to go and get: everything declared
+# that this machine doesn't already have.
+#
+# Derived here, ahead of brew, and deliberately not read back out of brew's own
+# output. The line that would carry it is `Fetching <names>`, which brew has
+# reworded across releases and suppresses entirely under --quiet, so a display
+# reading it breaks on an upgrade that changes neither this script nor the
+# Brewfile.
+#
+# Every inventory read is guarded, and every failure lands the same way, on an
+# overcount. A `brew list` that errors reads as an empty machine, so entries the
+# machine already has get counted as absent and the line says a number that is
+# too big. That is a wrong caption on a spinner, and nothing here may cost more
+# than that: this function runs ahead of an apply that installs software, and a
+# count is no reason to interfere with one.
+#
+# Formula and cask names carry their tap when they come from one
+# (`fkhadra/cli/caniuse`) while `brew list` answers in short names, so both
+# compare on the last path segment. Taps compare whole, since that IS the name.
+count_absent_entries() {
+  local nl=$'\n'
+  local formulae casks taps mas_ids line name id count=0
+  formulae="$nl$(brew list -1 --formula 2>/dev/null || true)$nl"
+  casks="$nl$(brew list -1 --cask 2>/dev/null || true)$nl"
+  taps="$nl$(brew tap 2>/dev/null || true)$nl"
+  # No mas means no App Store apps installed through it, so every mas entry is
+  # absent. That is the honest answer: brew bundle installs mas first and then
+  # goes and fetches all of them.
+  mas_ids="$nl"
+  if command -v mas >/dev/null 2>&1; then
+    mas_ids="$nl$(mas list 2>/dev/null | awk '{print $1}' || true)$nl"
+  fi
+
+  # Membership by pattern match rather than by `grep -qxF`, which would fork
+  # twice per entry across ninety-odd of them every time this script runs.
+  # Quoted case patterns match literally, so a name holding a `*` or a `?` is
+  # compared as text rather than expanded.
+  while IFS= read -r line; do
+    case "$line" in
+    'tap "'*)
+      name=${line#*\"}
+      name=${name%%\"*}
+      case "$taps" in *"$nl$name$nl"*) ;; *) count=$((count + 1)) ;; esac
+      ;;
+    'brew "'*)
+      name=${line#*\"}
+      name=${name%%\"*}
+      name=${name##*/}
+      case "$formulae" in *"$nl$name$nl"*) ;; *) count=$((count + 1)) ;; esac
+      ;;
+    'cask "'*)
+      name=${line#*\"}
+      name=${name%%\"*}
+      name=${name##*/}
+      case "$casks" in *"$nl$name$nl"*) ;; *) count=$((count + 1)) ;; esac
+      ;;
+    'mas "'*)
+      id=${line##*id: }
+      case "$mas_ids" in *"$nl$id$nl"*) ;; *) count=$((count + 1)) ;; esac
+      ;;
+    esac
+  done <<<"$brewfile"
+
+  printf '%s' "$count"
+  return 0
+}
+
+# Copies $bundle_log onto stdout from $bundle_offset to wherever it currently
+# ends, and remembers the new end.
+#
+# By byte, not by line. A line-oriented read holds back a partial last line,
+# which is exactly what a prompt or a progress carriage return looks like. The
+# copy reformats, wraps, and filters nothing: what brew wrote is what stdout
+# gets.
+#
+# A read that fails streams nothing this pass rather than guessing. The caller's
+# final drain after `wait` is what makes the copy whole regardless, since by then
+# brew has exited and the log has stopped moving.
+stream_bundle_log() {
+  local size
+  size=$(wc -c <"$bundle_log" 2>/dev/null | tr -d ' ' || printf 0)
+  case "$size" in
+  '' | *[!0-9]*) return 0 ;;
+  esac
+  [ "$size" -gt "$bundle_offset" ] || return 0
+  tail -c "+$((bundle_offset + 1))" "$bundle_log" 2>/dev/null |
+    head -c "$((size - bundle_offset))" || true
+  bundle_offset=$size
+  return 0
+}
+
 # Reports one completed `brew bundle` attempt and, the first time only, retries. $log is
-# the tee'd output, $status is brew's own exit code (PIPESTATUS, not tee's), and
+# wherever that attempt's output was collected, $status is brew's own exit code and never
+# a pipeline's, and
 # $allow_retry is 1 for the initial attempt and 0 for the retry this function may itself
 # trigger — #17 already ruled out looping the apply, so a second failure of either phase
 # is always just reported, never retried again.
@@ -172,18 +282,67 @@ ui_exit() {
 }
 trap ui_exit EXIT
 
-# The step line opens here, before brew is entered, and closes after it exits.
-# Nothing is drawn in between on purpose: a cask's sudo prompt writes to
-# /dev/tty past any redirect, onto the same stream a spinner would redraw, so a
-# frame landing there can erase a password prompt and hang the apply on
-# something nobody was shown. The live display for this script is GitHub #33.
+# The step line opens here and settles after brew exits. In between the
+# installer owns one live line, and only for as long as brew has nothing to say.
+#
+# brew runs in two phases and they want opposite things. The fetch phase names
+# everything it is about to download in one line and then goes quiet for as long
+# as the downloads take, which on a fresh machine is tens of minutes on one
+# unchanging line—the silence this display exists to end. The install phase
+# that follows narrates itself an entry at a time, and it also hands /dev/tty to
+# a cask's sudo prompt, which writes there past every redirect. A frame redrawn
+# onto that stream can erase "Password:" a hundred milliseconds after it appears,
+# and the apply then blocks forever on a question nobody was shown.
+#
+# So the animation stops at brew's first install-phase line and never comes
+# back. That is structural rather than careful: the only call that can draw is
+# the one below, ahead of the first invocation, and the retry inside
+# handle_bundle_result has no path to it.
+#
+# While the line is live brew's bytes go to $bundle_log alone, because a tool
+# printing next to a live line lands on the live line's own row (#38). Nothing
+# is lost to that: everything withheld is replayed to stdout the moment the line
+# is gone, and the rest of the run streams as brew writes it.
 bundle_outcome=failed
 step_begin_quiet "packages"
 
-# tee rather than capture-then-print: a fresh machine spends tens of minutes in here and
-# needs to see it working. PIPESTATUS[0] is brew's status; $? would be tee's, always 0.
-brew bundle --file=/dev/stdin <<<"$brewfile" 2>&1 | tee "$bundle_log"
-bundle_status=${PIPESTATUS[0]}
+fetch_count=$(count_absent_entries)
+case "$fetch_count" in
+'' | *[!0-9]*) fetch_count=0 ;;
+esac
+fetch_noun=entries
+[ "$fetch_count" -ne 1 ] || fetch_noun=entry
+
+if ui_watching; then
+  brew bundle --file=/dev/stdin <<<"$brewfile" >"$bundle_log" 2>&1 &
+  bundle_pid=$!
+  spin_until_log_gate "$bundle_pid" \
+    "packages  fetching $fetch_count $fetch_noun" "$bundle_log" "$BUNDLE_GATE_RE"
+
+  # The line is gone for good, so brew gets the screen back: everything it wrote
+  # while it was silent, then the rest as it arrives. Polling rather than tailing
+  # keeps the wait for brew's status in this shell, where a `tail -f` would put a
+  # second process between us and it.
+  bundle_offset=0
+  while kill -0 "$bundle_pid" 2>/dev/null; do
+    stream_bundle_log
+    sleep 0.2
+  done
+  bundle_status=0
+  wait "$bundle_pid" || bundle_status=$?
+  # brew has exited, so this pass reaches a log that has stopped moving and the
+  # copy on stdout is whole no matter what any earlier pass missed.
+  stream_bundle_log
+else
+  # No terminal and no live line, so there is no screen to withhold anything
+  # from and brew streams straight through. tee rather than capture-then-print:
+  # a fresh machine spends tens of minutes in here, and a captured apply needs
+  # to show it working. PIPESTATUS[0] is brew's status; $? would be tee's,
+  # always 0.
+  say "packages: fetching $fetch_count $fetch_noun"
+  brew bundle --file=/dev/stdin <<<"$brewfile" 2>&1 | tee "$bundle_log"
+  bundle_status=${PIPESTATUS[0]}
+fi
 
 handle_bundle_result "$bundle_log" "$bundle_status" 1
 

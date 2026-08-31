@@ -907,19 +907,26 @@ ui_interleave() {
 }
 
 # A `brew` stub that holds each bundle interval open and brackets it on
-# /dev/tty.
+# /dev/tty, with a second marker at the moment brew's gate line lands: its
+# first "Installing ", "Upgrading ", or "Using " line.
 #
-# The dwell is load-bearing and was measured as the only variable that decided
-# the answer. Against a violating script the same check reported ok with an
-# instant stub and `301 tty bytes inside bundle 1` with the same stub holding
-# 0.6s. A stub that returns immediately leaves no window for a frame to land
-# in, so the check cannot fail and certifies whatever it is given.
+# Each dwell is load-bearing and was measured as the only variable that
+# decided the answer. Against a violating script the same check reported ok
+# with an instant stub and `301 tty bytes inside bundle 1` with the same stub
+# holding 0.6s. A stub that returns immediately leaves no window for a frame
+# to land in, so the check cannot fail and certifies whatever it is given —
+# true of the fetch dwell before the gate line and the install dwell after it
+# alike.
+#
+# `verb` defaults to `Installing` but takes `Upgrading` too: a gate built to
+# recognize only the literal word "Installing" would pass every case this
+# suite writes and still miss the upgrade path #33 exists to cover.
 #
 # Regime `retry` produces the one state that reaches the second bundle: a fetch
 # phase failure with no `<Verb> <entry> has failed!` line, one `Failed to fetch`
 # line, and `brew info` resolving a strict subset of the batched names.
 ui_write_brew_bundle_stub() {
-	local v="$1" regime="$2" drop="$3" keep="$4"
+	local v="$1" regime="$2" drop="$3" keep="$4" verb="${5:-Installing}"
 	cat >"$v/stubs/brew" <<STUB
 #!/bin/bash
 BUNDLE_LOG="$v/bundle-calls.log"
@@ -934,14 +941,50 @@ bundle)
 	printf 'BUNDLE-ENTER-%s' "\$n" >/dev/tty 2>/dev/null || true
 	cat >/dev/null
 	sleep 0.6
-	printf 'BUNDLE-EXIT-%s' "\$n" >/dev/tty 2>/dev/null || true
 	if [ "$regime" = "retry" ] && [ "\$n" -eq 1 ]; then
 		echo "Fetching $keep, $drop"
 		echo '\`brew bundle\` failed! Failed to fetch $keep, $drop' >&2
 		echo 'Error: No available formula with the name "$drop".' >&2
+		printf 'BUNDLE-EXIT-%s' "\$n" >/dev/tty 2>/dev/null || true
 		exit 1
 	fi
+	echo "$verb $keep"
+	# Load-bearing: the script under test polls its log at 0.1s, so a frame
+	# already mid-draw when the line above lands would otherwise be free to
+	# land after BUNDLE-INSTALL instead of before it, and a conforming run
+	# would read as a violation. This margin of one full poll cycle puts every
+	# straggler frame on the fetch side of the marker, while the 0.6s install
+	# dwell below still stands as a real violation window.
+	sleep 0.3
+	printf 'BUNDLE-INSTALL-%s' "\$n" >/dev/tty 2>/dev/null || true
+	sleep 0.6
 	echo "Homebrew Bundle complete! 0 Brewfile dependencies now installed."
+	printf 'BUNDLE-EXIT-%s' "\$n" >/dev/tty 2>/dev/null || true
+	exit 0
+	;;
+list)
+	# The inventory read: brew list -1, with --formula or --cask, is how the
+	# script works out which Brewfile entries are already present. A missing
+	# file means an empty inventory rather than an error, so every entry of
+	# that kind reads as absent, which is the fixture saying "fresh machine".
+	#
+	# No backticks anywhere in this heredoc. It is unquoted, so a pair of them
+	# in a comment is a command substitution that runs while the stub is being
+	# written, and the real brew answers it.
+	file="$v/installed-formulae"
+	for a in "\$@"; do
+		if [ "\$a" = "--cask" ]; then
+			file="$v/installed-casks"
+			break
+		fi
+	done
+	if [ -f "\$file" ]; then
+		cat "\$file"
+	fi
+	exit 0
+	;;
+tap)
+	# No third-party taps installed in the fixture venue.
 	exit 0
 	;;
 esac
@@ -992,27 +1035,49 @@ ui_brewfile_names() {
 		grep '^brew "' | head -2 | sed -E 's/^brew "([^"]+)"$/\1/'
 }
 
-# The clause's own failing example: the installer with a frame loop running
-# across its `brew bundle`. C-4 still passes against this, because the settled
-# line still reaches stdout on every path, which is exactly why the guarantee
-# needs a venue that watches /dev/tty instead.
-ui_animate_over_bundle() {
+# Every installable line the venue's Brewfile carries.
+#
+# Read out of the same render the venue runs against, never written down here.
+# The number moves whenever a package joins .chezmoidata.toml, and a fixture
+# holding a literal would then pin the count the display USED to say, which is
+# the one thing a case about the count must not do.
+#
+# It equals the display's count only because the brew stub serves an empty
+# inventory, so every declared entry reads as absent. A case wanting the two to
+# differ says so by seeding $v/installed-formulae.
+ui_brewfile_entry_count() {
+	local cfg
+	cfg="$(ui_fixture_config)"
+	env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME chezmoi execute-template \
+		--source "$(ui_src)" --config "$cfg" <<<'{{ template "Brewfile" . }}' |
+		grep -cE '^(tap|brew|cask|mas) '
+}
+
+# The clause's own failing example: a gate that no longer recognises its verb.
+#
+# The installer finds the fetch/install boundary by matching brew's own
+# `Installing |Upgrading |Using ` line. Narrow that alternation, or carry it
+# somewhere else and drop a verb, and the spinner never sees its gate at all. It
+# then keeps drawing until brew's pid dies, which puts frames in the install
+# dwell with an upgrading cask's sudo prompt the likeliest thing on /dev/tty
+# beneath them.
+#
+# Breaking the verb rather than the bundle invocation is deliberate. That
+# invocation survives on only one of the script's two branches, so patching it
+# would leave the watched branch untouched, and the verb is where the issue said
+# the mistake would be made anyway.
+ui_break_bundle_gate() {
 	local script="$1"
 	python3 - "$script" <<'EOF'
 import sys
 p = sys.argv[1]
 s = open(p).read()
-old = 'brew bundle --file=/dev/stdin <<<"$brewfile" 2>&1 | tee "$bundle_log"'
-assert old in s, "bundle invocation not found in rendered script"
-s = s.replace(old,
-  '( while :; do step_tick 1 1 "installing"; sleep 0.1; done ) &\n'
-  'ui_spin=$!\n' + old, 1)
-old2 = 'bundle_status=${PIPESTATUS[0]}'
-assert old2 in s
-s = s.replace(old2, old2 + '\nkill "$ui_spin" 2>/dev/null || true', 1)
+old = 'Installing|Upgrading|Using'
+assert old in s, "gate verb alternation not found in rendered script"
+s = s.replace(old, 'NOSUCHVERB', 1)
 open(p, 'w').write(s)
 EOF
-	grep -q 'ui_spin=' "$script"
+	grep -q 'NOSUCHVERB' "$script"
 }
 
 # The widest live line in a capture, in display columns.

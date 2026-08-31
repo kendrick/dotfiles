@@ -14,8 +14,13 @@
 # cannot ride on step_tick alone: every adopted script ticks once per item and
 # then sits inside an install for seconds, so a tick-driven frame freezes for
 # exactly as long as the work takes, which is the silence this kit exists to
-# break. One number, change it to taste.
-_UI_TICK_INTERVAL=1
+# break.
+#
+# It has to run well clear of the terminal's cursor blink, around 1 Hz. The
+# blink is the reference motion already on screen, so a spinner at or below it
+# reads as stalled no matter how faithfully it is advancing. 0.1 is the rate
+# the kit's own spin_until has always used.
+_UI_TICK_INTERVAL=0.1
 
 SPINNER_FRAMES=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
 

@@ -18,7 +18,7 @@ Source of truth is this repo at `~/.local/share/chezmoi`. Deployed targets:
 - `~/Library/Application Support/` — VS Code, Claude Desktop
 - `~/.config/chezmoi/chezmoi.toml` — local-only machine role + email, never committed
 
-`.chezmoitemplates/` holds partials that are never deployed anywhere: the Brewfile (rendered inline by the installer from `.chezmoidata.toml`), `bundles` (which package bundles this machine has on), and `sh-ui.sh` (shared bash helpers, included by the before-phase scripts). It isn't only a data directory.
+`.chezmoitemplates/` holds partials that are never deployed anywhere: the Brewfile (rendered inline by the installer from `.chezmoidata.toml`), `bundles` (which package bundles this machine has on), and `sh-ui.sh` (the shared terminal-chrome kit, included by all ten `run_` scripts since #37). It isn't only a data directory.
 
 `docs/` holds design specs that drive later implementation work, currently just `docs/superpowers/specs/`. It carries a `.chezmoiignore` line, unlike the dot-prefixed source-only trees, because `docs` has no leading dot and would otherwise deploy to `~/docs`. _(02ff72f)_
 

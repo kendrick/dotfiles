@@ -179,9 +179,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "f2d1ca6b2b3d712d395d22ef49e197944fc9a98c",
+      "skillFolderHash": "115417dc0799aec22bb1e8b5ea296d35a76d449e",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-09-01T02:58:06.304Z"
+      "updatedAt": "2026-09-01T14:42:28.482Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",

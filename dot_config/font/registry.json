@@ -215,5 +215,59 @@
 			"terminalFamily": "OperatorMonoLig Nerd Font Mono",
 			"casks": []
 		}
+	},
+	"suse-mono": {
+		"order": 120,
+		"tier": "b",
+		"label": "SUSE Mono",
+		"size": 14,
+		"terminal": {
+			"family": "SUSE Mono",
+			"features": "calt,liga",
+			"fallback": "Symbols Nerd Font Mono",			"casks": ["font-suse-mono"]
+		},
+		"editor": {
+			"family": "'SUSE Mono', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'wght' 100",
+			"ligatures": "'calt', 'liga'",
+			"terminalFamily": "'SUSE Mono', 'Symbols Nerd Font Mono'",
+			"casks": ["font-suse-mono", "font-symbols-only-nerd-font"]
+		}
+	},
+	"jetbrains-mono": {
+		"order": 130,
+		"tier": "b",
+		"label": "JetBrains Mono",
+		"size": 14,
+		"terminal": {
+			"family": "JetBrains Mono",
+			"features": "calt",
+			"fallback": "Symbols Nerd Font Mono",			"casks": ["font-jetbrains-mono"]
+		},
+		"editor": {
+			"family": "'JetBrains Mono', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'wght' 400",
+			"ligatures": "'calt'",
+			"terminalFamily": "'JetBrains Mono', 'Symbols Nerd Font Mono'",
+			"casks": ["font-jetbrains-mono", "font-symbols-only-nerd-font"]
+		}
+	},
+	"fira-code": {
+		"order": 140,
+		"tier": "b",
+		"label": "Fira Code",
+		"size": 14,
+		"terminal": {
+			"family": "Fira Code",
+			"features": "calt",
+			"fallback": "Symbols Nerd Font Mono",			"casks": ["font-fira-code"]
+		},
+		"editor": {
+			"family": "'Fira Code', 'Symbols Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace",
+			"variations": "'wght' 300",
+			"ligatures": "'calt'",
+			"terminalFamily": "'Fira Code', 'Symbols Nerd Font Mono'",
+			"casks": ["font-fira-code", "font-symbols-only-nerd-font"]
+		}
 	}
 }

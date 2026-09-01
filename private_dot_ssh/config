@@ -1,3 +1,5 @@
+Include /Users/k.arnett/.ssh/conductor_config
+
 Host github_personal
 	HostName github.com
 	IdentityFile ~/.ssh/personal_1p.pub

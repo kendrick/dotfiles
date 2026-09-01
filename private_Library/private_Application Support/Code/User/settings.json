@@ -57,4 +57,5 @@
 	"terminal.integrated.fontSize": 14,
 	"chat.viewSessions.orientation": "stacked",
 	"chat.disableAIFeatures": true,
+	"editor.fontWeight": "600",
 }

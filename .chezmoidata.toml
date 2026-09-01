@@ -110,6 +110,9 @@ packages = [
   { name = "font-monaspace-var",            type = "cask", bundles = ["fonts"] },
   { name = "font-recursive",                type = "cask", bundles = ["fonts"] },
   { name = "font-symbols-only-nerd-font",   type = "cask", bundles = ["fonts"] },
+  { name = "font-suse-mono",                type = "cask", bundles = ["fonts"] },
+  { name = "font-jetbrains-mono",           type = "cask", bundles = ["fonts"] },
+  { name = "font-fira-code",                type = "cask", bundles = ["fonts"] },
 
   # ---- dev ----
   { name = "ccat",                        type = "brew", bundles = ["dev"] },

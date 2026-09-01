@@ -1,6 +1,7 @@
 theme = dark:Synthwave Everything,light:Light Owl
 # BEGIN font (managed by `font`)
-font-family = "DankMono Nerd Font"
+font-family = "SUSE Mono"
+font-family = "Symbols Nerd Font Mono"
 font-size = 14
 font-feature = calt
 font-feature = liga

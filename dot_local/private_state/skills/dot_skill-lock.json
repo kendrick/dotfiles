@@ -591,6 +591,15 @@
       "skillFolderHash": "ca3eff3a19f6d2b24f0dd0c31a50af2a16f63735",
       "installedAt": "2026-08-24T02:08:17.431Z",
       "updatedAt": "2026-08-24T02:08:17.431Z"
+    },
+    "diagram-design": {
+      "source": "cathrynlavery/diagram-design",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
+      "skillPath": "skills/diagram-design/SKILL.md",
+      "skillFolderHash": "1bf319831137412e8ab71df321b510fa561fd262",
+      "installedAt": "2026-09-01T15:52:28.176Z",
+      "updatedAt": "2026-09-01T15:52:28.176Z"
     }
   },
   "dismissed": {

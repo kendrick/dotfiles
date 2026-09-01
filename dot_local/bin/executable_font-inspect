@@ -1,0 +1,787 @@
+#!/usr/bin/python3
+"""What a font actually has, read out of its own bytes.
+
+Ligature evidence is the reason this exists, and it exists because both cheap
+proxies for it are wrong in opposite directions. A GSUB feature tag can
+substitute nothing, so tags admit fonts that ligate nothing. A count of GSUB
+type 4 LigatureSubst rules then rejects fonts that ligate perfectly, because
+Fantasque and Recursive implement their ligatures as chained contextual
+substitutions and report zero type 4 rules. So this gathers three signals—tags,
+rule count, and ligature-shaped glyph names out of `post` or the CFF charset—and
+reports what each one returned whatever the verdict, leaving decide() to weigh
+the combination. `_working-memory/antipatterns.md` (2026-08-05) carries both
+dead ends in full.
+
+Stylistic sets get the same treatment: read, printed, never acted on. Maple and
+Lilex name most of their ssXX range "Broken X ligatures", and those sets turn
+ligatures off, so the report prints each UI name from the GSUB FeatureParams for
+a person to read and never folds one into a suggested feature string.
+
+Runs on /usr/bin/python3 (3.9) with the standard library only. `.chezmoidata.toml`
+does not declare Homebrew's python, so it would disappear along with whatever
+transitive dependency pulls it in. That is the argument that kept the font
+availability cache off `fc-list` (`_working-memory/decisionLog.md:155`). Nothing
+imports fontTools either, so this file parses the sfnt by hand.
+"""
+
+import argparse
+import json
+import os
+import re
+import struct
+import subprocess
+import sys
+
+# Canonical order for every feature string this writes. It is the order the
+# registry's existing entries already use, not alphabetical.
+LIGATURE_TAGS = ("calt", "liga", "dlig", "rlig")
+
+# The two suffixes the roster's fonts actually use for ligature glyphs: `.liga`
+# almost everywhere, `.code` for Recursive. Widening this to any dotted suffix
+# would sweep in stylistic alternates and hand back the tag problem.
+LIGATURE_GLYPH_SUFFIXES = (".liga", ".code")
+
+STYLISTIC_SET = re.compile(r"^ss(0[1-9]|1[0-9]|20)$")
+
+# Twenty-four Nerd Font v3 codepoints, one or two per block. Full coverage is
+# what decides whether an entry needs a `Symbols Nerd Font Mono` fallback wired
+# into terminal.fallback and both editor chains, so the probe only has to
+# separate a patched build from an unpatched one. It is not an audit of the whole
+# 4000-glyph set. Three of these codepoints live in the supplementary plane,
+# which is why pick_cmap() prefers a format 12 subtable over format 4.
+ICON_PROBES = (
+    0xE0A0, 0xE0B0, 0xE0B2, 0xE0B4, 0xE0C0, 0xE5FA, 0xE62B, 0xE700,
+    0xE718, 0xE7C5, 0xF000, 0xF09B, 0xF121, 0xE200, 0xF408, 0xF49B,
+    0xE300, 0xEA60, 0xF0001, 0xF05C6, 0xF1AF0, 0xF008, 0xE60A, 0xEB01,
+)
+
+# Every literal family name in the roster lives here and nowhere else.
+# tests/font.bats:438 greps the `font` shell script for each of them and fails
+# if one has leaked into it.
+SYMBOLS_FAMILY = "Symbols Nerd Font Mono"
+SYMBOLS_CASK = "font-symbols-only-nerd-font"
+EDITOR_CHAIN_TAIL = "Menlo, Monaco, 'Courier New', monospace"
+
+
+class FontError(Exception):
+    """A file that cannot be read as an sfnt, or a table that does not parse."""
+
+
+# Every accessor below goes through struct.unpack_from. A truncated or hostile
+# offset then raises struct.error at the read, instead of returning garbage that
+# looks like a plausible glyph count. inspect_file() converts those to FontError.
+
+
+def u8(data, off):
+    return struct.unpack_from(">B", data, off)[0]
+
+
+def u16(data, off):
+    return struct.unpack_from(">H", data, off)[0]
+
+
+def i16(data, off):
+    return struct.unpack_from(">h", data, off)[0]
+
+
+def u32(data, off):
+    return struct.unpack_from(">I", data, off)[0]
+
+
+def f16dot16(data, off):
+    return struct.unpack_from(">l", data, off)[0] / 65536.0
+
+
+def tag_at(data, off):
+    return data[off:off + 4].decode("latin-1")
+
+
+SFNT_VERSIONS = (b"\x00\x01\x00\x00", b"true", b"OTTO")
+
+
+def font_directories(data):
+    """Offsets of every table directory in the file: one, or numFonts for a TTC."""
+    if data[0:4] == b"ttcf":
+        return [u32(data, 12 + 4 * i) for i in range(u32(data, 8))]
+    return [0]
+
+
+def read_table_directory(data, base):
+    version = data[base:base + 4]
+    if version not in SFNT_VERSIONS:
+        raise FontError("not a TrueType or CFF font (sfnt version %r)" % version)
+    tables = {}
+    for i in range(u16(data, base + 4)):
+        record = base + 12 + 16 * i
+        tables[tag_at(data, record)] = (u32(data, record + 8), u32(data, record + 12))
+    # Nothing here verifies a table checksum. The refusal-path test fixtures
+    # carry bogus ones on purpose, and a checksum says nothing about ligatures.
+    return version, tables
+
+
+def read_names(data, off):
+    """nameID -> string, preferring Windows UTF-16BE over MacRoman."""
+    count = u16(data, off + 2)
+    storage = off + u16(data, off + 4)
+    best = {}
+    for i in range(count):
+        record = off + 6 + 12 * i
+        platform = u16(data, record)
+        encoding = u16(data, record + 2)
+        name_id = u16(data, record + 6)
+        length = u16(data, record + 8)
+        start = storage + u16(data, record + 10)
+        raw = data[start:start + length]
+        if platform == 3 and encoding in (0, 1, 10):
+            rank, text = 0, raw.decode("utf-16-be", "replace")
+        elif platform == 1 and encoding == 0:
+            rank, text = 1, raw.decode("latin-1")
+        else:
+            continue
+        text = text.replace("\x00", "").strip()
+        if name_id not in best or rank < best[name_id][0]:
+            best[name_id] = (rank, text)
+    return dict((nid, value[1]) for nid, value in best.items())
+
+
+def family_of(names):
+    """The typographic family (name ID 16), or the legacy family (ID 1), or None."""
+    # The two IDs differ exactly where it matters. On the SemiBold face of Lilex,
+    # ID 1 reads `Lilex Nerd Font SemiBold` and ID 16 reads `Lilex Nerd Font`;
+    # system_profiler reports ID 16, so preferring ID 1 would fail to match a
+    # --family request against every face but Regular.
+    for name_id in (16, 1):
+        value = names.get(name_id)
+        if value:
+            return value
+    return None
+
+
+def read_gsub(data, off):
+    feature_list = off + u16(data, off + 6)
+    lookup_list = off + u16(data, off + 8)
+    tags = set()
+    sets = {}
+    for i in range(u16(data, feature_list)):
+        record = feature_list + 2 + 6 * i
+        tag = tag_at(data, record)
+        feature = feature_list + u16(data, record + 4)
+        if tag in LIGATURE_TAGS:
+            tags.add(tag)
+        if STYLISTIC_SET.match(tag):
+            name_id = stylistic_set_name_id(data, feature)
+            # A feature record repeats once per script and langsys. Keep the
+            # first reading that produced a name id rather than letting a later
+            # duplicate overwrite it with nothing.
+            if sets.get(tag) is None:
+                sets[tag] = name_id
+    return tags, sets, count_ligature_rules(data, lookup_list)
+
+
+def stylistic_set_name_id(data, feature):
+    """UINameID from the StylisticSet FeatureParams, or None when the font has none."""
+    # Cascadia ships five nameless sets, so the nameless case is ordinary rather
+    # than exceptional. A zero offset and a params record that doesn't look like
+    # a StylisticSet both land on None, and read_names() maps an empty name
+    # string to None in turn, so all three reach the human output as "(no name)".
+    offset = u16(data, feature)
+    if offset == 0:
+        return None
+    params = feature + offset
+    try:
+        version = u16(data, params)
+        name_id = u16(data, params + 2)
+    except struct.error:
+        return None
+    if version != 0 or not 256 <= name_id <= 32767:
+        return None
+    return name_id
+
+
+def count_ligature_rules(data, lookup_list):
+    """Every type 4 Ligature record in the font, reachable from a feature or not."""
+    # Reachability analysis buys nothing. This count is one of three signals and
+    # already reads zero on fonts that ligate contextually, so narrowing it to
+    # the lookups a ligature feature reaches would weaken a weak signal further
+    # and add a script-and-langsys walk to maintain. decide() gets the same
+    # protection from the feature list, which it already reads.
+    total = 0
+    for i in range(u16(data, lookup_list)):
+        lookup = lookup_list + u16(data, lookup_list + 2 + 2 * i)
+        lookup_type = u16(data, lookup)
+        for j in range(u16(data, lookup + 4)):
+            subtable = lookup + u16(data, lookup + 6 + 2 * j)
+            kind, target = lookup_type, subtable
+            if kind == 7:
+                # Extension Substitution: the real lookup type and a 32-bit
+                # offset live in the subtable. Nerd Font patching pushes tables
+                # past 64k routinely, so skipping this reads most patched builds
+                # as having no ligature rules at all.
+                kind = u16(data, subtable + 2)
+                target = subtable + u32(data, subtable + 4)
+            if kind == 4:
+                total += count_ligature_subst(data, target)
+    return total
+
+
+def count_ligature_subst(data, off):
+    if u16(data, off) != 1:
+        return 0
+    total = 0
+    for i in range(u16(data, off + 4)):
+        ligature_set = off + u16(data, off + 6 + 2 * i)
+        total += u16(data, ligature_set)
+    return total
+
+
+def read_post_names(data, off, length):
+    """Custom glyph names from a post 2.0 table, or None when the table has none."""
+    if u32(data, off) != 0x00020000:
+        return None
+    glyph_count = u16(data, off + 32)
+    pos = off + 34 + 2 * glyph_count
+    end = off + length
+    names = []
+    while pos < end:
+        size = u8(data, pos)
+        names.append(data[pos + 1:pos + 1 + size].decode("latin-1"))
+        pos += 1 + size
+    # Glyphs whose name index is below 258 use the standard Macintosh set, and
+    # nothing in that set ends `.liga`, so the string pool is the whole answer.
+    return names
+
+
+def read_cff_names(data, off):
+    """Glyph names from the CFF charset, or None when the charset holds no names."""
+    # A CFF font almost always ships post version 3, which stores no names at
+    # all. Every SF Mono face lands here, and so does Monaspace, so without this
+    # path the third signal would report `unavailable` across half the roster.
+    pos = off + u8(data, off + 2)
+    pos, _ = read_cff_index(data, pos)          # Name INDEX
+    pos, top_dicts = read_cff_index(data, pos)  # TopDICT INDEX
+    pos, strings = read_cff_index(data, pos)    # String INDEX
+    if not top_dicts:
+        return None
+    top = parse_cff_dict(top_dicts[0])
+    charset = top.get(15)
+    charstrings = top.get(17)
+    if not charset or not charstrings:
+        return None
+    if int(charset[0]) in (0, 1, 2):
+        return []  # a predefined charset, so no font-specific names exist
+    _, glyphs = read_cff_index(data, off + int(charstrings[0]))
+    sids = read_cff_charset(data, off + int(charset[0]), len(glyphs))
+    names = []
+    for sid in sids:
+        # SIDs 0-390 are the CFF standard strings, which are Latin glyph names
+        # and never a ligature. Only the font's own strings matter.
+        if sid > 390 and sid - 391 < len(strings):
+            names.append(strings[sid - 391].decode("latin-1"))
+    return names
+
+
+def read_cff_index(data, pos):
+    count = u16(data, pos)
+    if count == 0:
+        return pos + 2, []
+    off_size = u8(data, pos + 2)
+    base = pos + 3
+    offsets = []
+    for i in range(count + 1):
+        value = 0
+        for byte in data[base + i * off_size:base + (i + 1) * off_size]:
+            value = (value << 8) | byte
+        offsets.append(value)
+    # CFF offsets inside an INDEX are 1-based against the byte after the array.
+    body = base + (count + 1) * off_size - 1
+    items = [data[body + offsets[i]:body + offsets[i + 1]] for i in range(count)]
+    return body + offsets[count], items
+
+
+def parse_cff_dict(blob):
+    """Operator -> operand list. Two-byte (12 x) operators are keyed 1200 + x."""
+    result = {}
+    operands = []
+    pos = 0
+    while pos < len(blob):
+        b0 = blob[pos]
+        if b0 <= 21:
+            operator = b0
+            pos += 1
+            if b0 == 12:
+                operator = 1200 + blob[pos]
+                pos += 1
+            result[operator] = operands
+            operands = []
+        elif b0 == 28:
+            operands.append(struct.unpack_from(">h", blob, pos + 1)[0])
+            pos += 3
+        elif b0 == 29:
+            operands.append(struct.unpack_from(">l", blob, pos + 1)[0])
+            pos += 5
+        elif b0 == 30:
+            # A real number, nibble-encoded and terminated by an 0xf nibble. Its
+            # value is never wanted here; only its length, to stay in step.
+            pos += 1
+            while pos < len(blob):
+                byte = blob[pos]
+                pos += 1
+                if (byte >> 4) == 0x0F or (byte & 0x0F) == 0x0F:
+                    break
+            operands.append(0.0)
+        elif 32 <= b0 <= 246:
+            operands.append(b0 - 139)
+            pos += 1
+        elif 247 <= b0 <= 250:
+            operands.append((b0 - 247) * 256 + blob[pos + 1] + 108)
+            pos += 2
+        elif 251 <= b0 <= 254:
+            operands.append(-((b0 - 251) * 256) - blob[pos + 1] - 108)
+            pos += 2
+        else:
+            pos += 1
+    return result
+
+
+def read_cff_charset(data, pos, glyph_count):
+    """SIDs for glyphs 1..n-1. Glyph 0 is .notdef and carries no charset entry."""
+    fmt = u8(data, pos)
+    pos += 1
+    sids = []
+    if fmt == 0:
+        for _ in range(glyph_count - 1):
+            sids.append(u16(data, pos))
+            pos += 2
+    elif fmt in (1, 2):
+        while len(sids) < glyph_count - 1:
+            first = u16(data, pos)
+            pos += 2
+            if fmt == 1:
+                left = u8(data, pos)
+                pos += 1
+            else:
+                left = u16(data, pos)
+                pos += 2
+            sids.extend(range(first, first + left + 1))
+    return sids[:glyph_count - 1]
+
+
+def ligature_glyph_names(names):
+    return sorted(set(n for n in names if n.endswith(LIGATURE_GLYPH_SUFFIXES)))
+
+
+
+# Preference order. (3, 10) format 12 first because three probes sit above the
+# BMP and a format 4 subtable cannot express them at all; the platform 0 entries
+# are a last resort for fonts that ship no Windows subtable.
+CMAP_PREFERENCE = ((3, 10), (0, 6), (0, 4), (3, 1), (0, 3))
+
+
+def pick_cmap(data, off):
+    available = {}
+    for i in range(u16(data, off + 2)):
+        record = off + 4 + 8 * i
+        key = (u16(data, record), u16(data, record + 2))
+        available.setdefault(key, off + u32(data, record + 4))
+    for key in CMAP_PREFERENCE:
+        if key in available:
+            return available[key]
+    return None
+
+
+def cmap_covers(data, subtable, codepoints):
+    fmt = u16(data, subtable)
+    if fmt == 4:
+        return set(cp for cp in codepoints if cmap4_lookup(data, subtable, cp))
+    if fmt in (12, 13):
+        return set(cp for cp in codepoints if cmap12_lookup(data, subtable, cp))
+    if fmt == 6:
+        first = u16(data, subtable + 6)
+        count = u16(data, subtable + 8)
+        return set(cp for cp in codepoints if first <= cp < first + count)
+    return set()
+
+
+def cmap4_lookup(data, off, cp):
+    if cp > 0xFFFF:
+        return 0
+    seg_x2 = u16(data, off + 6)
+    ends = off + 14
+    starts = ends + seg_x2 + 2
+    deltas = starts + seg_x2
+    ranges = deltas + seg_x2
+    for i in range(seg_x2 // 2):
+        if cp > u16(data, ends + 2 * i):
+            continue
+        start = u16(data, starts + 2 * i)
+        if cp < start:
+            return 0
+        range_offset = u16(data, ranges + 2 * i)
+        if range_offset == 0:
+            return (cp + i16(data, deltas + 2 * i)) & 0xFFFF
+        glyph = u16(data, ranges + 2 * i + range_offset + 2 * (cp - start))
+        if glyph == 0:
+            return 0
+        return (glyph + i16(data, deltas + 2 * i)) & 0xFFFF
+    return 0
+
+
+def cmap12_lookup(data, off, cp):
+    low, high = 0, u32(data, off + 12) - 1
+    while low <= high:
+        mid = (low + high) // 2
+        group = off + 16 + 12 * mid
+        start = u32(data, group)
+        end = u32(data, group + 4)
+        if cp < start:
+            high = mid - 1
+        elif cp > end:
+            low = mid + 1
+        else:
+            return u32(data, group + 8) + (cp - start)
+    return 0
+
+
+def read_axes(data, off, names):
+    axes_at = off + u16(data, off + 4)
+    axis_count = u16(data, off + 8)
+    axis_size = u16(data, off + 10)
+    axes = []
+    for i in range(axis_count):
+        axis = axes_at + i * axis_size
+        axes.append({
+            "tag": tag_at(data, axis),
+            "min": round(f16dot16(data, axis + 4), 3),
+            "default": round(f16dot16(data, axis + 8), 3),
+            "max": round(f16dot16(data, axis + 12), 3),
+            "name": names.get(u16(data, axis + 18)) or None,
+        })
+    # Reported, never corrected. Monaspace defaults wght to 200 and Recursive
+    # defaults MONO to 0, and both read as a broken font rather than a missing
+    # setting. That is the fact a person needs to see, so substituting a sane
+    # 400 here would hide the one thing worth reporting.
+    return axes
+
+
+def inspect_font(data, base):
+    _, tables = read_table_directory(data, base)
+    names = {}
+    if "name" in tables:
+        names = read_names(data, tables["name"][0])
+    report = {
+        "family": family_of(names),
+        "tags": set(),
+        "stylistic_set_names": {},
+        "ligature_subst_rules": 0,
+        "glyph_names": [],
+        "glyph_names_available": False,
+        "coverage": set(),
+        "axes": [],
+    }
+    if "GSUB" in tables:
+        tags, sets, rules = read_gsub(data, tables["GSUB"][0])
+        report["tags"] = tags
+        report["ligature_subst_rules"] = rules
+        # A name id the name table doesn't carry, and a name record holding the
+        # empty string, are both "the font says nothing about this set" and both
+        # have to land on None for the human output to print "(no name)".
+        report["stylistic_set_names"] = dict(
+            (tag, names.get(nid) or None) for tag, nid in sets.items()
+        )
+    glyph_names = None
+    if "post" in tables:
+        glyph_names = read_post_names(data, tables["post"][0], tables["post"][1])
+    if glyph_names is None and "CFF " in tables:
+        glyph_names = read_cff_names(data, tables["CFF "][0])
+    if glyph_names is not None:
+        report["glyph_names_available"] = True
+        report["glyph_names"] = ligature_glyph_names(glyph_names)
+    if "cmap" in tables:
+        subtable = pick_cmap(data, tables["cmap"][0])
+        if subtable is not None:
+            report["coverage"] = cmap_covers(data, subtable, ICON_PROBES)
+    if "fvar" in tables:
+        report["axes"] = read_axes(data, tables["fvar"][0], names)
+    return report
+
+
+def inspect_file(path, wanted_family=None):
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read()
+    except OSError as err:
+        raise FontError("%s: %s" % (path, err.strerror))
+    try:
+        reports = []
+        for base in font_directories(data):
+            # Every FontError raised below is about one file, so this frame
+            # attaches the path once instead of threading it through the parsers.
+            report = inspect_font(data, base)
+            # A .ttc holds several families in one file. When the caller named a
+            # family, the subfonts that don't match it are a different font that
+            # happens to share a container, and folding their signals in would
+            # credit one font with another's ligatures.
+            if wanted_family and report["family"] != wanted_family:
+                continue
+            report["path"] = path
+            reports.append(report)
+        return reports
+    except FontError as err:
+        raise FontError("%s: %s" % (path, err))
+    except (struct.error, IndexError, UnicodeDecodeError, ValueError) as err:
+        raise FontError("%s: unreadable font table (%s)" % (path, err))
+
+
+def resolve_family(family):
+    """Every installed file whose typefaces claim the family, sorted and deduped."""
+    # system_profiler is the same source the registry's family strings were
+    # copied from verbatim, and that is the whole reason to pay ten seconds for
+    # it. fc-list answers in 0.02s but reports comma-joined alias lists rather
+    # than the verbatim string, so matching against it would reintroduce exactly
+    # the guessing the registry exists to stop (decisionLog 2026-08-05).
+    try:
+        raw = subprocess.check_output(
+            ["system_profiler", "SPFontsDataType", "-json"],
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError) as err:
+        raise FontError("could not run system_profiler: %s" % err)
+    try:
+        entries = json.loads(raw.decode("utf-8", "replace"))["SPFontsDataType"]
+    except (ValueError, KeyError) as err:
+        raise FontError("unexpected system_profiler output: %s" % err)
+    paths = []
+    for entry in entries:
+        path = entry.get("path")
+        if not path:
+            continue
+        for typeface in entry.get("typefaces") or []:
+            if typeface.get("family") == family:
+                paths.append(path)
+                break
+    return sorted(set(paths))
+
+
+def aggregate(reports, wanted_family):
+    families = sorted(set(r["family"] for r in reports if r["family"]))
+    tags = set()
+    glyph_names = set()
+    coverage = set()
+    sets = {}
+    axes = []
+    rules = 0
+    available = False
+    for report in reports:
+        tags |= report["tags"]
+        glyph_names |= set(report["glyph_names"])
+        coverage |= report["coverage"]
+        available = available or report["glyph_names_available"]
+        for tag, name in sorted(report["stylistic_set_names"].items()):
+            if sets.get(tag) is None:
+                sets[tag] = name
+        if report["axes"] and not axes:
+            axes = report["axes"]
+        # The largest count any one face carries, not the sum. A patched family
+        # can be twenty files, and adding them up would report a number that
+        # describes the folder rather than the font.
+        rules = max(rules, report["ligature_subst_rules"])
+    family = wanted_family or (families[0] if families else None)
+    return {
+        "families": families,
+        "files": sorted(set(r["path"] for r in reports)),
+        "verdict": None,
+        "signals": {
+            "tags": [t for t in LIGATURE_TAGS if t in tags],
+            "ligature_subst_rules": rules,
+            "glyph_names": sorted(glyph_names),
+            "glyph_names_available": available,
+        },
+        "coverage": {
+            "present": len(coverage),
+            "probed": len(ICON_PROBES),
+            "full": len(coverage) == len(ICON_PROBES),
+        },
+        "stylistic_sets": [
+            {"tag": tag, "name": sets[tag] or None} for tag in sorted(sets)
+        ],
+        "axes": axes,
+        "_family": family,
+    }
+
+
+def decide(report):
+    """True when the font qualifies for the roster on its ligature evidence."""
+    # A ligature tag is necessary and never sufficient. Each half of that shape
+    # was forced by a font the other half judges wrong.
+    #
+    # Tags are not sufficient, because a tag can substitute nothing. That is the
+    # recorded SF Mono trap, though on this machine SF Mono has gone further and
+    # dropped `calt` entirely.
+    #
+    # Tags are necessary, because the rule count picks up ligatures nobody means
+    # by the word. BlexMono Nerd Font—struck from the roster for having no
+    # ligature feature at all—still carries 47 type 4 Ligature records, and they
+    # hang off `frac` and `ccmp`: the fraction and combining-mark compositions
+    # every text font has. Counting rules alone admits it.
+    #
+    # Behind the tag, either kind of positive evidence will do, because neither
+    # survives alone. Fantasque and Recursive's patched statics report zero type
+    # 4 rules while ligating perfectly through chained contextual substitution,
+    # and Monaspace's CFF glyph names carry no `.liga` suffix at all.
+    #
+    # Calibrated 2026-08-31 against the nine Tier A families, the six Tier B
+    # variable builds, SF Mono, and BlexMono Nerd Font: fifteen pass, two refuse.
+    signals = report["signals"]
+    behind_the_tag = signals["ligature_subst_rules"] > 0 or bool(signals["glyph_names"])
+    return bool(signals["tags"]) and behind_the_tag
+
+
+def quantise(value):
+    return int(value) if float(value).is_integer() else value
+
+
+def suggest(report):
+    family = report["_family"]
+    tags = report["signals"]["tags"]
+    needs_fallback = not report["coverage"]["full"]
+    chain = ["'%s'" % family]
+    if needs_fallback:
+        chain.append("'%s'" % SYMBOLS_FAMILY)
+    variations = ""
+    for axis in report["axes"]:
+        if axis["tag"] == "wght":
+            variations = "'wght' %s" % quantise(axis["default"])
+    return {
+        "terminal": {
+            "family": family,
+            "features": ",".join(tags),
+            "fallback": SYMBOLS_FAMILY if needs_fallback else None,
+        },
+        "editor": {
+            "family": "%s, %s" % (", ".join(chain), EDITOR_CHAIN_TAIL),
+            "variations": variations,
+            "ligatures": ", ".join("'%s'" % t for t in tags),
+            "terminalFamily": ", ".join(chain) if needs_fallback else family,
+        },
+        "symbols_cask": SYMBOLS_CASK if needs_fallback else None,
+    }
+
+
+def render(report, out):
+    family = report["_family"] or "(unnamed)"
+    out.write("%s\n" % family)
+    others = [f for f in report["families"] if f != family]
+    if others:
+        out.write("  also registered: %s\n" % ", ".join(others))
+    out.write("  %d file(s):\n" % len(report["files"]))
+    for path in report["files"]:
+        out.write("    %s\n" % path)
+
+    signals = report["signals"]
+    out.write("\nLigature evidence\n")
+    out.write("  feature tags          %s\n" % (", ".join(signals["tags"]) or "none"))
+    out.write("  LigatureSubst rules   %d\n" % signals["ligature_subst_rules"])
+    if not signals["glyph_names_available"]:
+        # Worth saying out loud: the third signal did not return empty, it did
+        # not run, and the verdict below rests on two signals instead of three.
+        out.write("  ligature glyph names  unavailable (post 3.0 and no CFF charset)\n")
+    else:
+        names = signals["glyph_names"]
+        sample = ", ".join(names[:4])
+        if len(names) > 4:
+            sample += ", ..."
+        out.write("  ligature glyph names  %d%s\n" % (len(names), " (%s)" % sample if names else ""))
+
+    coverage = report["coverage"]
+    out.write("\nIcon coverage           %d/%d probes%s\n" % (
+        coverage["present"], coverage["probed"],
+        " (full)" if coverage["full"] else ", so it needs a %s fallback" % SYMBOLS_FAMILY,
+    ))
+
+    out.write("\nStylistic sets\n")
+    if not report["stylistic_sets"]:
+        out.write("  none\n")
+    for entry in report["stylistic_sets"]:
+        out.write("  %s  %s\n" % (entry["tag"], entry["name"] or "(no name)"))
+
+    out.write("\nVariable axes\n")
+    if not report["axes"]:
+        out.write("  none (static font)\n")
+    for axis in report["axes"]:
+        out.write("  %s  %s..%s  default %s  %s\n" % (
+            axis["tag"], quantise(axis["min"]), quantise(axis["max"]),
+            quantise(axis["default"]), axis["name"] or "",
+        ))
+
+    out.write("\nVerdict: %s\n" % report["verdict"].upper())
+    if report["verdict"] == "refuse":
+        if not signals["tags"]:
+            out.write("  No calt, liga, dlig or rlig feature. Any LigatureSubst rules counted above\n")
+            out.write("  belong to something else: frac and ccmp carry them in every text font.\n")
+        else:
+            out.write("  A ligature feature is declared but nothing substitutes through it: no\n")
+            out.write("  LigatureSubst rules and no ligature-shaped glyph names.\n")
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        prog="font-inspect",
+        description="Read a font's ligature evidence, icon coverage, stylistic sets and axes.",
+    )
+    parser.add_argument("paths", nargs="*", help="font files to inspect")
+    parser.add_argument("--family", help="resolve a family name to its files and inspect those")
+    parser.add_argument("--json", action="store_true", dest="as_json",
+                        help="machine-readable report")
+    parser.add_argument("--suggest", action="store_true",
+                        help="report plus suggested registry halves, as JSON")
+    args = parser.parse_args(argv)
+
+    if bool(args.paths) == bool(args.family):
+        parser.print_usage(sys.stderr)
+        sys.stderr.write("font-inspect: %s\n" % (
+            "--family and font paths are two ways to name the same thing; give one"
+            if args.paths else "name a font, by path or by --family"))
+        return 2
+
+    try:
+        if args.family:
+            paths = resolve_family(args.family)
+            if not paths:
+                sys.stderr.write("font-inspect: no installed font registers the family %r\n"
+                                 % args.family)
+                return 2
+        else:
+            paths = args.paths
+            for path in paths:
+                if not os.path.isfile(path):
+                    sys.stderr.write("font-inspect: %s: no such file\n" % path)
+                    return 2
+        reports = []
+        for path in paths:
+            reports.extend(inspect_file(path, args.family))
+        if not reports:
+            sys.stderr.write("font-inspect: %r matched no font in %s\n"
+                             % (args.family, ", ".join(paths)))
+            return 2
+    except FontError as err:
+        sys.stderr.write("font-inspect: %s\n" % err)
+        return 2
+
+    report = aggregate(reports, args.family)
+    report["verdict"] = "pass" if decide(report) else "refuse"
+
+    if args.suggest:
+        report["suggest"] = suggest(report)
+    if args.as_json or args.suggest:
+        payload = dict(report)
+        del payload["_family"]
+        json.dump(payload, sys.stdout, indent=2, sort_keys=False)
+        sys.stdout.write("\n")
+    else:
+        render(report, sys.stdout)
+
+    return 0 if report["verdict"] == "pass" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

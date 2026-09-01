@@ -29,6 +29,15 @@ FAMILY_CACHE="$CACHE_HOME/font/families"
 # right, and --refresh and --force cover the times it isn't.
 CACHE_MAX_AGE_SECONDS=$((7 * 24 * 60 * 60))
 
+# macOS registers font files asynchronously, so a cask's families show up in
+# system_profiler well after brew has finished moving them into ~/Library/Fonts.
+# Measured at 14 seconds for a Nerd Font cask on 2026-08-31, which is long enough
+# that a single snapshot taken the moment brew returns sees nothing new and the
+# family diff reports an empty set. Each snapshot already costs about ten seconds
+# of its own, so this budget is roughly five attempts.
+FAMILY_REGISTER_TIMEOUT_SECONDS=60
+FAMILY_REGISTER_POLL_SECONDS=2
+
 BEGIN_MARKER='# BEGIN font (managed by `font`)'
 END_MARKER='# END font'
 
@@ -75,18 +84,22 @@ require_deps() {
 	[ -f "$JSONC" ] || die "JSONC filter not found at $JSONC"
 }
 
-# Reads the VS Code settings through the JSONC filter. Trailing commas are
-# tolerated because Prettier owns them; comments fail here on purpose, and the
-# caller is expected to stop rather than rewrite the file without them.
-rebuild_family_cache() {
-	local tmp
+# The ten-second system_profiler pipeline, alone, so cmd_add can run it twice
+# (before/after a cask install) without going through the cache-file dance that
+# rebuild_family_cache wraps around it.
+snapshot_families() {
 	command -v system_profiler >/dev/null 2>&1 ||
 		die "system_profiler is not on PATH, so there is no way to tell what is installed"
 
+	system_profiler SPFontsDataType 2>/dev/null |
+		sed -n 's/^[[:space:]]*Family: //p' | sort -u
+}
+
+rebuild_family_cache() {
+	local tmp
 	mkdir -p "$(dirname "$FAMILY_CACHE")"
 	tmp=$(mktemp)
-	system_profiler SPFontsDataType 2>/dev/null |
-		sed -n 's/^[[:space:]]*Family: //p' | sort -u >"$tmp" || true
+	snapshot_families >"$tmp" || true
 
 	# An empty answer is indistinguishable from a machine with no fonts on it, and
 	# caching it would make every font in the registry look absent from here on.
@@ -143,6 +156,9 @@ check_available() {
   If you installed it after the cache was built, run \`font --refresh\`, or \`font $key --force\` to write anyway."
 }
 
+# Reads the VS Code settings through the JSONC filter. Trailing commas are
+# tolerated because Prettier owns them; comments fail here on purpose, and the
+# caller is expected to stop rather than rewrite the file without them.
 read_settings() {
 	[ -f "$VSCODE" ] || die "VS Code settings not found at $VSCODE"
 	jq -Rs -f "$JSONC" "$VSCODE" 2>/dev/null ||
@@ -277,13 +293,499 @@ cmd_switch() {
 	echo "font: switched to $(jq -r '.label' <<<"$entry") at ${size}pt"
 }
 
+# ---- --add / --remove ----
+#
+# Both write into the chezmoi *source* tree rather than $HOME, which is the
+# opposite direction from write_ghostty/write_vscode_key above and follows
+# dotfiles-apps instead: a repo edit that every machine picks up on its next
+# pull, not a local one. Same anchored-write discipline as the rest of this
+# file — mktemp, edit, replace_preserving_mode — because jq round-tripping
+# either target file is destructive (verified: it explodes a single-line
+# `"casks": ["x"]` onto four lines) and both files carry hand alignment or
+# comments a reserialize would flatten.
+
+# The registry closes with exactly one line that is `}` alone — every nested
+# closer carries a leading tab. That makes it a single, unambiguous splice
+# point for both the last entry's comma (on --add) and the file's own end
+# (on --remove, once the removed entry was the last one). More than one such
+# line, or none, means the registry is not shaped the way every other write
+# in this file assumes, so it's cheaper to refuse than to guess.
+registry_final_brace_line() {
+	local file=$1
+	awk '$0 == "}" { n++; l = NR } END { if (n == 1) print l; else exit 1 }' "$file"
+}
+
+# The insertion point for a new package: the last line still in the fonts
+# group. Found by literal substring, like set_package_bundles in
+# dotfiles-apps, because package names carry '/', '@', and '.' that would
+# have to be escaped for a regex and are one typo away from matching the
+# wrong line instead.
+toml_fonts_group_anchor_line() {
+	local file=$1
+	awk 'index($0, "bundles = [\"fonts\"] },") { l = NR } END { if (l) print l; else exit 1 }' "$file"
+}
+
+# Prints "start end" (1-indexed, inclusive) for one registry entry, tracked
+# by brace depth rather than a fixed line count: `terminal` and `editor` each
+# open and close their own object inside the entry, so counting `{`/`}` is
+# the only thing that survives every entry being a different number of lines.
+registry_entry_bounds() {
+	local file=$1 key=$2
+	awk -v key="$key" '
+		BEGIN { depth = 0; start = 0 }
+		$0 == "\t\"" key "\": {" && start == 0 { start = NR; depth = 1; next }
+		start > 0 {
+			n = gsub(/{/, "{"); m = gsub(/}/, "}")
+			depth += n - m
+			if (depth == 0) { print start, NR; exit }
+		}
+	' "$file"
+}
+
+# One or more cask names -> `["a", "b"]`, matching the registry's own
+# comma-space style. Not jq -c: compact mode joins with a bare comma, which
+# would make every --add entry format differently from every hand-written one
+# next to it.
+casks_array() {
+	local out="" c
+	for c in "$@"; do
+		out="${out:+$out, }\"$c\""
+	done
+	printf '[%s]' "$out"
+}
+
+# `font-caskaydia-cove-nerd-font` -> `caskaydia-cove`. Existing keys don't
+# all follow this (`victor` is `font-victor-mono-nerd-font`), because they
+# were chosen by hand; this is just a starting guess `--key` can override.
+derive_key() {
+	local key=$1
+	key=${key#font-}
+	key=${key%-nerd-font}
+	key=${key%-nf}
+	printf '%s\n' "$key"
+}
+
+# Names all three ligature signals and what each returned, pass or refuse,
+# because the acceptance bar for a refusal is that a person can see which
+# signal failed rather than take the verdict on faith. Also prints the
+# stylistic sets, unconditionally: those are read whether or not any tag was
+# named on the command line, since a set has to be seen to be judged.
+print_signals_report() {
+	local json=$1 tags rules available families names
+
+	families=$(jq -r '.families | join(", ")' <<<"$json")
+	tags=$(jq -r '.signals.tags | join(",")' <<<"$json")
+	rules=$(jq -r '.signals.ligature_subst_rules' <<<"$json")
+	available=$(jq -r '.signals.glyph_names_available' <<<"$json")
+
+	echo "font: ligature signals for $families:"
+	echo "  tags: ${tags:-(none)}"
+	echo "  ligature_subst_rules: $rules"
+	if [ "$available" = "false" ]; then
+		echo "  glyph_names: unavailable (no post v3 names, no CFF charset to fall back on)"
+	else
+		# Substituted in the shell, not with jq's `//`, which only fires on null
+		# and false: joining an empty array yields "", so the placeholder never
+		# appeared and a refusal printed a bare label with nothing after it.
+		names=$(jq -r '.signals.glyph_names | join(",")' <<<"$json")
+		echo "  glyph_names: ${names:-(none)}"
+	fi
+	echo "  coverage: $(jq -r '"\(.coverage.present)/\(.coverage.probed) codepoints" + (if .coverage.full then " (full)" else " (partial)" end)' <<<"$json")"
+
+	echo "font: stylistic sets (never enabled without --set):"
+	jq -r '.stylistic_sets[]? | "  \(.tag): \(.name // "(no name)")"' <<<"$json"
+}
+
+# The dotfiles-apps shape: unified, context-free, one line per changed byte
+# range, so a reviewer sees exactly what moved rather than a full-file dump.
+show_diff() {
+	local target=$1 dir
+	dir=$(dirname "$target")
+	echo
+	if git -C "$dir" rev-parse --git-dir &>/dev/null; then
+		# `|| true`: an unchanged file is a legal outcome here (not expected on
+		# --add/--remove, but true of the general shape), and an empty diff
+		# would otherwise exit 1 under pipefail.
+		git -C "$dir" --no-pager diff --unified=0 -- "$target" \
+			| { grep -E '^[-+][^-+]' || true; } | sed 's/^/  /'
+	else
+		echo "  (not a git repo, no diff to show)"
+	fi
+}
+
+cmd_add() {
+	local cask=$1 family_choice=$2 key_override=$3 sets=$4
+	local src registry toml chosen_key
+	local before after new_families family_count chosen waited
+	local suggest_json rc verdict
+	local terminal_features terminal_fallback editor_family editor_variations
+	local editor_ligatures editor_terminal_family symbols_cask
+	local order tier label size_val fallback_line terminal_casks editor_casks
+	local entry_block registry_tmp final_line last_close toml_line toml_tmp
+	local anchor_line type_col prefix pad_len
+
+	command -v brew >/dev/null 2>&1 || die "brew is not installed"
+	command -v font-inspect >/dev/null 2>&1 ||
+		die "font-inspect is not on PATH; it ships alongside this script"
+
+	src=$(chezmoi source-path) || die "chezmoi source-path failed"
+	registry="$src/dot_config/font/registry.json"
+	toml="$src/.chezmoidata.toml"
+	[ -f "$registry" ] || die "registry not found at $registry"
+	[ -f "$toml" ] || die "package registry not found at $toml"
+
+	# ---- step 1: refuse cheaply, before anything is installed ----
+	brew info --cask "$cask" >/dev/null 2>&1 ||
+		die "'$cask' is not a known cask (checked with 'brew info --cask')"
+	brew list --cask "$cask" >/dev/null 2>&1 &&
+		die "'$cask' is already installed; the before/after family diff needs a clean starting point, so remove it first if you want to re-add it"
+
+	jq -e --arg c "$cask" '
+		to_entries[] | select(((.value.terminal.casks // []) + (.value.editor.casks // [])) | index($c))
+	' "$registry" >/dev/null &&
+		die "'$cask' is already declared in the registry"
+
+	if [ -n "$key_override" ]; then
+		chosen_key=$key_override
+	else
+		chosen_key=$(derive_key "$cask")
+	fi
+	jq -e --arg k "$chosen_key" 'has($k)' "$registry" >/dev/null &&
+		die "registry key '$chosen_key' already exists; pass --key to choose a different one"
+
+	# ---- step 2: preflight every writer, so a refusal never follows an install ----
+	final_line=$(registry_final_brace_line "$registry") ||
+		die "$registry has no single unambiguous closing '}' to anchor a write on"
+	anchor_line=$(toml_fonts_group_anchor_line "$toml") ||
+		die "$toml has no 'bundles = [\"fonts\"]' line to anchor a write after"
+
+	# ---- step 3: the family diff ----
+	before=$(mktemp)
+	after=$(mktemp)
+	snapshot_families >"$before" || true
+
+	# An empty before-snapshot would make every family on the machine look new,
+	# so the diff has to refuse to run rather than hand step 4 a list of 300
+	# families to choose from. Same reasoning as rebuild_family_cache's guard.
+	[ -s "$before" ] || {
+		rm -f "$before" "$after"
+		die "system_profiler reported no font families, so there is no before-state to diff against; nothing installed"
+	}
+
+	brew install --cask "$cask" || die "brew install --cask '$cask' failed"
+
+	# Poll rather than snapshot once: the files are in place but the font server
+	# has not caught up, and a lone snapshot here would report every cask as
+	# registering nothing. The loop exits on the first changed set, so a machine
+	# that registers immediately pays only one snapshot.
+	waited=0
+	while :; do
+		snapshot_families >"$after" || true
+		[ -s "$after" ] || {
+			rm -f "$before" "$after"
+			die "system_profiler reported no font families after installing '$cask'; leaving the cask in place because the diff cannot be trusted to say what it registered"
+		}
+		new_families=$(comm -13 "$before" "$after")
+		[ -z "$new_families" ] || break
+		[ "$waited" -lt "$FAMILY_REGISTER_TIMEOUT_SECONDS" ] || break
+		[ "$waited" -gt 0 ] || echo "font: waiting for macOS to register the new families..."
+		sleep "$FAMILY_REGISTER_POLL_SECONDS"
+		waited=$((waited + FAMILY_REGISTER_POLL_SECONDS))
+	done
+	rm -f "$before"
+
+	if [ -z "$new_families" ]; then
+		rm -f "$after"
+		brew uninstall --cask "$cask" || echo "font: warning: could not uninstall '$cask' during cleanup" >&2
+		die "installing '$cask' registered no new font families; nothing to add"
+	fi
+
+	echo "font: '$cask' registered the following new families:"
+	printf '%s\n' "$new_families" | sed 's/^/  /'
+
+	# ---- step 4: choose exactly one family ----
+	family_count=$(printf '%s\n' "$new_families" | wc -l | tr -d ' ')
+	if [ "$family_count" -eq 1 ]; then
+		chosen=$new_families
+	elif [ -n "$family_choice" ] && printf '%s\n' "$new_families" | grep -qxF "$family_choice"; then
+		chosen=$family_choice
+	elif [ -t 0 ]; then
+		echo
+		echo "font: '$cask' registered several families; choose one:"
+		local i=0 line pick
+		while IFS= read -r line; do
+			i=$((i + 1))
+			echo "  $i) $line"
+		done <<<"$new_families"
+		read -r -p "family> " pick
+		# Anything but a plain number would reach sed as a command rather than a
+		# line address, so it is rejected here and falls into the empty-choice
+		# path below instead of failing with sed's own error.
+		case $pick in
+		'' | *[!0-9]*) chosen="" ;;
+		*) chosen=$(printf '%s\n' "$new_families" | sed -n "${pick}p") ;;
+		esac
+		if [ -z "$chosen" ]; then
+			rm -f "$after"
+			brew uninstall --cask "$cask" || true
+			die "no family chosen; nothing written"
+		fi
+	else
+		# Restoring the pre-install state is what makes the suggested re-run
+		# actually work: a second attempt with no cask installed sees the same
+		# empty-diff refusal above instead of an empty new_families list here.
+		rm -f "$after"
+		brew uninstall --cask "$cask" || true
+		die "'$cask' registered multiple families and there is no terminal to prompt; re-run with --family '<name>', one of: $(printf '%s' "$new_families" | tr '\n' '|' | sed 's/|$//')"
+	fi
+
+	# ---- step 5: ligature verdict ----
+	suggest_json=$(font-inspect --suggest --family "$chosen") && rc=0 || rc=$?
+	print_signals_report "$suggest_json"
+
+	verdict=$(jq -r '.verdict // empty' <<<"$suggest_json")
+	if [ "$rc" -eq 1 ] || [ "$verdict" = "refuse" ]; then
+		rm -f "$after"
+		brew uninstall --cask "$cask" || echo "font: warning: could not uninstall '$cask' during cleanup" >&2
+		die "font-inspect refused '$chosen': no ligature evidence across tags, substitution rules, or glyph names (see signals above). Nothing written."
+	elif [ "$rc" -ne 0 ]; then
+		rm -f "$after"
+		brew uninstall --cask "$cask" || true
+		die "font-inspect exited $rc inspecting '$chosen'; expected 0 (pass) or 1 (refuse)"
+	fi
+
+	# ---- step 6: only --set tags reach the feature strings ----
+	terminal_features=$(jq -r '.suggest.terminal.features' <<<"$suggest_json")
+	terminal_fallback=$(jq -r '.suggest.terminal.fallback // empty' <<<"$suggest_json")
+	editor_family=$(jq -r '.suggest.editor.family' <<<"$suggest_json")
+	editor_variations=$(jq -r '.suggest.editor.variations' <<<"$suggest_json")
+	editor_ligatures=$(jq -r '.suggest.editor.ligatures' <<<"$suggest_json")
+	editor_terminal_family=$(jq -r '.suggest.editor.terminalFamily' <<<"$suggest_json")
+	symbols_cask=$(jq -r '.suggest.symbols_cask // empty' <<<"$suggest_json")
+
+	if [ -n "$sets" ]; then
+		local set_tag
+		while IFS= read -r set_tag; do
+			[ -n "$set_tag" ] || continue
+			terminal_features="${terminal_features:+$terminal_features,}$set_tag"
+			editor_ligatures="${editor_ligatures:+$editor_ligatures, }'$set_tag'"
+		done <<<"${sets//,/$'\n'}"
+	fi
+
+	# ---- step 7: the registry entry ----
+	order=$(jq '([.[].order] | max) + 10' "$registry")
+	case $chosen in
+	*"Nerd Font"*) tier=a ;;
+	*) tier=b ;;
+	esac
+	label=$chosen
+	size_val=14
+
+	fallback_line=""
+	[ -z "$terminal_fallback" ] ||
+		fallback_line=$(printf '\t\t\t"fallback": %s,\n' "$(jq -n --arg v "$terminal_fallback" '$v')")
+
+	terminal_casks=$(casks_array "$cask")
+	if [ -n "$symbols_cask" ]; then
+		editor_casks=$(casks_array "$cask" "$symbols_cask")
+	else
+		editor_casks=$(casks_array "$cask")
+	fi
+
+	entry_block=$(
+		printf '\t"%s": {\n' "$chosen_key"
+		printf '\t\t"order": %s,\n' "$order"
+		printf '\t\t"tier": "%s",\n' "$tier"
+		printf '\t\t"label": %s,\n' "$(jq -n --arg v "$label" '$v')"
+		printf '\t\t"size": %s,\n' "$size_val"
+		printf '\t\t"terminal": {\n'
+		printf '\t\t\t"family": %s,\n' "$(jq -n --arg v "$chosen" '$v')"
+		printf '\t\t\t"features": %s,\n' "$(jq -n --arg v "$terminal_features" '$v')"
+		printf '%s' "$fallback_line"
+		printf '\t\t\t"casks": %s\n' "$terminal_casks"
+		printf '\t\t},\n'
+		printf '\t\t"editor": {\n'
+		printf '\t\t\t"family": %s,\n' "$(jq -n --arg v "$editor_family" '$v')"
+		printf '\t\t\t"variations": %s,\n' "$(jq -n --arg v "$editor_variations" '$v')"
+		printf '\t\t\t"ligatures": %s,\n' "$(jq -n --arg v "$editor_ligatures" '$v')"
+		printf '\t\t\t"terminalFamily": %s,\n' "$(jq -n --arg v "$editor_terminal_family" '$v')"
+		printf '\t\t\t"casks": %s\n' "$editor_casks"
+		printf '\t\t}\n'
+		printf '\t}'
+	)
+
+	# Built by concatenation rather than handing the multi-line block to a
+	# single awk -v: BSD awk (what ships on macOS) rejects a -v value that
+	# contains a literal newline, so the splice has to happen at the shell
+	# level instead of inside the script.
+	last_close=$((final_line - 1))
+	registry_tmp=$(mktemp)
+	{
+		sed -n "1,$((last_close - 1))p" "$registry"
+		printf '\t},\n'
+		printf '%s\n' "$entry_block"
+		sed -n "${final_line},\$p" "$registry"
+	} >"$registry_tmp"
+	jq . "$registry_tmp" >/dev/null ||
+		die "registry would not parse as JSON after adding '$chosen_key'; nothing written"
+
+	# ---- step 8: the package entry ----
+	# Inserted right after the fonts group's last line, unlike dotfiles-apps's
+	# append_packages which appends at the whole array's tail: the twenty lines
+	# of cask-naming prose above this group (issue #15 comment) are only useful
+	# sitting next to the names they warn about, and appending at the array's
+	# end would strand every future --add far away from them.
+	type_col=$(awk -v l="$anchor_line" 'NR == l { print index($0, "type =") }' "$toml")
+	prefix="  { name = \"$cask\","
+	pad_len=$((type_col - 1 - ${#prefix}))
+	[ "$pad_len" -ge 1 ] || pad_len=1
+	toml_line=$(printf '%s%*stype = "cask", bundles = ["fonts"] },' "$prefix" "$pad_len" "")
+
+	toml_tmp=$(mktemp)
+	awk -v at="$anchor_line" -v line="$toml_line" 'NR == at { print; print line; next } { print }' \
+		"$toml" >"$toml_tmp"
+
+	replace_preserving_mode "$registry_tmp" "$registry"
+	replace_preserving_mode "$toml_tmp" "$toml"
+
+	# ---- step 9: deploy + cache, without a third system_profiler run ----
+	chezmoi apply --force "$REGISTRY"
+	mkdir -p "$(dirname "$FAMILY_CACHE")"
+	replace_preserving_mode "$after" "$FAMILY_CACHE"
+
+	# ---- step 10: diff + review ----
+	echo
+	echo "font: wrote registry entry '$chosen_key':"
+	show_diff "$registry"
+	echo
+	echo "font: wrote package entry for '$cask':"
+	show_diff "$toml"
+
+	echo
+	echo "REVIEW — judged, not measured:"
+	echo "  label: \"$label\" — copied verbatim from the family string"
+	echo "  tier: $tier — guessed from whether the family name contains \"Nerd Font\""
+	local wght_default
+	wght_default=$(printf '%s' "$editor_variations" | sed -n "s/^'wght' //p")
+	if [ -n "$wght_default" ] && [ "$wght_default" != "400" ]; then
+		echo "  variations: wght default is $wght_default, not 400 — verify this isn't a broken-looking weight rather than an intentional one"
+	fi
+	jq -r '.stylistic_sets[]? |
+		"  stylistic set \(.tag) (\(.name // "(no name)")) is not enabled; hand-edit the registry to add it to terminal.features / editor.ligatures"' \
+		<<<"$suggest_json"
+}
+
+cmd_remove() {
+	local key=$1
+	local src registry toml entry active_family entry_family
+	local removable start end final_line was_last
+	local registry_tmp new_final new_close
+	local c hits toml_tmp
+
+	src=$(chezmoi source-path) || die "chezmoi source-path failed"
+	registry="$src/dot_config/font/registry.json"
+	toml="$src/.chezmoidata.toml"
+
+	entry=$(jq -e --arg k "$key" '.[$k] // empty' "$registry") ||
+		die "unknown font '$key'; run 'font' with no arguments to see the roster"
+
+	# The active-font guard has to run before anything else touches disk: an
+	# active font uninstalled out from under Ghostty and VS Code leaves both
+	# configs pointing at a family nothing provides any more.
+	ensure_family_cache
+	active_family=$(current_terminal_family)
+	entry_family=$(jq -r '.terminal.family' <<<"$entry")
+	[ "$active_family" != "$entry_family" ] ||
+		die "'$key' is the active terminal font; switch to something else before removing it"
+
+	# Read-only, before any write: this entry's casks minus every cask any
+	# OTHER entry declares. Keying off declared casks rather than a 'font-'
+	# name prefix is what keeps a cask shared with another roster entry (the
+	# symbols-only font) safe, and keeps a cask no entry declares (font-lora,
+	# a document face) out of scope entirely.
+	removable=$(jq -r --arg k "$key" '
+		([.[$k].terminal.casks[]?, .[$k].editor.casks[]?] | unique) as $mine
+		| ([to_entries[] | select(.key != $k) | (.value.terminal.casks[]?, .value.editor.casks[]?)] | unique) as $others
+		| ($mine - $others)[]
+	' "$registry")
+
+	# ---- validate every anchor before writing anything ----
+	final_line=$(registry_final_brace_line "$registry") ||
+		die "$registry has no single unambiguous closing '}' to anchor a write on"
+	read -r start end < <(registry_entry_bounds "$registry" "$key")
+	[ -n "$start" ] && [ -n "$end" ] ||
+		die "could not find the bounds of registry entry '$key'"
+
+	for c in $removable; do
+		hits=$(awk -v anchor="{ name = \"$c\"," 'index($0, anchor)' "$toml" | wc -l | tr -d ' ')
+		[ "$hits" -eq 1 ] ||
+			die "expected exactly one '.chezmoidata.toml' line for cask '$c', found $hits"
+	done
+
+	# ---- delete the registry block ----
+	was_last=0
+	[ "$end" -eq $((final_line - 1)) ] && was_last=1
+
+	registry_tmp=$(mktemp)
+	awk -v s="$start" -v e="$end" 'NR < s || NR > e' "$registry" >"$registry_tmp"
+
+	if [ "$was_last" -eq 1 ]; then
+		# The entry that used to sit before the one just deleted is now last,
+		# but it still carries the trailing comma that separated it from a
+		# neighbor that no longer exists. JSON forbids a comma before `}`.
+		new_final=$(registry_final_brace_line "$registry_tmp") ||
+			die "$registry lost its unique closing '}' while removing '$key'"
+		new_close=$((new_final - 1))
+		local fixed_tmp
+		fixed_tmp=$(mktemp)
+		awk -v c="$new_close" 'NR == c { sub(/,$/, ""); print; next } { print }' "$registry_tmp" >"$fixed_tmp"
+		mv "$fixed_tmp" "$registry_tmp"
+	fi
+
+	jq . "$registry_tmp" >/dev/null ||
+		die "registry would not parse as JSON after removing '$key'; nothing written"
+
+	# ---- delete the package entries ----
+	toml_tmp=$(mktemp)
+	cp "$toml" "$toml_tmp"
+	for c in $removable; do
+		local step_tmp
+		step_tmp=$(mktemp)
+		awk -v anchor="{ name = \"$c\"," '!index($0, anchor)' "$toml_tmp" >"$step_tmp"
+		mv "$step_tmp" "$toml_tmp"
+	done
+
+	replace_preserving_mode "$registry_tmp" "$registry"
+	replace_preserving_mode "$toml_tmp" "$toml"
+
+	# No `|| true`: a cask that refuses to uninstall should surface rather
+	# than leave the registry saying it's gone while brew disagrees.
+	for c in $removable; do
+		brew uninstall --cask "$c"
+	done
+
+	chezmoi apply --force "$REGISTRY"
+	rebuild_family_cache
+
+	show_diff "$registry"
+	show_diff "$toml"
+}
+
 usage() {
 	echo "usage: font [<key> [size]] [--force] [--refresh]"
-	echo "  font                 list the roster and show what's active"
-	echo "  font <key>           switch Ghostty and VS Code to <key>"
-	echo "  font <key> 16        switch, overriding the registry's size"
-	echo "  font <key> --force   switch without checking that the font is installed"
-	echo "  font --refresh       rebuild the cached list of installed families"
+	echo "       font --add <cask> | --remove <key> | --inspect <family|path>"
+	echo "  font                        list the roster and show what's active"
+	echo "  font <key>                  switch Ghostty and VS Code to <key>"
+	echo "  font <key> 16               switch, overriding the registry's size"
+	echo "  font <key> --force          switch without checking that the font is installed"
+	echo "  font --refresh              rebuild the cached list of installed families"
+	echo "  font --add <cask>           install a cask, inspect it, and register it"
+	echo "    [--family <name>]           pick a family when the cask registers several"
+	echo "    [--key <key>]               override the derived roster key"
+	echo "    [--set <tag>[,<tag>...]]    enable named stylistic sets (repeatable)"
+	echo "  font --remove <key>         drop a roster entry, its casks, and its cache entry"
+	echo "  font --rm <key>             alias for --remove"
+	echo "  font --inspect <family|path>  report ligature evidence without touching the roster"
 }
 
 main() {
@@ -291,6 +793,8 @@ main() {
 	# expanding an empty array under `set -u` aborts. That one cost the teardown
 	# script a crash on its second run; see decisionLog 2026-08-05.
 	local key="" size="" force=0 refresh=0
+	local add_cask="" remove_key="" inspect_target=""
+	local family_choice="" key_override="" sets=""
 
 	require_deps
 
@@ -302,6 +806,18 @@ main() {
 			;;
 		--force) force=1 ;;
 		--refresh) refresh=1 ;;
+		--add) [ $# -ge 2 ] || die "--add needs a cask name"; add_cask=$2; shift ;;
+		--remove | --rm) [ $# -ge 2 ] || die "--remove needs a roster key"; remove_key=$2; shift ;;
+		--inspect) [ $# -ge 2 ] || die "--inspect needs a family name or file path"; inspect_target=$2; shift ;;
+		--family) [ $# -ge 2 ] || die "--family needs a value"; family_choice=$2; shift ;;
+		--key) [ $# -ge 2 ] || die "--key needs a value"; key_override=$2; shift ;;
+		--set)
+			[ $# -ge 2 ] || die "--set needs a stylistic set tag"
+			# Comma-accumulating rather than last-wins, so `--set ss01 --set ss02`
+			# and `--set ss01,ss02` land the same way.
+			sets="${sets:+$sets,}$2"
+			shift
+			;;
 		-*) die "unknown option '$1'; run 'font --help'" ;;
 		*)
 			if [ -z "$key" ]; then
@@ -316,9 +832,45 @@ main() {
 		shift
 	done
 
+	# One writing mode at a time. Each of --add/--remove/--inspect answers a
+	# different question than "switch to this key", so mixing them with a
+	# positional key or with each other has no coherent meaning to fall back to.
+	local modes=0
+	[ -z "$add_cask" ] || modes=$((modes + 1))
+	[ -z "$remove_key" ] || modes=$((modes + 1))
+	[ -z "$inspect_target" ] || modes=$((modes + 1))
+	[ "$modes" -le 1 ] || die "--add, --remove/--rm, and --inspect are mutually exclusive"
+	if [ "$modes" -eq 1 ]; then
+		[ -z "$key" ] || die "--add, --remove/--rm, and --inspect cannot be combined with a positional key"
+	fi
+
+	# --family/--key/--set shape an entry that --add is about to write; without
+	# --add they have nothing to attach to.
+	if [ -n "$family_choice" ] || [ -n "$key_override" ] || [ -n "$sets" ]; then
+		[ -n "$add_cask" ] || die "--family, --key, and --set are only legal with --add"
+	fi
+
+	# --force and a size override only mean something next to a key to switch
+	# to; --refresh has no such tie and stays legal on its own, as today.
+	if [ "$force" -eq 1 ] || [ -n "$size" ]; then
+		[ -n "$key" ] || die "--force and a size override require a positional font key"
+	fi
+
 	[ "$refresh" -eq 0 ] || rebuild_family_cache
 
-	if [ -z "$key" ]; then
+	if [ -n "$add_cask" ]; then
+		cmd_add "$add_cask" "$family_choice" "$key_override" "$sets"
+	elif [ -n "$remove_key" ]; then
+		cmd_remove "$remove_key"
+	elif [ -n "$inspect_target" ]; then
+		# A path on disk vs. a family name are disambiguated by existence alone;
+		# font-inspect owns the rest of the distinction.
+		if [ -e "$inspect_target" ]; then
+			exec font-inspect "$inspect_target"
+		else
+			exec font-inspect --family "$inspect_target"
+		fi
+	elif [ -z "$key" ]; then
 		cmd_list
 	else
 		cmd_switch "$key" "$size" "$force"

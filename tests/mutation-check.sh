@@ -64,7 +64,7 @@ fi
 # tests/lint.bats is excluded by name too: it is the reintroduction guard
 # added by this job (V-1), not a conversion target, and counting any helper
 # call it happens to make would inflate the per-file totals below.
-ALL_FILES="tests/apps.bats tests/doctor.bats tests/font.bats tests/jsonc.bats tests/licensed-fonts.bats tests/packages.bats"
+ALL_FILES="tests/apps.bats tests/doctor.bats tests/font.bats tests/font-add.bats tests/jsonc.bats tests/licensed-fonts.bats tests/packages.bats"
 
 usage() {
 	echo "usage: tests/mutation-check.sh [FILE]" >&2

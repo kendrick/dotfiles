@@ -113,7 +113,7 @@ The terminal half of every `font` registry entry (#8, #12). Every family string 
 | `monaspace` | `font-monaspice-nerd-font` | `MonaspiceNe Nerd Font` | `calt`, `liga` | ss01–ss10 |
 | `monaspace-xenon` | `font-monaspice-nerd-font` | `MonaspiceXe Nerd Font` | `calt`, `liga` | ss01–ss10 |
 | `victor` | `font-victor-mono-nerd-font` | `VictorMono Nerd Font` | `calt` | ss01–ss08 |
-| `cascadia` | `font-caskaydia-cove-nerd-font` | `CaskaydiaCove Nerd Font` | `calt`, `rlig` | ss02, ss19, ss20 |
+| `cascadia` | `font-caskaydia-cove-nerd-font` | `CaskaydiaCove Nerd Font` | `calt`, `rlig` | ss01, ss02, ss03, ss19, ss20 |
 | `recursive` | `font-recursive-mono-nerd-font` | `RecMonoCasual Nerd Font` | `calt` | none |
 | `recursive-linear` | `font-recursive-mono-nerd-font` | `RecMonoLinear Nerd Font` | `calt` | none |
 | `lilex` | `font-lilex-nerd-font` | `Lilex Nerd Font` | `calt` | ss01–ss04 |
@@ -135,7 +135,7 @@ The editor half, for the six keys where VS Code keeps the unpatched build and ta
 | `recursive` / `recursive-linear` | `font-recursive` | `Recursive` | `liga`, `dlig` | MONO 0–1 (**0**), CASL 0–1 (**0**), wght 300–1000 (**300**), slnt, CRSV |
 | `lilex` | `font-lilex` | `Lilex` | `calt` | wght 100–700 (400) |
 
-Two of these diverge from their patched static, which is why the re-read was worth insisting on. Monaspace's variable build adds `rlig` the static doesn't have, and Recursive's variable build has no `calt` at all: it carries `liga` and `dlig` where the `RecMono*` statics carry `calt` and nothing else. Copying the static's string to the editor half would render correctly with the feature silently inactive, the exact failure mode #8 was written to prevent.
+Two of these diverge from their patched static, which is why the re-read was worth insisting on. Monaspace's variable build adds `rlig` the static doesn't have, and Recursive's variable build has no `calt` at all: it carries `liga` and `dlig` where the `RecMono*` statics carry `calt` and nothing else. Copying the static's string to the editor half would render correctly with the feature silently inactive, the exact failure mode #8 was written to prevent. The "zero LigatureSubst rules" reading recorded in antipatterns 2026-08-05 is the `RecMono*` statics only; the variable `Recursive` build was measured separately for #15 and reports 180 LigatureSubst rules, consistent with the `dlig` feature the statics don't carry. Don't conflate the two builds' rule counts.
 
 The bolded defaults are the ones that bite. A Tier B entry with an empty `variations` gets Monaspace at ExtraLight and Recursive as a proportional sans, both of which read as a broken font rather than a missing setting. `'MONO' 1` is what makes Recursive monospaced, and `'CASL'` is the only thing separating the `recursive` and `recursive-linear` editor halves, since both name the same family.
 
@@ -148,7 +148,7 @@ A font's ssXX features carry their own UI names in the `name` table, reachable t
 - Maple ss01–ss11 are almost all named "Broken _X_ ligatures", meaning they remove ligatures rather than add them.
 - Lilex ss01–ss04 are the same shape: "Broken equals ligatures", "Broken number signs".
 - Recursive ss01–ss12 and ss20 are letterform alternates (single-story `a`, dotted zero) with no ligature content.
-- Cascadia's ss02, ss19 and ss20 ship with empty name strings, so the font says nothing about them.
+- Cascadia's ss01, ss02, ss03, ss19 and ss20 ship with empty name strings, so the font says nothing about any of them.
 
 So Monaspace is the only family whose stylistic sets belong in a feature string. Enabling the recorded sets across the board, which is what the ticket's table reads like an instruction to do, would defeat ligatures on two of the nine fonts. _(GSUB FeatureParams + name table, 2026-08-05)_
 

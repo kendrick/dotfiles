@@ -29,6 +29,15 @@ FAMILY_CACHE="$CACHE_HOME/font/families"
 # right, and --refresh and --force cover the times it isn't.
 CACHE_MAX_AGE_SECONDS=$((7 * 24 * 60 * 60))
 
+# macOS registers font files asynchronously, so a cask's families show up in
+# system_profiler well after brew has finished moving them into ~/Library/Fonts.
+# Measured at 14 seconds for a Nerd Font cask on 2026-08-31, which is long enough
+# that a single snapshot taken the moment brew returns sees nothing new and the
+# family diff reports an empty set. Each snapshot already costs about ten seconds
+# of its own, so this budget is roughly five attempts.
+FAMILY_REGISTER_TIMEOUT_SECONDS=60
+FAMILY_REGISTER_POLL_SECONDS=2
+
 BEGIN_MARKER='# BEGIN font (managed by `font`)'
 END_MARKER='# END font'
 
@@ -407,7 +416,7 @@ show_diff() {
 cmd_add() {
 	local cask=$1 family_choice=$2 key_override=$3 sets=$4
 	local src registry toml chosen_key
-	local before after new_families family_count chosen
+	local before after new_families family_count chosen waited
 	local suggest_json rc verdict
 	local terminal_features terminal_fallback editor_family editor_variations
 	local editor_ligatures editor_terminal_family symbols_cask
@@ -465,12 +474,24 @@ cmd_add() {
 
 	brew install --cask "$cask" || die "brew install --cask '$cask' failed"
 
-	snapshot_families >"$after" || true
-	[ -s "$after" ] || {
-		rm -f "$before" "$after"
-		die "system_profiler reported no font families after installing '$cask'; leaving the cask in place because the diff cannot be trusted to say what it registered"
-	}
-	new_families=$(comm -13 "$before" "$after")
+	# Poll rather than snapshot once: the files are in place but the font server
+	# has not caught up, and a lone snapshot here would report every cask as
+	# registering nothing. The loop exits on the first changed set, so a machine
+	# that registers immediately pays only one snapshot.
+	waited=0
+	while :; do
+		snapshot_families >"$after" || true
+		[ -s "$after" ] || {
+			rm -f "$before" "$after"
+			die "system_profiler reported no font families after installing '$cask'; leaving the cask in place because the diff cannot be trusted to say what it registered"
+		}
+		new_families=$(comm -13 "$before" "$after")
+		[ -z "$new_families" ] || break
+		[ "$waited" -lt "$FAMILY_REGISTER_TIMEOUT_SECONDS" ] || break
+		[ "$waited" -gt 0 ] || echo "font: waiting for macOS to register the new families..."
+		sleep "$FAMILY_REGISTER_POLL_SECONDS"
+		waited=$((waited + FAMILY_REGISTER_POLL_SECONDS))
+	done
 	rm -f "$before"
 
 	if [ -z "$new_families" ]; then

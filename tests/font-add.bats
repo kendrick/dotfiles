@@ -102,6 +102,19 @@ json.dump({"SPFontsDataType": entries}, sys.stdout)
 '
 			;;
 		*)
+			# A delayed cask's families sit in a holding file until this many
+			# snapshots have gone by, so the before/after diff has to poll to
+			# see them at all.
+			if [ -f "$HOME/delayed-reveal" ]; then
+				left=$(($(cat "$HOME/delayed-reveal") - 1))
+				if [ "$left" -le 0 ]; then
+					cat "$HOME/delayed-families" >>"$HOME/installed-families"
+					sort -u -o "$HOME/installed-families" "$HOME/installed-families"
+					rm -f "$HOME/delayed-reveal" "$HOME/delayed-families"
+				else
+					printf '%s\n' "$left" >"$HOME/delayed-reveal"
+				fi
+			fi
 			echo "Fonts:"
 			while IFS= read -r family; do
 				printf '    Stub.ttf:\n      Typefaces:\n        Stub:\n          Family: %s\n' "$family"
@@ -130,6 +143,12 @@ json.dump({"SPFontsDataType": entries}, sys.stdout)
 			;;
 		install)
 			famfile="$HOME/cask-families/$3"
+			if [ -f "$HOME/cask-delayed/$3" ] && [ -f "$famfile" ]; then
+				cp "$famfile" "$HOME/delayed-families"
+				cp "$HOME/cask-delayed/$3" "$HOME/delayed-reveal"
+				printf '%s\n' "$3" >>"$HOME/installed-casks"
+				exit 0
+			fi
 			if [ -f "$famfile" ]; then
 				cat "$famfile" >>"$HOME/installed-families"
 				sort -u -o "$HOME/installed-families" "$HOME/installed-families"
@@ -164,7 +183,7 @@ json.dump({"SPFontsDataType": entries}, sys.stdout)
 	: >"$HOME/known-casks"
 	: >"$HOME/installed-casks"
 	: >"$HOME/family-paths"
-	mkdir -p "$HOME/cask-families" "$BATS_TEST_TMPDIR/fonts"
+	mkdir -p "$HOME/cask-families" "$HOME/cask-delayed" "$BATS_TEST_TMPDIR/fonts"
 
 	build_all_fixtures
 }
@@ -203,6 +222,18 @@ declare_cask() {
 	shift
 	mark_known_cask "$cask"
 	printf '%s\n' "$@" >"$HOME/cask-families/$cask"
+}
+
+# The same, for a cask macOS registers late. The families go into a holding
+# file that the system_profiler stub only folds in on its Nth call, which is
+# what a real cask does: brew finishes moving the files well before the font
+# server admits they exist.
+declare_cask_delayed() {
+	local cask="$1" reveal_on="$2"
+	shift 2
+	mark_known_cask "$cask"
+	printf '%s\n' "$@" >"$HOME/cask-families/$cask"
+	printf '%s\n' "$reveal_on" >"$HOME/cask-delayed/$cask"
 }
 
 snapshot_source() {
@@ -488,4 +519,20 @@ build_all_fixtures() {
 	run font --family "Some Family" victor
 	[ "$status" -ne 0 ]
 	assert_contains "only legal with --add"
+}
+
+@test "a cask whose families register late is diffed once macOS catches up" {
+	# Measured against a real Nerd Font cask: brew finishes moving 96 files
+	# into ~/Library/Fonts a full 14 seconds before system_profiler admits
+	# any of them exist. One snapshot taken the moment brew returns sees an
+	# empty diff and refuses every cask on the machine, which is what shipped
+	# until the end-to-end run caught it. Revealing on the third call is what
+	# proves cmd_add polls instead of snapshotting once.
+	declare_cask_delayed font-late-test 3 "LateFace Regular"
+	build_fixture "$(fx late)" --family "LateFace Regular" --gsub-tags calt --liga-rules 4 --nerd full
+	register_family "LateFace Regular" "$(fx late)"
+	run font --add font-late-test
+	[ "$status" -eq 0 ]
+	assert_contains "waiting for macOS to register"
+	[ "$(jq -r '.["late-test"].terminal.family' "$REGISTRY_SRC")" = "LateFace Regular" ]
 }

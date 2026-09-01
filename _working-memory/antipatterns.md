@@ -14,6 +14,18 @@
 <!-- The last line is the agent-targeted lever. Be specific. "Don't suggest    -->
 <!-- moving X to Y" beats "don't suggest big refactors."                       -->
 
+## 2026-08-31 — Don't cite SF Mono as the tag-with-no-substitution example; cite BlexMono instead
+**Tried:** Re-verifying the 2026-08-05 entry's claim that SF Mono carries a `calt` tag that substitutes nothing, while building #15's admission rule.
+**What broke:** The claim doesn't hold on this machine. All twelve `SF-Mono-*.otf` faces plus `/System/Library/Fonts/SFNSMono.ttf` report a GSUB FeatureList of exactly `c2sc, ccmp, locl, smcp, ss03, ss04`, no `calt` among them, and a raw byte grep for `calt` across every one of those files returns zero hits. Checked twice.
+**Why we backed out:** Only the example is wrong, not the lesson. SF Mono is still correctly refused, and glyph names are still what settles the question. What actually demonstrates a feature tag substituting nothing turned out to be a different font: BlexMono Nerd Font declares no ligature feature at all yet carries 47 type-4 LigatureSubst rules (lookups 7 and 24), which is `frac`/`ccmp` composition every text font carries, not ligatures.
+**Don't suggest:** Repeating the SF Mono `calt` claim from 2026-08-05 as current fact; it's superseded here, not merely restated. Reach for BlexMono instead when the point needs a font that looks ligature-bearing on one signal and isn't. _(GitHub #15, dot_local/bin/executable_font-inspect)_
+
+## 2026-08-31 — Commit the test file before running `mutation-check.sh` against it
+**Tried:** Running `tests/mutation-check.sh` against `tests/font-add.bats` twice during #15, both times before the file had ever been committed.
+**What broke:** Both runs got killed mid-flight, and the script's `EXIT INT TERM` trap that restores from backup never fired under `SIGKILL`. Two assertions in the file came out inverted, and because the file was still untracked, `git` held no pristine copy to diff or restore from; the inversions had to be found by reading every failing case against its own name.
+**Why we backed out:** The 2026-08-20 entry below already covers running the script unattended or in parallel. What compounded the damage here was different: with nothing committed, there was no `git checkout` to fall back on once the trap was skipped.
+**Don't suggest:** Running `mutation-check.sh` against a test file that hasn't been committed yet. Commit the file first, so a killed run, trap or no trap, can always be restored with `git checkout`. _(tests/font-add.bats, tests/mutation-check.sh)_
+
 ## 2026-08-31 — Don't trust a red-before-green run without checking that the setup ran
 **Tried:** Proving #38's two new cases fail against unfixed code, by saving the five source files, `git checkout HEAD --` on them, running the suite, then restoring. The loop was `FILES="a b c"; for f in $FILES; do cp "$f" "$SP/$f"; done`.
 **What broke:** The suite reported both new cases green, which reads as a check that cannot detect the defect it was written for. Nothing had been reverted. The Bash tool's shell here is zsh, which does not word-split an unquoted parameter expansion, so the loop ran once with the whole space-separated string as a single filename. `cp` and `git checkout` each errored on that one bogus path, both messages scrolled past above the test output, and the run measured the fixed tree.

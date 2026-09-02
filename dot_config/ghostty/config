@@ -1,10 +1,8 @@
 theme = dark:Synthwave Everything,light:Light Owl
 # BEGIN font (managed by `font`)
-font-family = "SUSE Mono"
-font-family = "Symbols Nerd Font Mono"
+font-family = "Lilex Nerd Font"
 font-size = 14
 font-feature = calt
-font-feature = liga
 # END font
 cursor-style = block
 shell-integration-features = no-cursor

@@ -72,10 +72,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/anthropics/skills.git",
       "skillPath": "skills/frontend-design/SKILL.md",
-      "skillFolderHash": "0d5b74a14bdf3ebcd64f352d06376a2ef05ed296",
-      "pluginName": "example-skills",
+      "skillFolderHash": "d79e2a5bb4df4a386c2adcdd9ab8709bba28c3f6",
       "installedAt": "2026-05-27T23:08:46.504Z",
-      "updatedAt": "2026-06-10T19:41:23.534Z"
+      "updatedAt": "2026-09-03T23:41:29.013Z"
     },
     "mcp-builder": {
       "source": "anthropics/skills",
@@ -179,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "115417dc0799aec22bb1e8b5ea296d35a76d449e",
+      "skillFolderHash": "091d4257b8401b19892a1333ed8593621b6ee39c",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-09-01T14:42:28.482Z"
+      "updatedAt": "2026-09-03T23:41:36.404Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -608,9 +607,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "1bf319831137412e8ab71df321b510fa561fd262",
+      "skillFolderHash": "5ee682d5c5d5c33c9d18f1ecfb4e576d6e2ac72e",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-09-01T15:52:28.176Z"
+      "updatedAt": "2026-09-03T23:41:50.408Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
@@ -736,9 +735,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "divvy-up/SKILL.md",
-      "skillFolderHash": "6acaa55bb789647f415f18d2c9e4100c8250eb68",
+      "skillFolderHash": "396863f7c0427a38da5bb1f00157a78ad2356eac",
       "installedAt": "2026-09-02T02:46:12.250Z",
-      "updatedAt": "2026-09-02T02:46:12.250Z"
+      "updatedAt": "2026-09-03T23:41:38.992Z"
     }
   },
   "dismissed": {

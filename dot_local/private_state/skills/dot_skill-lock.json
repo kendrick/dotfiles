@@ -25,10 +25,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/blader/humanizer.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "e2e92e7b4b8229253ed5c8e81dc65463fdeddda5",
+      "skillFolderHash": "9862685f575c65a8247f90369951df1b3416e3d6",
       "pluginName": "humanizer",
       "installedAt": "2026-05-27T13:07:25.759Z",
-      "updatedAt": "2026-08-21T00:42:06.258Z"
+      "updatedAt": "2026-09-08T16:24:01.723Z"
     },
     "systematic-debugging": {
       "source": "obra/superpowers",
@@ -111,9 +111,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/testdino-hq/playwright-skill.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "d3be9ca4d7303e2aee3eba4842963abf573117b0",
+      "skillFolderHash": "400e4256cd22669ad69c18d31d3e5541e4e1c2a3",
       "installedAt": "2026-05-28T03:09:27.290Z",
-      "updatedAt": "2026-07-06T02:10:21.033Z"
+      "updatedAt": "2026-09-08T16:24:06.661Z"
     },
     "d3-viz": {
       "source": "chrisvoncsefalvay/claude-d3js-skill",
@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "091d4257b8401b19892a1333ed8593621b6ee39c",
+      "skillFolderHash": "4be88e24efc1aad26410be213bdaa43ad4ac069f",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-09-03T23:41:36.404Z"
+      "updatedAt": "2026-09-08T16:24:11.196Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -607,9 +607,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "5ee682d5c5d5c33c9d18f1ecfb4e576d6e2ac72e",
+      "skillFolderHash": "d69aee481d10ab1eefd5c66c54a4050524abba46",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-09-03T23:41:50.408Z"
+      "updatedAt": "2026-09-08T16:24:23.464Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
@@ -737,7 +737,16 @@
       "skillPath": "divvy-up/SKILL.md",
       "skillFolderHash": "396863f7c0427a38da5bb1f00157a78ad2356eac",
       "installedAt": "2026-09-02T02:46:12.250Z",
-      "updatedAt": "2026-09-03T23:41:38.992Z"
+      "updatedAt": "2026-09-08T16:23:49.507Z"
+    },
+    "jira-refine": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "jira-refine/SKILL.md",
+      "skillFolderHash": "829fde1ef3a900e7d768cddb84c97f2385ec19df",
+      "installedAt": "2026-09-08T16:23:49.533Z",
+      "updatedAt": "2026-09-08T16:23:49.533Z"
     }
   },
   "dismissed": {
@@ -745,14 +754,13 @@
   },
   "lastSelectedAgents": [
     "amp",
-    "antigravity",
-    "antigravity-cli",
     "cline",
     "codex",
     "cursor",
-    "deepagents",
+    "droid",
     "gemini-cli",
     "github-copilot",
+    "kilo",
     "kimi-code-cli",
     "opencode",
     "warp",

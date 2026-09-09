@@ -282,6 +282,13 @@ else
   echo "    claude-settings-normalize not found, skipping"
 fi
 
+echo "==> Normalizing npmrc"
+if command -v npmrc-normalize &>/dev/null; then
+  npmrc-normalize || echo "    ! npmrc normalize failed, continuing"
+else
+  echo "    npmrc-normalize not found, skipping"
+fi
+
 # ---- Phase: template drift (what re-add structurally can't capture) ----
 # re-add won't reverse-render a template, so a templated file an app rewrites in
 # $HOME slips past the capture above. Warn so it doesn't rot unnoticed.

@@ -55,6 +55,11 @@ zstyle ':completion:*' menu select
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
+# Node's fetch() is undici, which ignores http_proxy/https_proxy unless this is set. Every
+# fetch() call behind a corporate gateway otherwise dies on undici's 10s connect timeout,
+# so a CLI built on fetch looks like it hangs. Harmless where no proxy is set. Node 24+.
+export NODE_USE_ENV_PROXY=1
+
 # Machine-local overrides, sourced last so they beat everything above. A client machine's
 # proxy exports live here: the gateway hostname belongs to the client, not to me, so it
 # can't go in a public repo, and it can't be a template value either—a machine needs a

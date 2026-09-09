@@ -4,8 +4,8 @@
 `proxy` / `https-proxy` are the problem keys. This box sits behind a corporate
 gateway and npm breaks without them, so live ~/.npmrc carries:
 
-    proxy=http://evapzen.fpl.com:10262
-    https-proxy=http://evapzen.fpl.com:10262
+    proxy=http://<gateway>:<port>
+    https-proxy=http://<gateway>:<port>
 
 dotfiles-sync runs a blanket `chezmoi re-add`, which has no way to tell that
 line from `audit=false` or the shared registry auth token — it just captures

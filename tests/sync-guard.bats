@@ -427,11 +427,19 @@ touch_at() {
 	# passing comparison into a failing one. Anchoring on the heading and
 	# taking only the "none" directly beneath it is what keeps this a test of
 	# the guard's footprint instead of the word's.
+	# The npmrc normalizer is a phase the pre-guard baseline predates, so its
+	# heading and the one line it prints come out too. Anchored as a pair for
+	# the same reason as the guard's: "not found, skipping" is the shape every
+	# guarded phase prints when its binary is off the stubbed PATH, and
+	# dropping every match would strip the sibling settings phase's line that
+	# the baseline also prints.
 	local filtered_new
 	filtered_new="$(printf '%s\n' "$out_new" | awk '
 		$0 == "==> Checking whether source moved ahead of this machine" { pending = 1; next }
 		pending == 1 && $0 == "    none" { pending = 0; next }
-		{ pending = 0; print }
+		$0 == "==> Normalizing npmrc" { npmrc = 1; next }
+		npmrc == 1 && $0 == "    npmrc-normalize not found, skipping" { npmrc = 0; next }
+		{ pending = 0; npmrc = 0; print }
 	')"
 
 	[ "$filtered_new" = "$out_head" ]

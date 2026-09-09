@@ -184,6 +184,27 @@ JSON
 	assert_contains "45"
 }
 
+# LOCAL_KEYS widened past `model` alone to cover the corporate-gateway `env` block. This
+# pins the denylist to stay flat — strip the whole `env` key, leave every sibling key
+# alone — rather than, say, recursing into nested objects and taking `permissions`/
+# `hooks` down with it.
+@test "normalize: an env block is stripped and permissions/hooks survive" {
+	printf '{\n  "env": {"ANTHROPIC_BASE_URL": "https://corp.example/bifrost"},\n  "permissions": {"allow": []},\n  "hooks": {"PreToolUse": []}\n}\n' | encrypt_to_source
+	commit_source
+
+	printf '{\n  "env": {"ANTHROPIC_BASE_URL": "https://corp.example/bifrost"},\n  "cleanupPeriodDays": 45,\n  "permissions": {"allow": []},\n  "hooks": {"PreToolUse": []}\n}\n' | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_contains "dropped env from source"
+
+	run "$STUBS/chezmoi" decrypt "$SRCFILE"
+	assert_not_contains "ANTHROPIC_BASE_URL"
+	assert_contains "permissions"
+	assert_contains "hooks"
+	assert_contains "45"
+}
+
 # The bootstrap case: no age key, so nothing decrypts. The encrypted config isn't deployed
 # on such a machine either, so the script has nothing to normalize and must not treat that
 # as an error the sync should report.

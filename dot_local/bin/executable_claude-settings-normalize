@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
 """Keep the synced Claude settings free of machine-local keys and of pointless churn.
 
-`model` is the problem key. /model writes it into ~/.claude/settings.json by design
-("saves your choice as the default for new sessions"), settings.json is an encrypted
-chezmoi target, and dotfiles-sync runs a blanket `chezmoi re-add`. So every model
-switch rides into source and gets committed. That costs more than it looks: age
-ciphertext doesn't delta, so a one-line pin change rewrites all 9KB of the blob and
-parks another full copy in a public repo's history, permanently.
+`LOCAL_KEYS` denylists top-level keys that describe this machine, this person, or
+this employer rather than shared intent. `model` was the original case: /model
+writes it into ~/.claude/settings.json by design ("saves your choice as the default
+for new sessions"), settings.json is an encrypted chezmoi target, and dotfiles-sync
+runs a blanket `chezmoi re-add`. So every model switch rides into source and gets
+committed. That costs more than it looks: age ciphertext doesn't delta, so a
+one-line pin change rewrites all 9KB of the blob and parks another full copy in a
+public repo's history, permanently.
 
-It also isn't a setting worth sharing. Which model this box should default to is a
-machine question, the same way installPath was for the plugin manifests, and
-f5ab21b already settled that class of problem by normalizing live state down to
-intent. This is that fix applied to the one file that was left.
+None of the four keys added alongside it are worth sharing either, each for its own
+reason. Which model this box should default to is a machine question, the same way
+installPath was for the plugin manifests, and f5ab21b already settled that class of
+problem by normalizing live state down to intent. `env` carries this box's corporate
+gateway token and headers — the one thing that must never reach a public repo.
+`companyAnnouncements` and `spinnerVerbs` are employer branding with no business
+being shared beyond this machine. `$schema` is an editor affordance with no runtime
+effect, pure machine-local noise. All five ride the same blanket re-add regardless
+of why they don't belong in source.
 
 Runs AFTER re-add, and edits source rather than the live file. That ordering is the
 whole point: strip the live copy instead and every sync would wipe the pin you just
@@ -38,10 +45,16 @@ import tempfile
 
 TARGET = os.path.expanduser("~/.claude/settings.json")
 
-# Keys that describe this machine rather than this person. Everything else in
-# settings.json (permissions, hooks, enabled plugins, marketplaces) is shared
-# intent and keeps syncing exactly as before.
-LOCAL_KEYS = ("model",)
+# Keys that describe this machine, this person, or this employer rather than
+# shared intent. Everything else in settings.json (permissions, hooks, enabled
+# plugins, marketplaces) is shared intent and keeps syncing exactly as before.
+LOCAL_KEYS = (
+    "model",  # /model's per-machine pin; the original problem key, see docstring.
+    "env",  # this box's corporate gateway token/headers — must never reach the repo.
+    "companyAnnouncements",  # employer banner text, not shared intent.
+    "spinnerVerbs",  # employer branding, not shared intent.
+    "$schema",  # editor affordance only; no runtime effect, pure machine noise.
+)
 
 
 def run(cmd, **kw):

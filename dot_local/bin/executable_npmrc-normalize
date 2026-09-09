@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Keep the synced npmrc free of this machine's corporate proxy.
+
+`proxy` / `https-proxy` are the problem keys. This box sits behind a corporate
+gateway and npm breaks without them, so live ~/.npmrc carries:
+
+    proxy=http://evapzen.fpl.com:10262
+    https-proxy=http://evapzen.fpl.com:10262
+
+dotfiles-sync runs a blanket `chezmoi re-add`, which has no way to tell that
+line from `audit=false` or the shared registry auth token — it just captures
+whatever live holds. So every sync re-commits this machine's gateway address
+into an encrypted file whose whole point is to be shared across machines that
+don't sit behind it. Commit 00e8e17 stripped these by hand once already, and
+auto-sync commit eb2b919 put them straight back four days later, because
+nothing stood between the live file and the next re-add. This is that thing.
+
+Runs AFTER re-add, and edits source rather than the live file. That ordering
+is the whole point: strip the live copy instead and npm stops working on this
+machine until someone notices and re-adds the proxy lines by hand. Left
+alone, live keeps the proxy across restarts and only a manual `chezmoi apply`
+would clear it from live, which is rare — the sync never applies.
+
+Two jobs, and the second one outlived the first. Stripping the proxy is the
+reason this exists, but any path that leaves source holding HEAD's exact
+plaintext under fresh ciphertext gets the committed blob restored, strip or
+no strip. `chezmoi re-add` compares live against source rather than against
+HEAD, so an app that writes a key and later takes it back produces exactly
+that state with nothing to strip, and age's nondeterminism turns it into a
+full commit that changes nothing.
+
+Doing nothing is the common case and costs one decrypt. Line-based, not JSON:
+npmrc is ini-flavored key=value text, not JSON, and a json.loads/dumps
+round-trip would destroy comments, blank lines, and ordering that npmrc
+legitimately allows.
+"""
+
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+TARGET = os.path.expanduser("~/.npmrc")
+
+# Keys that describe this machine's network path rather than shared intent.
+# Everything else in .npmrc (audit, the registry auth token) is shared intent
+# and keeps syncing exactly as before.
+LOCAL_KEYS = ("proxy", "https-proxy", "http-proxy", "noproxy", "no-proxy")
+
+# npm config keys are case-insensitive and tolerate whitespace around `=`, so
+# matching has to key off everything left of the first `=`, lowercased and
+# trimmed — not a substring match, which would also catch the registry auth
+# line's `//registry.npmjs.org/:_authToken=...` if "proxy" ever appeared in a
+# URL there.
+_KEY_RE = re.compile(r"^\s*([^=]+?)\s*=")
+
+
+def run(cmd, **kw):
+    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+
+
+def decrypt(path):
+    result = run(["chezmoi", "decrypt", path])
+    return result.stdout if result.returncode == 0 else None
+
+
+def head_plaintext(repo, src):
+    """What the last commit holds, decrypted. None if it isn't committed yet.
+
+    chezmoi decrypt wants a path, so the blob has to land on disk first.
+    """
+    rel = os.path.relpath(src, repo)
+    blob = run(["git", "-C", repo, "show", f"HEAD:{rel}"])
+    if blob.returncode != 0:
+        return None
+    with tempfile.NamedTemporaryFile("w", suffix=".age", delete=False) as fh:
+        fh.write(blob.stdout)
+        tmp = fh.name
+    try:
+        return decrypt(tmp)
+    finally:
+        os.unlink(tmp)
+
+
+def strip_local_keys(plain):
+    """Line-based strip, not a JSON round-trip: npmrc isn't JSON, and a
+    parse/re-serialize would flatten the comments, blank lines, and spacing
+    it legitimately allows. Byte-for-byte preservation of everything else
+    matters because age ciphertext doesn't delta — any incidental
+    reformatting here would cost a full re-encrypt for no reason.
+    """
+    removed = []
+    kept_lines = []
+    for line in plain.splitlines(keepends=True):
+        match = _KEY_RE.match(line)
+        key = match.group(1).lower() if match else None
+        if key in LOCAL_KEYS:
+            removed.append(key)
+            continue
+        kept_lines.append(line)
+    return "".join(kept_lines), removed
+
+
+def main():
+    src = run(["chezmoi", "source-path", TARGET])
+    if src.returncode != 0:
+        print(".npmrc isn't a chezmoi target; nothing to normalize.", file=sys.stderr)
+        return 0
+    src = src.stdout.strip()
+
+    repo = run(["chezmoi", "source-path"])
+    if repo.returncode != 0:
+        print("chezmoi not available; skipping npmrc normalize.", file=sys.stderr)
+        return 0
+    repo = repo.stdout.strip()
+
+    plain = decrypt(src)
+    if plain is None:
+        # No age key on this machine, which is a normal state mid-bootstrap. The
+        # encrypted config isn't deployed there either, so there's nothing to strip.
+        print("couldn't decrypt .npmrc; skipping normalize.", file=sys.stderr)
+        return 0
+
+    payload, removed = strip_local_keys(plain)
+
+    # Checked before the "nothing to strip" exit, not after, because a proxy
+    # line is only one of the ways this file ends up re-encrypted for no
+    # reason. `chezmoi re-add` compares live against the *source's*
+    # plaintext, not against HEAD, so an app that writes a key and later
+    # takes it back leaves source holding HEAD's exact content under fresh
+    # ciphertext, with nothing local to strip. Gating this on `removed` alone
+    # would leave that copy dirty until a sync committed pure nondeterminism
+    # to a public repo's history — exactly what bcb395e fixed for the
+    # sibling settings-normalize script.
+    #
+    # age encrypts nondeterministically, so restoring the committed blob is
+    # the only thing that actually leaves no diff. Re-encrypting identical
+    # content just hands the sync another bogus commit to make.
+    if payload == head_plaintext(repo, src):
+        # `checkout HEAD --`, not `checkout --`. The bare form restores from
+        # the index, which is the wrong tree to compare against: a sync that
+        # died between `git add -A` and `git commit` leaves the proxy lines
+        # staged, and restoring that would put them straight back while this
+        # reported no net change. Naming HEAD also resets the index entry, so
+        # a half-finished previous run can't leak into this one.
+        checkout = run(["git", "-C", repo, "checkout", "HEAD", "--", src])
+        if checkout.returncode != 0:
+            print(f"failed to restore {src}: {checkout.stderr}", file=sys.stderr)
+            return 1
+        if removed:
+            print(f"dropped {', '.join(removed)} from source (no net change)")
+        else:
+            print("source already matches HEAD; restored the committed blob")
+        return 0
+
+    # Source genuinely differs from HEAD and carries nothing machine-local, so this is a
+    # real settings change. Leave it for the sync to commit; re-encrypting here would
+    # only swap one valid ciphertext for another.
+    if not removed:
+        return 0
+
+    encrypted = run(["chezmoi", "encrypt"], input=payload)
+    if encrypted.returncode != 0:
+        print(f"failed to re-encrypt .npmrc: {encrypted.stderr}", file=sys.stderr)
+        return 1
+    with open(src, "w") as fh:
+        fh.write(encrypted.stdout)
+    print(f"dropped {', '.join(removed)} from source")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

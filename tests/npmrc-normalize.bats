@@ -222,3 +222,45 @@ STUB
 	[ "$status" -eq 0 ]
 	assert_contains "couldn't decrypt"
 }
+
+# A real edit that also carries this machine's proxy lines. Stripping leaves something
+# that still differs from HEAD, which is the only path that re-encrypts and writes -
+# every other branch either restores the committed blob or returns without touching src.
+npmrc_edited_with_proxy() {
+	cat <<'NPMRC'
+audit=false
+//registry.npmjs.org/:_authToken=npm_FAKETOKEN1234567890
+registry=https://custom.registry.example.com/
+proxy=http://corp-proxy.example.com:8080
+NPMRC
+}
+
+# `open(src, "w")` empties the file before the new ciphertext lands, so a run interrupted
+# mid-write leaves a truncated blob - and because the sync continues past a normalize
+# failure, `git add -A` commits that undecryptable file. Renaming a finished file into
+# place can't produce the partial state at all. The inode is what tells the two apart:
+# writing through the existing file keeps it, replacing the directory entry changes it.
+@test "normalize: rewriting source replaces the file instead of truncating it in place" {
+	npmrc_with_token | encrypt_to_source
+	commit_source
+
+	npmrc_edited_with_proxy | encrypt_to_source
+	local before_inode
+	before_inode="$(stat -f %i "$SRCFILE")"
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_contains "dropped proxy from source"
+
+	local after_inode
+	after_inode="$(stat -f %i "$SRCFILE")"
+	[ "$after_inode" != "$before_inode" ]
+
+	# The temp file has to sit in src's own directory for the rename to stay atomic, which
+	# puts it inside the repo where `git add -A` would sweep it into the commit.
+	run git -C "$REPO" status --porcelain
+	assert_not_contains "??"
+	run "$STUBS/chezmoi" decrypt "$SRCFILE"
+	assert_contains "registry=https://custom.registry.example.com/"
+	assert_not_contains "proxy="
+}

@@ -226,3 +226,29 @@ STUB
 	[ "$status" -eq 0 ]
 	assert_contains "couldn't decrypt"
 }
+
+# The sibling of npmrc-normalize's inode case, and the same reasoning: `open(src, "w")`
+# truncates first, so an interrupted rewrite leaves a partial blob that the sync commits
+# because it continues past a normalize failure. A rename swaps in a finished file, which
+# shows up here as a changed inode.
+@test "normalize: rewriting source replaces the file instead of truncating it in place" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	printf '{\n  "cleanupPeriodDays": 45,\n  "model": "opus"\n}\n' | encrypt_to_source
+	local before_inode
+	before_inode="$(stat -f %i "$SRCFILE")"
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_contains "dropped model from source"
+
+	local after_inode
+	after_inode="$(stat -f %i "$SRCFILE")"
+	[ "$after_inode" != "$before_inode" ]
+
+	# The temp file lands in src's own directory so the rename stays atomic, which puts it
+	# inside the repo where `git add -A` would sweep it into the commit.
+	run git -C "$REPO" status --porcelain
+	assert_not_contains "??"
+}

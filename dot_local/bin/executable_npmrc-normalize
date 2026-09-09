@@ -164,8 +164,29 @@ def main():
     if encrypted.returncode != 0:
         print(f"failed to re-encrypt .npmrc: {encrypted.stderr}", file=sys.stderr)
         return 1
-    with open(src, "w") as fh:
-        fh.write(encrypted.stdout)
+    # Rename a finished file into place rather than writing through the existing one.
+    # `open(src, "w")` truncates before the ciphertext lands, so an interrupted run leaves
+    # a partial blob — and the sync's `git add -A` would commit that, producing an
+    # .npmrc in history that no key can open. The temp file goes in src's own
+    # directory because os.replace is only atomic within a filesystem, and the fsync is
+    # what makes the rename swap in bytes that actually reached the disk.
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", dir=os.path.dirname(src), prefix=".", suffix=".tmp", delete=False
+        ) as fh:
+            tmp = fh.name
+            fh.write(encrypted.stdout)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, src)
+    except OSError as exc:
+        # Leaving the temp file behind would put an untracked file in the source dir for
+        # the next `git add -A` to sweep up.
+        if tmp is not None and os.path.exists(tmp):
+            os.unlink(tmp)
+        print(f"failed to write {src}: {exc}", file=sys.stderr)
+        return 1
     print(f"dropped {', '.join(removed)} from source")
     return 0
 

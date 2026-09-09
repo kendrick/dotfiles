@@ -275,16 +275,32 @@ fi
 # The blanket re-add above can't tell a shared setting from a machine-local one, and
 # /model writes its choice straight into settings.json. Undo that here rather than
 # before the re-add: stripping the live file instead would wipe the pin on every sync.
+#
+# A normalizer that fails takes the sync down with it. `git add -A` further down stages
+# whatever source holds, so continuing past the failure is precisely what commits this
+# machine's gateway address to a public repo — the outcome these phases exist to prevent,
+# and one that survives in history after the push. A missing normalizer is a different
+# case and stays lenient, because bin/ isn't applied yet on a machine mid-bootstrap.
+# Both scripts already exit 0 when there's no age key to decrypt with, so a nonzero exit
+# here only ever means a strip or a restore genuinely failed.
 echo "==> Normalizing Claude settings"
 if command -v claude-settings-normalize &>/dev/null; then
-  claude-settings-normalize || echo "    ! settings normalize failed, continuing"
+  if ! claude-settings-normalize; then
+    echo "    ! settings normalize failed; refusing to commit"
+    notify_fail "Claude settings normalize failed. Nothing committed. See $LOG."
+    exit 1
+  fi
 else
   echo "    claude-settings-normalize not found, skipping"
 fi
 
 echo "==> Normalizing npmrc"
 if command -v npmrc-normalize &>/dev/null; then
-  npmrc-normalize || echo "    ! npmrc normalize failed, continuing"
+  if ! npmrc-normalize; then
+    echo "    ! npmrc normalize failed; refusing to commit"
+    notify_fail "npmrc normalize failed. Nothing committed. See $LOG."
+    exit 1
+  fi
 else
   echo "    npmrc-normalize not found, skipping"
 fi

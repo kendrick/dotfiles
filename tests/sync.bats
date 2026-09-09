@@ -376,3 +376,60 @@ notification_body() {
 	assert_not_contains "Nothing to commit. Already in sync."
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
 }
+
+# The normalizers are the only thing standing between this machine's corporate gateway
+# and a public repo's history, and the commit phase below runs `git add -A` over whatever
+# source holds. Continuing past a normalize failure therefore commits the unsanitized
+# blob, which is the one outcome these phases exist to prevent.
+@test "sync: a failing npmrc-normalize aborts before anything is committed" {
+	fresh_repo
+	printf 'change\n' >"$REPO/change.txt"
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	# write_stubs leaves the normalizers out so their phases take the not-found branch;
+	# writing one here is what makes this the failure path rather than the absent one.
+	printf '#!/usr/bin/env bash\nexit 1\n' >"$STUBS/npmrc-normalize"
+	chmod +x "$STUBS/npmrc-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "npmrc normalize failed"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+	assert_contains "Nothing committed" "$(command cat "$OSA_LOG")"
+}
+
+# The Claude phase carries the higher-stakes payload of the two: claude-settings-normalize
+# strips the `env` block holding this box's gateway token, so its failure path has to stop
+# the sync for the same reason npmrc's does.
+@test "sync: a failing claude-settings-normalize aborts before anything is committed" {
+	fresh_repo
+	printf 'change\n' >"$REPO/change.txt"
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	printf '#!/usr/bin/env bash\nexit 1\n' >"$STUBS/claude-settings-normalize"
+	chmod +x "$STUBS/claude-settings-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "settings normalize failed"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+	assert_contains "Nothing committed" "$(command cat "$OSA_LOG")"
+}
+
+# The absent normalizer is a different case from the failing one and must stay lenient: a
+# machine mid-bootstrap hasn't applied bin/ yet, and failing closed there would leave no
+# way to run the first sync at all.
+@test "sync: an absent npmrc-normalize still skips rather than aborting" {
+	fresh_repo
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "npmrc-normalize not found, skipping"
+	assert_contains "Committed locally"
+}

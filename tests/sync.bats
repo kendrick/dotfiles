@@ -535,6 +535,10 @@ notification_body() {
 
 	[ "$status" -ne 0 ]
 	assert_contains "did not verify it"
+	# A rename leaves the new name untracked, and `checkout HEAD --` cannot remove a file
+	# that was never in HEAD, so restoring alone leaves the capture on disk and the next
+	# sync refusing again. A recovery step that doesn't recover is the same wedge as none.
+	assert_contains "clean -f"
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
 }
 

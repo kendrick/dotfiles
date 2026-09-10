@@ -386,7 +386,12 @@ assert_sanitized() {
     return 0
   fi
   echo "    ! a source matching $pattern changed but $label did not verify it; refusing to commit"
-  echo "      Discard the capture with: git -C \"$SRC\" checkout HEAD -- $pattern"
+  # `checkout HEAD --` restores what HEAD holds and stops there. When re-add renamed the
+  # source, the capture sits under a name HEAD never had, so checkout leaves it on disk
+  # (overlay is the default, and --no-overlay doesn't remove untracked files either) and
+  # the next sync refuses again. `clean` is what removes it. Two commands, because git
+  # has no single one that does both.
+  echo "      Discard the capture with: git -C \"$SRC\" checkout HEAD -- $pattern && git -C \"$SRC\" clean -f -- $pattern"
   notify_fail "An unverified encrypted source changed. Nothing committed. See $LOG."
   exit 1
 }

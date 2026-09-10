@@ -287,12 +287,117 @@ fi
 # The blanket re-add above can't tell a shared setting from a machine-local one, and
 # /model writes its choice straight into settings.json. Undo that here rather than
 # before the re-add: stripping the live file instead would wipe the pin on every sync.
+#
+# A normalizer that fails takes the sync down with it. `git add -A` further down stages
+# whatever source holds, so continuing past the failure is precisely what commits this
+# machine's gateway address to a public repo — the outcome these phases exist to prevent,
+# and one that survives in history after the push. A missing normalizer is a different
+# case and stays lenient, because bin/ isn't applied yet on a machine mid-bootstrap.
+# Both scripts already exit 0 when there's no age key to decrypt with, so a nonzero exit
+# here only ever means a strip or a restore genuinely failed.
+settings_verified=0
 echo "==> Normalizing Claude settings"
 if command -v claude-settings-normalize &>/dev/null; then
-  claude-settings-normalize || echo "    ! settings normalize failed, continuing"
+  # Three-way, not pass/fail. Exit 2 means the script never opened the blob — an
+  # unresolvable target, or chezmoi not answering — and that is not something to vouch
+  # for. Folding it into success would let the guard below skip its dirty-source check
+  # on the strength of a run that read nothing. `|| rc=$?` because errexit is on and a
+  # bare call would abort before the mapping ran.
+  rc=0
+  claude-settings-normalize || rc=$?
+  case "$rc" in
+  0) settings_verified=1 ;;
+  2) echo "    settings normalize skipped without reading the source" ;;
+  *)
+    echo "    ! settings normalize failed; refusing to commit"
+    notify_fail "Claude settings normalize failed. Nothing committed. See $LOG."
+    exit 1
+    ;;
+  esac
 else
   echo "    claude-settings-normalize not found, skipping"
 fi
+
+npmrc_verified=0
+echo "==> Normalizing npmrc"
+if command -v npmrc-normalize &>/dev/null; then
+  # Three-way, not pass/fail. Exit 2 means the script never opened the blob — an
+  # unresolvable target, or chezmoi not answering — and that is not something to vouch
+  # for. Folding it into success would let the guard below skip its dirty-source check
+  # on the strength of a run that read nothing. `|| rc=$?` because errexit is on and a
+  # bare call would abort before the mapping ran.
+  rc=0
+  npmrc-normalize || rc=$?
+  case "$rc" in
+  0) npmrc_verified=1 ;;
+  2) echo "    npmrc normalize skipped without reading the source" ;;
+  *)
+    echo "    ! npmrc normalize failed; refusing to commit"
+    notify_fail "npmrc normalize failed. Nothing committed. See $LOG."
+    exit 1
+    ;;
+  esac
+else
+  echo "    npmrc-normalize not found, skipping"
+fi
+
+# ---- Phase: no unverified encrypted source reaches the commit ----
+# Exit 0 from a normalizer does not mean it read the file. It also covers "no age
+# identity", "chezmoi didn't answer", and "not installed", and the phases above cannot
+# tell those from a real strip. Each is a fair skip on its own, and each is also the
+# state in which a capture from an earlier keyed run can be sitting in source unread.
+#
+# What separates them is whether the blob actually changed, which is checkable at the
+# ciphertext level and therefore needs no key — the point being that the dangerous
+# states are exactly the ones where decryption isn't available. Unchanged from HEAD
+# means nothing new is there to leak, whatever the normalizer did. Changed and
+# unverified is the case `git add -A` below would commit blind.
+#
+# One guard rather than a rule per branch: the normalizers have several success exits
+# and will grow more, and auditing each one in turn is how a gap survives a review.
+# The plugin manifests are deliberately not listed. They hold this box's absolute
+# installPaths rather than credentials, and no normalizer claims them.
+# The source filename is not stable. chezmoi renames a source when the live file's mode
+# changes, adding or dropping the `private_` attribute, and this repo has already been
+# through it unattended: dot_claude/encrypted_private_settings.json.age was the real path
+# from 545df96 until auto-sync commit 29a9b9a renamed it. Naming one spelling means the
+# guard below reports "ok" while looking at a path that exists nowhere, which is worse
+# than not checking at all, since it turns the absence of a check into a pass.
+#
+# So ask chezmoi which name is current. It can't answer for a target .chezmoiignore is
+# skipping, which is exactly the keyless machine, so the callers fall back to a glob
+# covering both spellings. chezmoi orders attributes `encrypted_` then `private_`, which
+# is what puts the wildcard between them.
+resolve_source() {
+  # Args: a target path under $HOME. Prints its source-relative path, or nothing.
+  local target="$1" abs
+  abs="$(chezmoi source-path "$target" 2>/dev/null)" || return 0
+  [ -n "$abs" ] || return 0
+  printf '%s\n' "${abs#"$SRC"/}"
+}
+
+assert_sanitized() {
+  # Args: source-relative path or glob, 1 if a normalizer vouched for it, script name
+  local pattern="$1" verified="$2" label="$3"
+  if [ "$verified" = "1" ]; then
+    return 0
+  fi
+  if [ -z "$(git -C "$SRC" status --porcelain -- "$pattern" 2>/dev/null)" ]; then
+    return 0
+  fi
+  echo "    ! a source matching $pattern changed but $label did not verify it; refusing to commit"
+  echo "      Discard the capture with: git -C \"$SRC\" checkout HEAD -- $pattern"
+  notify_fail "An unverified encrypted source changed. Nothing committed. See $LOG."
+  exit 1
+}
+
+settings_src="$(resolve_source "$HOME/.claude/settings.json")"
+npmrc_src="$(resolve_source "$HOME/.npmrc")"
+
+echo "==> Verifying encrypted sources were sanitized"
+assert_sanitized "${settings_src:-dot_claude/encrypted_*settings.json.age}" "$settings_verified" "claude-settings-normalize"
+assert_sanitized "${npmrc_src:-encrypted_*dot_npmrc.age}" "$npmrc_verified" "npmrc-normalize"
+echo "    ok"
 
 # ---- Phase: template drift (what re-add structurally can't capture) ----
 # re-add won't reverse-render a template, so a templated file an app rewrites in

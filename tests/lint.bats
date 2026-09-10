@@ -101,3 +101,18 @@ load 'helpers'
 
 	return 0
 }
+
+# The normalizers replace their encrypted source by renaming a temp file into place, and
+# that temp has to live in the source dir for os.replace to stay atomic. A SIGKILL between
+# the two steps strands it in the worktree. The normalizers sweep stale ones on their next
+# write, but nothing runs in between, so this ignore rule is what actually keeps one out
+# of the daily sync's unconditional `git add -A`.
+@test "the normalizers' replacement temp is ignored by the repo" {
+	local repo="$BATS_TEST_DIRNAME/.."
+
+	run git -C "$repo" check-ignore -q ".normalize-tmp-deadbeef.tmp"
+	[ "$status" -eq 0 ]
+
+	run git -C "$repo" check-ignore -q "dot_claude/.normalize-tmp-deadbeef.tmp"
+	[ "$status" -eq 0 ]
+}

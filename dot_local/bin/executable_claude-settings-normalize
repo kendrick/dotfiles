@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
 """Keep the synced Claude settings free of machine-local keys and of pointless churn.
 
-`model` is the problem key. /model writes it into ~/.claude/settings.json by design
-("saves your choice as the default for new sessions"), settings.json is an encrypted
-chezmoi target, and dotfiles-sync runs a blanket `chezmoi re-add`. So every model
-switch rides into source and gets committed. That costs more than it looks: age
-ciphertext doesn't delta, so a one-line pin change rewrites all 9KB of the blob and
-parks another full copy in a public repo's history, permanently.
+`LOCAL_KEYS` denylists top-level keys that describe this machine, this person, or
+this employer rather than shared intent. `model` was the original case: /model
+writes it into ~/.claude/settings.json by design ("saves your choice as the default
+for new sessions"), settings.json is an encrypted chezmoi target, and dotfiles-sync
+runs a blanket `chezmoi re-add`. So every model switch rides into source and gets
+committed. That costs more than it looks: age ciphertext doesn't delta, so a
+one-line pin change rewrites all 9KB of the blob and parks another full copy in a
+public repo's history, permanently.
 
-It also isn't a setting worth sharing. Which model this box should default to is a
-machine question, the same way installPath was for the plugin manifests, and
-f5ab21b already settled that class of problem by normalizing live state down to
-intent. This is that fix applied to the one file that was left.
+None of the four keys added alongside it are worth sharing either, each for its own
+reason. Which model this box should default to is a machine question, the same way
+installPath was for the plugin manifests, and f5ab21b already settled that class of
+problem by normalizing live state down to intent. `env` carries this box's corporate
+gateway token and headers — the one thing that must never reach a public repo.
+`companyAnnouncements` and `spinnerVerbs` are employer branding with no business
+being shared beyond this machine. `$schema` is an editor affordance with no runtime
+effect, pure machine-local noise. All five ride the same blanket re-add regardless
+of why they don't belong in source.
 
 Runs AFTER re-add, and edits source rather than the live file. That ordering is the
 whole point: strip the live copy instead and every sync would wipe the pin you just
@@ -28,20 +35,41 @@ nondeterminism turns it into a full 9.9KB commit that changes nothing.
 Doing nothing is the common case and costs one decrypt. To pin a model durably
 enough to survive an apply, use ANTHROPIC_MODEL instead; it outranks this setting
 and never touches a file.
+
+Exit codes are a three-way answer, because dotfiles-sync needs to tell "I read this blob
+and it's clean" from "I never opened it". 0 means inspected, 2 means skipped without
+reading, anything else is failure. The distinction is load-bearing: the sync skips its
+own dirty-source check whenever a normalizer vouches for a file, so a skip that reported
+0 would wave an unread capture straight through. A new early exit has to pick one, and
+if it didn't read the source the answer is 2.
 """
 
 import json
+import glob
 import os
 import subprocess
 import sys
 import tempfile
 
+# Exit code for a skip that never read the source. See the module docstring.
+SKIPPED_UNREAD = 2
+
 TARGET = os.path.expanduser("~/.claude/settings.json")
 
-# Keys that describe this machine rather than this person. Everything else in
-# settings.json (permissions, hooks, enabled plugins, marketplaces) is shared
-# intent and keeps syncing exactly as before.
-LOCAL_KEYS = ("model",)
+# Distinctive enough for .gitignore to match and for the sweep above to recognize its own
+# leavings without touching anything else in the source dir.
+TMP_PREFIX = ".normalize-tmp-"
+
+# Keys that describe this machine, this person, or this employer rather than
+# shared intent. Everything else in settings.json (permissions, hooks, enabled
+# plugins, marketplaces) is shared intent and keeps syncing exactly as before.
+LOCAL_KEYS = (
+    "model",  # /model's per-machine pin; the original problem key, see docstring.
+    "env",  # this box's corporate gateway token/headers — must never reach the repo.
+    "companyAnnouncements",  # employer banner text, not shared intent.
+    "spinnerVerbs",  # employer branding, not shared intent.
+    "$schema",  # editor affordance only; no runtime effect, pure machine noise.
+)
 
 
 def run(cmd, **kw):
@@ -51,6 +79,47 @@ def run(cmd, **kw):
 def decrypt(path):
     result = run(["chezmoi", "decrypt", path])
     return result.stdout if result.returncode == 0 else None
+
+
+def identity_is_absent():
+    """Whether this machine has no age identity at all, the normal bootstrap state.
+
+    True for absent or zero-byte, False for a real file, None when the path won't resolve.
+
+    The size test mirrors .chezmoiignore's on purpose, and the two have to agree.
+    That template is what decides whether this encrypted file is a managed target at all,
+    so a normalizer drawing the line somewhere else would create a state where the file
+    is managed, source holds live's machine-local keys, and an undecryptable read still
+    reports a clean bootstrap skip. Zero bytes counts as absent because a failed
+    `op read > key.txt` creates the file before op writes to it.
+
+    Asks chezmoi for the path rather than hardcoding it, which is what keeps the two
+    definitions from drifting apart. dotfiles-sync hardcodes the same path only because
+    chezmoi is the thing that guard exists to check; nothing here has that constraint.
+    """
+    result = run(["chezmoi", "execute-template", "{{ .chezmoi.config.age.identity }}"])
+    if result.returncode != 0:
+        return None
+    path = result.stdout.strip()
+    if not path:
+        return None
+    try:
+        return os.path.getsize(path) == 0
+    except OSError:
+        return True
+
+
+def source_differs_from_head(repo, src):
+    """Whether the encrypted blob on disk differs from the committed one.
+
+    Compares ciphertext, which is the whole point: the states this guards are exactly the
+    ones where no key is available to say what changed. Any git failure counts as a
+    difference, since an unanswerable question is not an assurance.
+    """
+    result = run(["git", "-C", repo, "status", "--porcelain", "--", src])
+    if result.returncode != 0:
+        return True
+    return bool(result.stdout.strip())
 
 
 def head_plaintext(repo, src):
@@ -75,27 +144,64 @@ def main():
     src = run(["chezmoi", "source-path", TARGET])
     if src.returncode != 0:
         print("settings.json isn't a chezmoi target; nothing to normalize.", file=sys.stderr)
-        return 0
+        return SKIPPED_UNREAD
     src = src.stdout.strip()
 
     repo = run(["chezmoi", "source-path"])
     if repo.returncode != 0:
         print("chezmoi not available; skipping settings normalize.", file=sys.stderr)
-        return 0
+        return SKIPPED_UNREAD
     repo = repo.stdout.strip()
 
     plain = decrypt(src)
     if plain is None:
-        # No age key on this machine, which is a normal state mid-bootstrap. The
-        # encrypted config isn't deployed there either, so there's nothing to strip.
-        print("couldn't decrypt settings.json; skipping normalize.", file=sys.stderr)
-        return 0
+        absent = identity_is_absent()
+        if absent is True:
+            # An absent identity is the normal bootstrap state only while nothing has been
+            # captured yet. `.chezmoiignore` skips this target whenever the key is missing
+            # or zero bytes, so a source that differs from HEAD was written by an earlier
+            # run that did have one. dotfiles-sync now aborts between re-add and commit,
+            # which makes a stranded capture a designed outcome rather than only a crash,
+            # and calling that a clean bootstrap hands it straight to `git add -A`.
+            if source_differs_from_head(repo, src):
+                print(
+                    f"couldn't decrypt settings.json, no age identity, and source differs from "
+                    f"HEAD; refusing to report success. Restore it with: "
+                    f"git -C {repo} checkout HEAD -- {src}",
+                    file=sys.stderr,
+                )
+                return 1
+            # No age key on this machine, which is a normal state mid-bootstrap. The
+            # encrypted config isn't deployed there either, so there's nothing to strip.
+            print("couldn't decrypt settings.json; skipping normalize.", file=sys.stderr)
+            return SKIPPED_UNREAD
+        # An identity that exists but can't open this blob is the dangerous case, not the
+        # harmless one. age encrypts to a recipient hardcoded in .chezmoi.toml, so a
+        # corrupt or foreign key still lets `chezmoi re-add` capture live's machine-local
+        # keys into source — only reading them back failed. Since dotfiles-sync now aborts
+        # on a nonzero normalizer and on nothing else, reporting success here is what
+        # would commit the unstripped blob.
+        reason = (
+            "the age identity can't be resolved"
+            if absent is None
+            else "an age identity is present"
+        )
+        print(
+            f"couldn't decrypt settings.json and {reason}; refusing to report success.",
+            file=sys.stderr,
+        )
+        return 1
 
     try:
         data = json.loads(plain)
     except json.JSONDecodeError as exc:
+        # Nonzero, not 0. `chezmoi re-add` captures live settings.json, so a capture
+        # taken while Claude Code rewrites the file yields half a document — and the
+        # half already in source may carry the `env` gateway token. The sync aborts on
+        # a nonzero normalizer and on nothing else, so returning 0 here would hand it
+        # an unparsed blob and call that success.
         print(f"settings.json in source isn't valid JSON: {exc}", file=sys.stderr)
-        return 0
+        return 1
 
     removed = [key for key in LOCAL_KEYS if key in data]
     for key in removed:
@@ -141,8 +247,39 @@ def main():
     if encrypted.returncode != 0:
         print(f"failed to re-encrypt settings.json: {encrypted.stderr}", file=sys.stderr)
         return 1
-    with open(src, "w") as fh:
-        fh.write(encrypted.stdout)
+    # A SIGKILL or a power loss between the temp's creation and the rename skips the
+    # cleanup below, stranding the file in the worktree. Sweep what a previous run left
+    # before adding another; .gitignore covers the window in between, when this hasn't
+    # run yet and the daily sync's `git add -A` has.
+    for stale in glob.glob(os.path.join(os.path.dirname(src), TMP_PREFIX + "*")):
+        try:
+            os.unlink(stale)
+        except OSError:
+            pass
+
+    # Rename a finished file into place rather than writing through the existing one.
+    # `open(src, "w")` truncates before the ciphertext lands, so an interrupted run leaves
+    # a partial blob — and the sync's `git add -A` would commit that, producing an
+    # settings.json in history that no key can open. The temp file goes in src's own
+    # directory because os.replace is only atomic within a filesystem, and the fsync is
+    # what makes the rename swap in bytes that actually reached the disk.
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", dir=os.path.dirname(src), prefix=TMP_PREFIX, suffix=".tmp", delete=False
+        ) as fh:
+            tmp = fh.name
+            fh.write(encrypted.stdout)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, src)
+    except OSError as exc:
+        # Leaving the temp file behind would put an untracked file in the source dir for
+        # the next `git add -A` to sweep up.
+        if tmp is not None and os.path.exists(tmp):
+            os.unlink(tmp)
+        print(f"failed to write {src}: {exc}", file=sys.stderr)
+        return 1
     print(f"dropped {', '.join(removed)} from source")
     return 0
 

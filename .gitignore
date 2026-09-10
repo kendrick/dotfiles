@@ -15,3 +15,9 @@ _working-memory/activeContext.md
 __pycache__/
 *.pyc
 .agent-guild/state/
+
+# The normalizers replace their encrypted source by renaming a temp file into place, and
+# that temp has to sit in the source dir for os.replace to stay atomic. A SIGKILL between
+# the two steps strands it here. Each script sweeps stale ones on its next write, but the
+# daily sync's `git add -A` may run first, so this is what keeps one out of a commit.
+.normalize-tmp-*

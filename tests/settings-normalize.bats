@@ -184,6 +184,27 @@ JSON
 	assert_contains "45"
 }
 
+# LOCAL_KEYS widened past `model` alone to cover the corporate-gateway `env` block. This
+# pins the denylist to stay flat — strip the whole `env` key, leave every sibling key
+# alone — rather than, say, recursing into nested objects and taking `permissions`/
+# `hooks` down with it.
+@test "normalize: an env block is stripped and permissions/hooks survive" {
+	printf '{\n  "env": {"ANTHROPIC_BASE_URL": "https://corp.example/gateway"},\n  "permissions": {"allow": []},\n  "hooks": {"PreToolUse": []}\n}\n' | encrypt_to_source
+	commit_source
+
+	printf '{\n  "env": {"ANTHROPIC_BASE_URL": "https://corp.example/gateway"},\n  "cleanupPeriodDays": 45,\n  "permissions": {"allow": []},\n  "hooks": {"PreToolUse": []}\n}\n' | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_contains "dropped env from source"
+
+	run "$STUBS/chezmoi" decrypt "$SRCFILE"
+	assert_not_contains "ANTHROPIC_BASE_URL"
+	assert_contains "permissions"
+	assert_contains "hooks"
+	assert_contains "45"
+}
+
 # The bootstrap case: no age key, so nothing decrypts. The encrypted config isn't deployed
 # on such a machine either, so the script has nothing to normalize and must not treat that
 # as an error the sync should report.
@@ -196,12 +217,200 @@ case "\$1" in
 source-path)
 	if [ -n "\$2" ]; then echo "$SRCFILE"; else echo "$REPO"; fi
 	;;
+# Points at a path that does not exist, which is what makes this the bootstrap case
+# rather than a machine whose key is present and simply cannot open the blob.
+execute-template) echo "$BATS_TEST_TMPDIR/absent-key.txt" ;;
 decrypt) exit 1 ;;
 esac
 STUB
 	chmod +x "$STUBS/chezmoi"
 
 	run run_normalize
-	[ "$status" -eq 0 ]
+	[ "$status" -eq 2 ]
 	assert_contains "couldn't decrypt"
+}
+
+# The sibling of npmrc-normalize's inode case, and the same reasoning: `open(src, "w")`
+# truncates first, so an interrupted rewrite leaves a partial blob that the sync commits
+# because it continues past a normalize failure. A rename swaps in a finished file, which
+# shows up here as a changed inode.
+@test "normalize: rewriting source replaces the file instead of truncating it in place" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	printf '{\n  "cleanupPeriodDays": 45,\n  "model": "opus"\n}\n' | encrypt_to_source
+	local before_inode
+	before_inode="$(stat -f %i "$SRCFILE")"
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_contains "dropped model from source"
+
+	local after_inode
+	after_inode="$(stat -f %i "$SRCFILE")"
+	[ "$after_inode" != "$before_inode" ]
+
+	# The temp file lands in src's own directory so the rename stays atomic, which puts it
+	# inside the repo where `git add -A` would sweep it into the commit.
+	run git -C "$REPO" status --porcelain
+	assert_not_contains "??"
+}
+
+# `chezmoi re-add` captures live settings.json, so a capture that lands while Claude Code
+# is rewriting the file yields half a JSON document. The parse arm used to swallow that
+# and return 0, which was harmless only while the sync ignored exit codes. Now that the
+# sync aborts on nonzero and on nothing else, reporting success here is what would commit
+# the gateway token this script exists to strip.
+@test "normalize: a source blob that isn't valid JSON fails instead of reporting success" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	printf '{\n  "env": {"ANTHROPIC_AUTH_TOKEN": "sk-corp-secret"},\n  "permissions"\n' | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -ne 0 ]
+	assert_contains "isn't valid JSON"
+}
+
+# The sibling of npmrc-normalize's sweep case. A SIGKILL between the temp's creation and
+# os.replace skips the except arm, stranding the file inside the worktree.
+@test "normalize: a stranded replacement temp is swept before the rewrite" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	local orphan="$REPO/dot_claude/.normalize-tmp-deadbeef.tmp"
+	printf 'partial ciphertext\n' >"$orphan"
+
+	printf '{\n  "cleanupPeriodDays": 45,\n  "model": "opus"\n}\n' | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+
+	[ ! -e "$orphan" ]
+	run git -C "$REPO" status --porcelain
+	assert_not_contains "??"
+}
+
+# The gap the earlier fail-closed change opened. `.chezmoiignore` enables the encrypted
+# targets whenever key.txt is merely nonempty, and age encrypts to a recipient hardcoded
+# in .chezmoi.toml, so a machine holding a corrupt or foreign key still captures live
+# settings.json into source through `chezmoi re-add`. It just cannot read it back. Reporting
+# success there hands the sync an unstripped blob and calls the commit clean.
+@test "normalize: a decrypt failure with an identity present fails instead of skipping" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	local keyfile="$BATS_TEST_TMPDIR/key.txt"
+	printf 'AGE-SECRET-KEY-NOT-THE-RIGHT-ONE\n' >"$keyfile"
+
+	cat >"$STUBS/chezmoi" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+source-path)
+	if [ -n "\$2" ]; then echo "$SRCFILE"; else echo "$REPO"; fi
+	;;
+execute-template) echo "$keyfile" ;;
+decrypt) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -ne 0 ]
+	assert_contains "refusing to report success"
+}
+
+# `.chezmoiignore` tests size rather than existence because a failed `op read` creates the
+# file before op writes anything. The normalizer has to draw the line in the same place,
+# or a zero-byte key would read as a usable identity and fail a bootstrap that should skip.
+@test "normalize: a zero-byte identity counts as absent and still skips" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	local keyfile="$BATS_TEST_TMPDIR/key.txt"
+	: >"$keyfile"
+
+	cat >"$STUBS/chezmoi" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+source-path)
+	if [ -n "\$2" ]; then echo "$SRCFILE"; else echo "$REPO"; fi
+	;;
+execute-template) echo "$keyfile" ;;
+decrypt) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -eq 2 ]
+	assert_contains "couldn't decrypt"
+}
+
+# An absent identity is the normal bootstrap state only while nothing has been captured
+# yet. `.chezmoiignore` skips this target whenever the key is missing or zero bytes, so a
+# source that differs from HEAD was written by an earlier run that did have a key. Since
+# dotfiles-sync now aborts between re-add and commit, a stranded capture is a designed
+# outcome rather than only a crash, and this branch would hand it to `git add -A` unread.
+@test "normalize: an absent identity with a captured source fails instead of skipping" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	# What an earlier keyed run left in source before the sync gave up.
+	settings_with_model | encrypt_to_source
+
+	cat >"$STUBS/chezmoi" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+source-path)
+	if [ -n "\$2" ]; then echo "$SRCFILE"; else echo "$REPO"; fi
+	;;
+execute-template) echo "$BATS_TEST_TMPDIR/absent-key.txt" ;;
+decrypt) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -ne 0 ]
+	assert_contains "differs from HEAD"
+}
+
+# Exit 2, not 0. This path never opened the file, and dotfiles-sync reads a plain 0 as
+# "a normalizer vouched for this blob" and skips its own dirty-source check on the
+# strength of it. Reporting success from here is what lets an unread capture through.
+@test "normalize: an unresolvable target reports a skip rather than a verified pass" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	cat >"$STUBS/chezmoi" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+source-path) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -eq 2 ]
+}
+
+# The sibling resolution failure: the target resolves but the repo root does not, so the
+# script still never reads the blob and still must not claim it did.
+@test "normalize: chezmoi not answering for the repo root reports a skip, not a pass" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	cat >"$STUBS/chezmoi" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+source-path)
+	if [ -n "\$2" ]; then echo "$SRCFILE"; else exit 1; fi
+	;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -eq 2 ]
 }

@@ -427,17 +427,30 @@ touch_at() {
 	# passing comparison into a failing one. Anchoring on the heading and
 	# taking only the "none" directly beneath it is what keeps this a test of
 	# the guard's footprint instead of the word's.
+	# The npmrc normalizer is a phase the pre-guard baseline predates, so its
+	# heading and the one line it prints come out too. Anchored as a pair for
+	# the same reason as the guard's: "not found, skipping" is the shape every
+	# guarded phase prints when its binary is off the stubbed PATH, and
+	# dropping every match would strip the sibling settings phase's line that
+	# the baseline also prints.
+	# The sanitization check is newer than the baseline too, and its clean line is the
+	# bare word "ok" — common enough that dropping every match would strip lines HEAD
+	# prints as well. Anchored to its own heading for the same reason as the two above.
 	# The weekly extension-update phase is newer than the baseline too. Its clean line
-	# names the helper it delegates to, so unlike the two above it shares no wording
+	# names the helper it delegates to, so unlike the three above it shares no wording
 	# with any phase HEAD prints and needs no contiguity trick. Anchored to its heading
 	# anyway, to keep every arm in here reading the same way.
 	local filtered_new
 	filtered_new="$(printf '%s\n' "$out_new" | awk '
 		$0 == "==> Checking whether source moved ahead of this machine" { pending = 1; next }
 		pending == 1 && $0 == "    none" { pending = 0; next }
+		$0 == "==> Normalizing npmrc" { npmrc = 1; next }
+		npmrc == 1 && $0 == "    npmrc-normalize not found, skipping" { npmrc = 0; next }
+		$0 == "==> Verifying encrypted sources were sanitized" { verify = 1; next }
+		verify == 1 && $0 == "    ok" { verify = 0; next }
 		$0 == "==> Updating VS Code extensions (weekly)" { vscode = 1; next }
 		vscode == 1 && $0 == "    vscode-extensions-update not found, skipping" { vscode = 0; next }
-		{ pending = 0; vscode = 0; print }
+		{ pending = 0; npmrc = 0; verify = 0; vscode = 0; print }
 	')"
 
 	[ "$filtered_new" = "$out_head" ]

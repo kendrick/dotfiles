@@ -376,3 +376,184 @@ notification_body() {
 	assert_not_contains "Nothing to commit. Already in sync."
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
 }
+
+# The normalizers are the only thing standing between this machine's corporate gateway
+# and a public repo's history, and the commit phase below runs `git add -A` over whatever
+# source holds. Continuing past a normalize failure therefore commits the unsanitized
+# blob, which is the one outcome these phases exist to prevent.
+@test "sync: a failing npmrc-normalize aborts before anything is committed" {
+	fresh_repo
+	printf 'change\n' >"$REPO/change.txt"
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	# write_stubs leaves the normalizers out so their phases take the not-found branch;
+	# writing one here is what makes this the failure path rather than the absent one.
+	printf '#!/usr/bin/env bash\nexit 1\n' >"$STUBS/npmrc-normalize"
+	chmod +x "$STUBS/npmrc-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "npmrc normalize failed"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+	assert_contains "Nothing committed" "$(command cat "$OSA_LOG")"
+}
+
+# The Claude phase carries the higher-stakes payload of the two: claude-settings-normalize
+# strips the `env` block holding this box's gateway token, so its failure path has to stop
+# the sync for the same reason npmrc's does.
+@test "sync: a failing claude-settings-normalize aborts before anything is committed" {
+	fresh_repo
+	printf 'change\n' >"$REPO/change.txt"
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	printf '#!/usr/bin/env bash\nexit 1\n' >"$STUBS/claude-settings-normalize"
+	chmod +x "$STUBS/claude-settings-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "settings normalize failed"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+	assert_contains "Nothing committed" "$(command cat "$OSA_LOG")"
+}
+
+# The absent normalizer is a different case from the failing one and must stay lenient: a
+# machine mid-bootstrap hasn't applied bin/ yet, and failing closed there would leave no
+# way to run the first sync at all.
+@test "sync: an absent npmrc-normalize still skips rather than aborting" {
+	fresh_repo
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "npmrc-normalize not found, skipping"
+	assert_contains "Committed locally"
+}
+
+# The normalizers report success down several paths that never read the file at all: no
+# age identity, chezmoi not answering, the script not installed. Each is a fair skip on
+# its own and each is indistinguishable from a verified run to this caller. What separates
+# them is whether the encrypted source actually changed, and `git add -A` cannot tell.
+@test "sync: a changed encrypted source with no normalizer installed refuses to commit" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	# What a re-add on a keyed machine leaves behind. npmrc-normalize is absent from PATH,
+	# so nothing in this run read the blob before the commit phase.
+	printf 'freshly captured ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "did not verify it"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}
+
+# The other half: a changed blob a normalizer actually vouched for is ordinary work and
+# has to keep flowing, or the guard above would block every real npmrc edit.
+@test "sync: a changed encrypted source a normalizer verified is committed" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+
+	printf 'freshly captured ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	printf '#!/usr/bin/env bash\nexit 0\n' >"$STUBS/npmrc-normalize"
+	chmod +x "$STUBS/npmrc-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Committed locally"
+}
+
+# A normalizer that exits 2 is saying it never read the blob. Treating that as a pass is
+# how the sanitization guard gets bypassed by the very skip paths it exists to cover, so
+# the dirty-source check has to run for it exactly as if nothing had run at all.
+@test "sync: a normalizer that skipped without reading does not count as verified" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	printf 'freshly captured ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	printf '#!/usr/bin/env bash\nexit 2\n' >"$STUBS/npmrc-normalize"
+	chmod +x "$STUBS/npmrc-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "did not verify it"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}
+
+# And a skip over an unchanged blob stays harmless, or every bootstrap run would abort.
+@test "sync: a normalizer that skipped over an unchanged source still commits" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+	printf 'change\n' >"$REPO/change.txt"
+
+	printf '#!/usr/bin/env bash\nexit 2\n' >"$STUBS/npmrc-normalize"
+	chmod +x "$STUBS/npmrc-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Committed locally"
+}
+
+# The source filename is not stable. `dot_claude/encrypted_private_settings.json.age` was
+# the real path from 545df96 until 29a9b9a, and that flip was an unattended auto-sync:
+# chezmoi renames the source when the live file's mode changes, dropping or adding the
+# `private_` attribute. A guard naming one spelling reports "ok" while looking at a path
+# that exists nowhere, which is worse than not checking, because it launders the absence
+# of a check into a pass.
+@test "sync: a changed settings source under the private_ name still refuses to commit" {
+	fresh_repo
+	mkdir -p "$REPO/dot_claude"
+	printf 'committed ciphertext\n' >"$REPO/dot_claude/encrypted_private_settings.json.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'settings'
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	printf 'freshly captured ciphertext\n' >"$REPO/dot_claude/encrypted_private_settings.json.age"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "did not verify it"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}
+
+# The mirror of the case above, and the one Codex did not name: the npmrc guard hardcoded
+# the private_ spelling, so it goes silent in the other direction if ~/.npmrc ever loses
+# mode 0600 and chezmoi drops the attribute.
+@test "sync: a changed npmrc source under the non-private name still refuses to commit" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	printf 'freshly captured ciphertext\n' >"$REPO/encrypted_dot_npmrc.age"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "did not verify it"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}

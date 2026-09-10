@@ -60,6 +60,10 @@ dot_local/bin/executable_awssso
 .claude/PROSE.md
 .claude/voice-samples-work.md
 .claude/voice-samples-personal.md
+# Same unconditional-decrypt problem as the Claude files above: this is the target
+# path for encrypted_private_dot_npmrc.age, so a keyless machine dies here too if
+# it's left out.
+.npmrc
 {{ end }}
 
 # The plugin manifests are never deployed, in either direction of the key check above.

@@ -64,6 +64,18 @@ else
   echo "    code CLI not found, skipping"
 fi
 
+# ---- Phase: update VS Code extensions (weekly) ----
+# extensions.autoUpdate is off in VS Code (#45), so something has to keep extensions
+# current. vscode-extensions-update owns both the work and the weekly stamp, because
+# run_after_update-vscode-extensions.sh calls it too: a machine with sync_schedule =
+# "off" never installs the LaunchAgent and so never reaches this phase at all.
+echo "==> Updating VS Code extensions (weekly)"
+if command -v vscode-extensions-update &>/dev/null; then
+  vscode-extensions-update || echo "    ! extension update failed, continuing"
+else
+  echo "    vscode-extensions-update not found, skipping"
+fi
+
 # ---- Phase: Claude plugin manifests ----
 # Not a re-add: those manifests are no longer chezmoi targets, because the CLI writes
 # machine-local paths into them and syncing that verbatim made every concurrent sync

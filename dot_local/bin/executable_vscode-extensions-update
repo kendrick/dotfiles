@@ -1,0 +1,53 @@
+#!/bin/bash
+# vscode-extensions-update — bring VS Code extensions current, at most once a week.
+#
+# VS Code's own extensions.autoUpdate is off, because in-app updates fire about four
+# seconds into launch and extract 200-550MB packages while the extension host is still
+# booting (kendrick/dotfiles#45). That makes this script the only thing keeping
+# extensions current, so it has to reach every machine, not just the ones that sync.
+#
+# Two callers, because neither one alone covers the fleet:
+#
+#   dotfiles-sync            runs off the LaunchAgent, which a machine with
+#                            sync_schedule = "off" never installs. The client role
+#                            defaults to off, so a client box is exactly the case
+#                            dotfiles-sync cannot reach.
+#   run_after_update-...     runs on every `chezmoi apply`, which is how an off
+#                            machine takes any change at all. It cannot reach a
+#                            machine that syncs but never applies.
+#
+# The stamp is what lets both call it without doing the work twice, and it is also the
+# cadence: seven days measured from the last successful run, never from a failed one.
+
+set -euo pipefail
+
+STAMP="$HOME/.local/state/dotfiles/last-extension-update"
+INTERVAL_DAYS=7
+
+# --force is for a human who wants the update now. Nothing automated passes it, so a
+# forced run still writes the stamp and still resets the week for both callers.
+force=0
+[ "${1:-}" = "--force" ] && force=1
+
+if ! command -v code &>/dev/null; then
+	echo "    code CLI not found, skipping"
+	exit 0
+fi
+
+# `find -mtime +N` prints the file only once it is older than N days, so empty output
+# means the stamp is still fresh. Testing the output rather than find's exit status is
+# deliberate: find exits 0 whether or not anything matched.
+if [ "$force" -eq 0 ] && [ -f "$STAMP" ] && [ -z "$(find "$STAMP" -mtime +$INTERVAL_DAYS 2>/dev/null)" ]; then
+	echo "    updated $(date -r "$STAMP" '+%Y-%m-%d'), next run due after $INTERVAL_DAYS days"
+	exit 0
+fi
+
+mkdir -p "$(dirname "$STAMP")"
+
+if code --update-extensions; then
+	touch "$STAMP"
+	echo "    extensions updated"
+else
+	echo "    ! code --update-extensions failed"
+	exit 1
+fi

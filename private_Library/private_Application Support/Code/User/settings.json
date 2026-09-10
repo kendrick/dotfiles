@@ -58,7 +58,4 @@
 	"chat.viewSessions.orientation": "stacked",
 	"chat.disableAIFeatures": true,
 	"editor.fontWeight": "600",
-
-	"extensions.autoUpdate": false,
-	"extensions.autoCheckUpdates": false,
 }

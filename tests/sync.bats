@@ -513,3 +513,47 @@ notification_body() {
 	[ "$status" -eq 0 ]
 	assert_contains "Committed locally"
 }
+
+# The source filename is not stable. `dot_claude/encrypted_private_settings.json.age` was
+# the real path from 545df96 until 29a9b9a, and that flip was an unattended auto-sync:
+# chezmoi renames the source when the live file's mode changes, dropping or adding the
+# `private_` attribute. A guard naming one spelling reports "ok" while looking at a path
+# that exists nowhere, which is worse than not checking, because it launders the absence
+# of a check into a pass.
+@test "sync: a changed settings source under the private_ name still refuses to commit" {
+	fresh_repo
+	mkdir -p "$REPO/dot_claude"
+	printf 'committed ciphertext\n' >"$REPO/dot_claude/encrypted_private_settings.json.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'settings'
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	printf 'freshly captured ciphertext\n' >"$REPO/dot_claude/encrypted_private_settings.json.age"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "did not verify it"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}
+
+# The mirror of the case above, and the one Codex did not name: the npmrc guard hardcoded
+# the private_ spelling, so it goes silent in the other direction if ~/.npmrc ever loses
+# mode 0600 and chezmoi drops the attribute.
+@test "sync: a changed npmrc source under the non-private name still refuses to commit" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	printf 'freshly captured ciphertext\n' >"$REPO/encrypted_dot_npmrc.age"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "did not verify it"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}

@@ -345,24 +345,46 @@ fi
 # and will grow more, and auditing each one in turn is how a gap survives a review.
 # The plugin manifests are deliberately not listed. They hold this box's absolute
 # installPaths rather than credentials, and no normalizer claims them.
+# The source filename is not stable. chezmoi renames a source when the live file's mode
+# changes, adding or dropping the `private_` attribute, and this repo has already been
+# through it unattended: dot_claude/encrypted_private_settings.json.age was the real path
+# from 545df96 until auto-sync commit 29a9b9a renamed it. Naming one spelling means the
+# guard below reports "ok" while looking at a path that exists nowhere, which is worse
+# than not checking at all, since it turns the absence of a check into a pass.
+#
+# So ask chezmoi which name is current. It can't answer for a target .chezmoiignore is
+# skipping, which is exactly the keyless machine, so the callers fall back to a glob
+# covering both spellings. chezmoi orders attributes `encrypted_` then `private_`, which
+# is what puts the wildcard between them.
+resolve_source() {
+  # Args: a target path under $HOME. Prints its source-relative path, or nothing.
+  local target="$1" abs
+  abs="$(chezmoi source-path "$target" 2>/dev/null)" || return 0
+  [ -n "$abs" ] || return 0
+  printf '%s\n' "${abs#"$SRC"/}"
+}
+
 assert_sanitized() {
-  # Args: source-relative path, 1 if a normalizer vouched for it this run, script name
-  local rel="$1" verified="$2" label="$3"
+  # Args: source-relative path or glob, 1 if a normalizer vouched for it, script name
+  local pattern="$1" verified="$2" label="$3"
   if [ "$verified" = "1" ]; then
     return 0
   fi
-  if [ -z "$(git -C "$SRC" status --porcelain -- "$rel" 2>/dev/null)" ]; then
+  if [ -z "$(git -C "$SRC" status --porcelain -- "$pattern" 2>/dev/null)" ]; then
     return 0
   fi
-  echo "    ! $rel changed but $label did not verify it; refusing to commit"
-  echo "      Discard the capture with: git -C \"$SRC\" checkout HEAD -- $rel"
-  notify_fail "$rel changed with nothing to verify it. Nothing committed. See $LOG."
+  echo "    ! a source matching $pattern changed but $label did not verify it; refusing to commit"
+  echo "      Discard the capture with: git -C \"$SRC\" checkout HEAD -- $pattern"
+  notify_fail "An unverified encrypted source changed. Nothing committed. See $LOG."
   exit 1
 }
 
+settings_src="$(resolve_source "$HOME/.claude/settings.json")"
+npmrc_src="$(resolve_source "$HOME/.npmrc")"
+
 echo "==> Verifying encrypted sources were sanitized"
-assert_sanitized "dot_claude/encrypted_settings.json.age" "$settings_verified" "claude-settings-normalize"
-assert_sanitized "encrypted_private_dot_npmrc.age" "$npmrc_verified" "npmrc-normalize"
+assert_sanitized "${settings_src:-dot_claude/encrypted_*settings.json.age}" "$settings_verified" "claude-settings-normalize"
+assert_sanitized "${npmrc_src:-encrypted_*dot_npmrc.age}" "$npmrc_verified" "npmrc-normalize"
 echo "    ok"
 
 # ---- Phase: template drift (what re-add structurally can't capture) ----

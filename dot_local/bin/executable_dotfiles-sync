@@ -377,8 +377,12 @@ resolve_source() {
 }
 
 assert_sanitized() {
-  # Args: source-relative path or glob, 1 if a normalizer vouched for it, script name
-  local pattern="$1" verified="$2" label="$3"
+  # Args: detection path or glob, 1 if a normalizer vouched for it, script name, and the
+  # glob to hand the reader for recovery. Detection wants the exact resolved name;
+  # recovery cannot use it. After a rename that name is untracked and HEAD never held it,
+  # so `checkout HEAD --` fails on it and restores nothing, while the tracked spelling it
+  # should be restoring goes unnamed. Only the glob covers both.
+  local pattern="$1" verified="$2" label="$3" recovery="$4"
   if [ "$verified" = "1" ]; then
     return 0
   fi
@@ -386,17 +390,28 @@ assert_sanitized() {
     return 0
   fi
   echo "    ! a source matching $pattern changed but $label did not verify it; refusing to commit"
-  echo "      Discard the capture with: git -C \"$SRC\" checkout HEAD -- $pattern"
+  # `checkout HEAD --` restores what HEAD holds and stops there. When re-add renamed the
+  # source, the capture sits under a name HEAD never had, so checkout leaves it on disk
+  # (overlay is the default, and --no-overlay doesn't remove untracked files either) and
+  # the next sync refuses again. `clean` is what removes it. Two commands, because git
+  # has no single one that does both.
+  # `;` rather than `&&`: checkout still fails when nothing in HEAD matches, and the
+  # cleanup is the half that clears a renamed capture, so it has to run regardless. The
+  # glob is quoted so git does the matching — unquoted, the shell would expand it against
+  # whatever directory the reader is standing in and hand git the wrong path.
+  echo "      Discard the capture with: git -C \"$SRC\" checkout HEAD -- '$recovery'; git -C \"$SRC\" clean -f -- '$recovery'"
   notify_fail "An unverified encrypted source changed. Nothing committed. See $LOG."
   exit 1
 }
 
+settings_glob="dot_claude/encrypted_*settings.json.age"
+npmrc_glob="encrypted_*dot_npmrc.age"
 settings_src="$(resolve_source "$HOME/.claude/settings.json")"
 npmrc_src="$(resolve_source "$HOME/.npmrc")"
 
 echo "==> Verifying encrypted sources were sanitized"
-assert_sanitized "${settings_src:-dot_claude/encrypted_*settings.json.age}" "$settings_verified" "claude-settings-normalize"
-assert_sanitized "${npmrc_src:-encrypted_*dot_npmrc.age}" "$npmrc_verified" "npmrc-normalize"
+assert_sanitized "${settings_src:-$settings_glob}" "$settings_verified" "claude-settings-normalize" "$settings_glob"
+assert_sanitized "${npmrc_src:-$npmrc_glob}" "$npmrc_verified" "npmrc-normalize" "$npmrc_glob"
 echo "    ok"
 
 # ---- Phase: template drift (what re-add structurally can't capture) ----

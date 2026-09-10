@@ -535,6 +535,13 @@ notification_body() {
 
 	[ "$status" -ne 0 ]
 	assert_contains "did not verify it"
+	# Run what the script printed rather than asserting on its wording. A message-only
+	# check cannot catch a command that fails, which is exactly how an `&&` between the
+	# restore and the cleanup shipped: checkout errors on a path HEAD never tracked and
+	# short-circuits the clean that was supposed to remove the capture.
+	run_printed_recovery
+	run git -C "$REPO" status --porcelain
+	[ -z "$output" ]
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
 }
 
@@ -556,4 +563,55 @@ notification_body() {
 	[ "$status" -ne 0 ]
 	assert_contains "did not verify it"
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}
+
+# Extracts the recovery command the refusal advertised and runs it. Single-quoted globs
+# in the message survive the eval, which is also why the message quotes them: unquoted,
+# the shell would expand them against whatever directory the reader happens to be in.
+run_printed_recovery() {
+	local recovery
+	recovery="$(printf '%s\n' "$output" | sed -n 's/.*Discard the capture with: //p' | head -1)"
+	[ -n "$recovery" ]
+	eval "$recovery"
+}
+
+# The case the glob hides. When resolve_source answers, $pattern is the exact new name,
+# which HEAD never tracked, so checkout fails outright. Whatever joins the two commands
+# has to let the cleanup run anyway, and the restore has to name something HEAD holds.
+@test "sync: the printed recovery clears a capture left under a renamed source" {
+	fresh_repo
+	mkdir -p "$REPO/dot_claude"
+	printf 'committed ciphertext\n' >"$REPO/dot_claude/encrypted_settings.json.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'settings'
+
+	# What re-add leaves behind when the live file's mode changes: the tracked spelling is
+	# gone from the worktree and the capture sits under the private_ one, untracked.
+	rm "$REPO/dot_claude/encrypted_settings.json.age"
+	printf 'freshly captured\n' >"$REPO/dot_claude/encrypted_private_settings.json.age"
+
+	cat >"$STUBS/chezmoi" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+source-path)
+	if [ -n "\${2:-}" ]; then
+		echo "$REPO/dot_claude/encrypted_private_settings.json.age"
+	else
+		printf '%s\n' "$REPO"
+	fi
+	;;
+re-add) exit 0 ;;
+status) exit 0 ;;
+*) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run bash "$SCRIPT"
+	[ "$status" -ne 0 ]
+	assert_contains "did not verify it"
+
+	run_printed_recovery
+	run git -C "$REPO" status --porcelain
+	[ -z "$output" ]
 }

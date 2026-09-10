@@ -87,6 +87,20 @@ settings_without_model() {
 JSON
 }
 
+# The same document Claude Code would write back after touching the file: identical
+# content, keys in a different order. json.dumps preserves insertion order, so this
+# re-serializes to different bytes while meaning exactly the same thing.
+settings_reordered() {
+	cat <<'JSON'
+{
+  "permissions": {
+    "allow": []
+  },
+  "cleanupPeriodDays": 30
+}
+JSON
+}
+
 settings_with_model() {
 	cat <<'JSON'
 {
@@ -413,4 +427,48 @@ STUB
 
 	run run_normalize
 	[ "$status" -eq 2 ]
+}
+
+# Claude Code reorders top-level keys when it rewrites settings.json. A byte comparison
+# against HEAD's plaintext calls that a change, so the blob stays dirty and the sync
+# commits the whole re-encrypted file for nothing. 25a7412 was exactly this — three keys
+# changing position — and it diverged main from origin for two days.
+@test "normalize: a key reorder with no content change is restored from HEAD" {
+	settings_without_model | encrypt_to_source
+	commit_source
+	local committed
+	committed="$(shasum -a 256 "$SRCFILE" | cut -d' ' -f1)"
+
+	settings_reordered | encrypt_to_source
+	local churned
+	churned="$(shasum -a 256 "$SRCFILE" | cut -d' ' -f1)"
+	[ "$churned" != "$committed" ]
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_contains "restored the committed blob"
+
+	local after
+	after="$(shasum -a 256 "$SRCFILE" | cut -d' ' -f1)"
+	[ "$after" = "$committed" ]
+	run git -C "$REPO" status --porcelain
+	[ -z "$output" ]
+}
+
+# Python calls True == 1, so comparing parsed containers would treat a boolean flipping
+# to the matching number as no change and check out HEAD over a real edit. The function
+# promises to ignore key order, not to erase type distinctions JSON makes.
+@test "normalize: a boolean changing to a number is a real change, not a reorder" {
+	printf '{\n  "cleanupPeriodDays": true\n}\n' | encrypt_to_source
+	commit_source
+
+	printf '{\n  "cleanupPeriodDays": 1\n}\n' | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_not_contains "restored the committed blob"
+
+	run "$STUBS/chezmoi" decrypt "$SRCFILE"
+	assert_contains "1"
+	assert_not_contains "true"
 }

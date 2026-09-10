@@ -122,6 +122,34 @@ def source_differs_from_head(repo, src):
     return bool(result.stdout.strip())
 
 
+def same_content(payload, head):
+    """Whether two settings documents say the same thing, ignoring key order.
+
+    Claude Code reorders top-level keys when it rewrites settings.json, so comparing
+    serialized text calls a file changed that changed in nothing that matters. The miss
+    isn't free: the blob stays dirty and the next sync commits the whole re-encrypted
+    file. 25a7412 was exactly that, three keys changing position, and it diverged main
+    from origin for two days before anyone looked. Byte equality is still checked first,
+    because it's the common case and cheaper.
+
+    npmrc-normalize deliberately has no equivalent. That file is ini-flavored text where
+    comments, blank lines, and ordering are all content, so there is no parse that could
+    call two spellings equal without throwing away something real.
+    """
+    if head is None:
+        return False
+    # Re-serialized with sorted keys rather than compared as parsed containers. Python
+    # calls True == 1, so container equality would read a boolean flipping to the matching
+    # number as no change and check out HEAD over a real edit. Sorting keys is what makes
+    # the comparison ignore order; dumping is what keeps the type distinctions JSON draws.
+    try:
+        return json.dumps(json.loads(payload), sort_keys=True) == json.dumps(
+            json.loads(head), sort_keys=True
+        )
+    except json.JSONDecodeError:
+        return False
+
+
 def head_plaintext(repo, src):
     """What the last commit holds, decrypted. None if it isn't committed yet.
 
@@ -221,7 +249,8 @@ def main():
     # age encrypts nondeterministically, so restoring the committed blob is the only
     # thing that actually leaves no diff. Re-encrypting identical content just hands
     # the sync another bogus commit to make.
-    if payload == head_plaintext(repo, src):
+    head = head_plaintext(repo, src)
+    if payload == head or same_content(payload, head):
         # `checkout HEAD --`, not `checkout --`. The bare form restores from the index,
         # which is the wrong tree to compare against: a sync that died between `git add
         # -A` and `git commit` leaves the pin staged, and restoring that would put it

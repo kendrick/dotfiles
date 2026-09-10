@@ -71,6 +71,34 @@ def decrypt(path):
     return result.stdout if result.returncode == 0 else None
 
 
+def identity_is_absent():
+    """Whether this machine has no age identity at all, the normal bootstrap state.
+
+    True for absent or zero-byte, False for a real file, None when the path won't resolve.
+
+    The size test mirrors .chezmoiignore's on purpose, and the two have to agree.
+    That template is what decides whether this encrypted file is a managed target at all,
+    so a normalizer drawing the line somewhere else would create a state where the file
+    is managed, source holds live's machine-local keys, and an undecryptable read still
+    reports a clean bootstrap skip. Zero bytes counts as absent because a failed
+    `op read > key.txt` creates the file before op writes to it.
+
+    Asks chezmoi for the path rather than hardcoding it, which is what keeps the two
+    definitions from drifting apart. dotfiles-sync hardcodes the same path only because
+    chezmoi is the thing that guard exists to check; nothing here has that constraint.
+    """
+    result = run(["chezmoi", "execute-template", "{{ .chezmoi.config.age.identity }}"])
+    if result.returncode != 0:
+        return None
+    path = result.stdout.strip()
+    if not path:
+        return None
+    try:
+        return os.path.getsize(path) == 0
+    except OSError:
+        return True
+
+
 def head_plaintext(repo, src):
     """What the last commit holds, decrypted. None if it isn't committed yet.
 
@@ -104,10 +132,28 @@ def main():
 
     plain = decrypt(src)
     if plain is None:
-        # No age key on this machine, which is a normal state mid-bootstrap. The
-        # encrypted config isn't deployed there either, so there's nothing to strip.
-        print("couldn't decrypt settings.json; skipping normalize.", file=sys.stderr)
-        return 0
+        absent = identity_is_absent()
+        if absent is True:
+            # No age key on this machine, which is a normal state mid-bootstrap. The
+            # encrypted config isn't deployed there either, so there's nothing to strip.
+            print("couldn't decrypt settings.json; skipping normalize.", file=sys.stderr)
+            return 0
+        # An identity that exists but can't open this blob is the dangerous case, not the
+        # harmless one. age encrypts to a recipient hardcoded in .chezmoi.toml, so a
+        # corrupt or foreign key still lets `chezmoi re-add` capture live's machine-local
+        # keys into source — only reading them back failed. Since dotfiles-sync now aborts
+        # on a nonzero normalizer and on nothing else, reporting success here is what
+        # would commit the unstripped blob.
+        reason = (
+            "the age identity can't be resolved"
+            if absent is None
+            else "an age identity is present"
+        )
+        print(
+            f"couldn't decrypt settings.json and {reason}; refusing to report success.",
+            file=sys.stderr,
+        )
+        return 1
 
     try:
         data = json.loads(plain)

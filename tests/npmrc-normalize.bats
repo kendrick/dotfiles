@@ -213,6 +213,9 @@ case "\$1" in
 source-path)
 	if [ -n "\$2" ]; then echo "$SRCFILE"; else echo "$REPO"; fi
 	;;
+# Points at a path that does not exist, which is what makes this the bootstrap case
+# rather than a machine whose key is present and simply cannot open the blob.
+execute-template) echo "$BATS_TEST_TMPDIR/absent-key.txt" ;;
 decrypt) exit 1 ;;
 esac
 STUB
@@ -284,4 +287,60 @@ NPMRC
 	[ ! -e "$orphan" ]
 	run git -C "$REPO" status --porcelain
 	assert_not_contains "??"
+}
+
+# The gap the earlier fail-closed change opened. `.chezmoiignore` enables the encrypted
+# targets whenever key.txt is merely nonempty, and age encrypts to a recipient hardcoded
+# in .chezmoi.toml, so a machine holding a corrupt or foreign key still captures live
+# .npmrc into source through `chezmoi re-add`. It just cannot read it back. Reporting
+# success there hands the sync an unstripped blob and calls the commit clean.
+@test "normalize: a decrypt failure with an identity present fails instead of skipping" {
+	npmrc_with_token | encrypt_to_source
+	commit_source
+
+	local keyfile="$BATS_TEST_TMPDIR/key.txt"
+	printf 'AGE-SECRET-KEY-NOT-THE-RIGHT-ONE\n' >"$keyfile"
+
+	cat >"$STUBS/chezmoi" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+source-path)
+	if [ -n "\$2" ]; then echo "$SRCFILE"; else echo "$REPO"; fi
+	;;
+execute-template) echo "$keyfile" ;;
+decrypt) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -ne 0 ]
+	assert_contains "refusing to report success"
+}
+
+# `.chezmoiignore` tests size rather than existence because a failed `op read` creates the
+# file before op writes anything. The normalizer has to draw the line in the same place,
+# or a zero-byte key would read as a usable identity and fail a bootstrap that should skip.
+@test "normalize: a zero-byte identity counts as absent and still skips" {
+	npmrc_with_token | encrypt_to_source
+	commit_source
+
+	local keyfile="$BATS_TEST_TMPDIR/key.txt"
+	: >"$keyfile"
+
+	cat >"$STUBS/chezmoi" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+source-path)
+	if [ -n "\$2" ]; then echo "$SRCFILE"; else echo "$REPO"; fi
+	;;
+execute-template) echo "$keyfile" ;;
+decrypt) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_contains "couldn't decrypt"
 }

@@ -427,11 +427,18 @@ touch_at() {
 	# passing comparison into a failing one. Anchoring on the heading and
 	# taking only the "none" directly beneath it is what keeps this a test of
 	# the guard's footprint instead of the word's.
+	# The weekly extension-update phase is newer than the baseline too, and on a run
+	# with no `code` on PATH it reports itself with the same "code CLI not found,
+	# skipping" line the regenerate phase above it prints. HEAD prints that line once,
+	# so dropping every match strips one side only. Anchored to its own heading and
+	# taking the line directly beneath it, for the same reason as the pair above.
 	local filtered_new
 	filtered_new="$(printf '%s\n' "$out_new" | awk '
 		$0 == "==> Checking whether source moved ahead of this machine" { pending = 1; next }
 		pending == 1 && $0 == "    none" { pending = 0; next }
-		{ pending = 0; print }
+		$0 == "==> Updating VS Code extensions (weekly)" { vscode = 1; next }
+		vscode == 1 && $0 == "    code CLI not found, skipping" { vscode = 0; next }
+		{ pending = 0; vscode = 0; print }
 	')"
 
 	[ "$filtered_new" = "$out_head" ]

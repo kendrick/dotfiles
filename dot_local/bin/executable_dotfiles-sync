@@ -64,6 +64,29 @@ else
   echo "    code CLI not found, skipping"
 fi
 
+# ---- Phase: update VS Code extensions (weekly) ----
+# extensions.autoUpdate is off, because in-app updates fire about four seconds into
+# launch and extract 200-550MB packages while the extension host is still booting. That
+# leaves this phase as the only thing keeping extensions current, so if it stops running
+# the extensions rot with nothing to say so. See #45.
+#
+# Weekly rather than per-run, because this job fires three times a day and
+# --update-extensions queries the marketplace once per installed id. The stamp file
+# carries the cadence, and this phase writes it only on success, so a failed run retries
+# on the next sync instead of sitting out a week it never earned.
+echo "==> Updating VS Code extensions (weekly)"
+ext_stamp="$LOGDIR/last-extension-update"
+if ! command -v code &>/dev/null; then
+  echo "    code CLI not found, skipping"
+elif [ -f "$ext_stamp" ] && [ -z "$(find "$ext_stamp" -mtime +7 2>/dev/null)" ]; then
+  echo "    updated $(date -r "$ext_stamp" '+%Y-%m-%d'), next run due after 7 days"
+elif code --update-extensions; then
+  touch "$ext_stamp"
+  echo "    extensions updated"
+else
+  echo "    ! update failed, retrying next sync"
+fi
+
 # ---- Phase: Claude plugin manifests ----
 # Not a re-add: those manifests are no longer chezmoi targets, because the CLI writes
 # machine-local paths into them and syncing that verbatim made every concurrent sync

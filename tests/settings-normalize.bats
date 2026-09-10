@@ -454,3 +454,21 @@ STUB
 	run git -C "$REPO" status --porcelain
 	[ -z "$output" ]
 }
+
+# Python calls True == 1, so comparing parsed containers would treat a boolean flipping
+# to the matching number as no change and check out HEAD over a real edit. The function
+# promises to ignore key order, not to erase type distinctions JSON makes.
+@test "normalize: a boolean changing to a number is a real change, not a reorder" {
+	printf '{\n  "cleanupPeriodDays": true\n}\n' | encrypt_to_source
+	commit_source
+
+	printf '{\n  "cleanupPeriodDays": 1\n}\n' | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_not_contains "restored the committed blob"
+
+	run "$STUBS/chezmoi" decrypt "$SRCFILE"
+	assert_contains "1"
+	assert_not_contains "true"
+}

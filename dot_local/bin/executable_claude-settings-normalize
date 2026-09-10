@@ -138,8 +138,14 @@ def same_content(payload, head):
     """
     if head is None:
         return False
+    # Re-serialized with sorted keys rather than compared as parsed containers. Python
+    # calls True == 1, so container equality would read a boolean flipping to the matching
+    # number as no change and check out HEAD over a real edit. Sorting keys is what makes
+    # the comparison ignore order; dumping is what keeps the type distinctions JSON draws.
     try:
-        return json.loads(payload) == json.loads(head)
+        return json.dumps(json.loads(payload), sort_keys=True) == json.dumps(
+            json.loads(head), sort_keys=True
+        )
     except json.JSONDecodeError:
         return False
 

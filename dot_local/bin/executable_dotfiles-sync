@@ -283,6 +283,7 @@ fi
 # case and stays lenient, because bin/ isn't applied yet on a machine mid-bootstrap.
 # Both scripts already exit 0 when there's no age key to decrypt with, so a nonzero exit
 # here only ever means a strip or a restore genuinely failed.
+settings_verified=0
 echo "==> Normalizing Claude settings"
 if command -v claude-settings-normalize &>/dev/null; then
   if ! claude-settings-normalize; then
@@ -290,10 +291,12 @@ if command -v claude-settings-normalize &>/dev/null; then
     notify_fail "Claude settings normalize failed. Nothing committed. See $LOG."
     exit 1
   fi
+  settings_verified=1
 else
   echo "    claude-settings-normalize not found, skipping"
 fi
 
+npmrc_verified=0
 echo "==> Normalizing npmrc"
 if command -v npmrc-normalize &>/dev/null; then
   if ! npmrc-normalize; then
@@ -301,9 +304,46 @@ if command -v npmrc-normalize &>/dev/null; then
     notify_fail "npmrc normalize failed. Nothing committed. See $LOG."
     exit 1
   fi
+  npmrc_verified=1
 else
   echo "    npmrc-normalize not found, skipping"
 fi
+
+# ---- Phase: no unverified encrypted source reaches the commit ----
+# Exit 0 from a normalizer does not mean it read the file. It also covers "no age
+# identity", "chezmoi didn't answer", and "not installed", and the phases above cannot
+# tell those from a real strip. Each is a fair skip on its own, and each is also the
+# state in which a capture from an earlier keyed run can be sitting in source unread.
+#
+# What separates them is whether the blob actually changed, which is checkable at the
+# ciphertext level and therefore needs no key — the point being that the dangerous
+# states are exactly the ones where decryption isn't available. Unchanged from HEAD
+# means nothing new is there to leak, whatever the normalizer did. Changed and
+# unverified is the case `git add -A` below would commit blind.
+#
+# One guard rather than a rule per branch: the normalizers have several success exits
+# and will grow more, and auditing each one in turn is how a gap survives a review.
+# The plugin manifests are deliberately not listed. They hold this box's absolute
+# installPaths rather than credentials, and no normalizer claims them.
+assert_sanitized() {
+  # Args: source-relative path, 1 if a normalizer vouched for it this run, script name
+  local rel="$1" verified="$2" label="$3"
+  if [ "$verified" = "1" ]; then
+    return 0
+  fi
+  if [ -z "$(git -C "$SRC" status --porcelain -- "$rel" 2>/dev/null)" ]; then
+    return 0
+  fi
+  echo "    ! $rel changed but $label did not verify it; refusing to commit"
+  echo "      Discard the capture with: git -C \"$SRC\" checkout HEAD -- $rel"
+  notify_fail "$rel changed with nothing to verify it. Nothing committed. See $LOG."
+  exit 1
+}
+
+echo "==> Verifying encrypted sources were sanitized"
+assert_sanitized "dot_claude/encrypted_settings.json.age" "$settings_verified" "claude-settings-normalize"
+assert_sanitized "encrypted_private_dot_npmrc.age" "$npmrc_verified" "npmrc-normalize"
+echo "    ok"
 
 # ---- Phase: template drift (what re-add structurally can't capture) ----
 # re-add won't reverse-render a template, so a templated file an app rewrites in

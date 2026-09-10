@@ -433,3 +433,44 @@ notification_body() {
 	assert_contains "npmrc-normalize not found, skipping"
 	assert_contains "Committed locally"
 }
+
+# The normalizers report success down several paths that never read the file at all: no
+# age identity, chezmoi not answering, the script not installed. Each is a fair skip on
+# its own and each is indistinguishable from a verified run to this caller. What separates
+# them is whether the encrypted source actually changed, and `git add -A` cannot tell.
+@test "sync: a changed encrypted source with no normalizer installed refuses to commit" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	# What a re-add on a keyed machine leaves behind. npmrc-normalize is absent from PATH,
+	# so nothing in this run read the blob before the commit phase.
+	printf 'freshly captured ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "did not verify it"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}
+
+# The other half: a changed blob a normalizer actually vouched for is ordinary work and
+# has to keep flowing, or the guard above would block every real npmrc edit.
+@test "sync: a changed encrypted source a normalizer verified is committed" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+
+	printf 'freshly captured ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	printf '#!/usr/bin/env bash\nexit 0\n' >"$STUBS/npmrc-normalize"
+	chmod +x "$STUBS/npmrc-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Committed locally"
+}

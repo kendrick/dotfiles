@@ -344,3 +344,32 @@ STUB
 	[ "$status" -eq 0 ]
 	assert_contains "couldn't decrypt"
 }
+
+# An absent identity is the normal bootstrap state only while nothing has been captured
+# yet. `.chezmoiignore` skips this target whenever the key is missing or zero bytes, so a
+# source that differs from HEAD was written by an earlier run that did have a key. Since
+# dotfiles-sync now aborts between re-add and commit, a stranded capture is a designed
+# outcome rather than only a crash, and this branch would hand it to `git add -A` unread.
+@test "normalize: an absent identity with a captured source fails instead of skipping" {
+	npmrc_with_token | encrypt_to_source
+	commit_source
+
+	# What an earlier keyed run left in source before the sync gave up.
+	npmrc_with_proxy | encrypt_to_source
+
+	cat >"$STUBS/chezmoi" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+source-path)
+	if [ -n "\$2" ]; then echo "$SRCFILE"; else echo "$REPO"; fi
+	;;
+execute-template) echo "$BATS_TEST_TMPDIR/absent-key.txt" ;;
+decrypt) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -ne 0 ]
+	assert_contains "differs from HEAD"
+}

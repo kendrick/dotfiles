@@ -433,13 +433,18 @@ touch_at() {
 	# guarded phase prints when its binary is off the stubbed PATH, and
 	# dropping every match would strip the sibling settings phase's line that
 	# the baseline also prints.
+	# The sanitization check is newer than the baseline too, and its clean line is the
+	# bare word "ok" — common enough that dropping every match would strip lines HEAD
+	# prints as well. Anchored to its own heading for the same reason as the two above.
 	local filtered_new
 	filtered_new="$(printf '%s\n' "$out_new" | awk '
 		$0 == "==> Checking whether source moved ahead of this machine" { pending = 1; next }
 		pending == 1 && $0 == "    none" { pending = 0; next }
 		$0 == "==> Normalizing npmrc" { npmrc = 1; next }
 		npmrc == 1 && $0 == "    npmrc-normalize not found, skipping" { npmrc = 0; next }
-		{ pending = 0; npmrc = 0; print }
+		$0 == "==> Verifying encrypted sources were sanitized" { verify = 1; next }
+		verify == 1 && $0 == "    ok" { verify = 0; next }
+		{ pending = 0; npmrc = 0; verify = 0; print }
 	')"
 
 	[ "$filtered_new" = "$out_head" ]

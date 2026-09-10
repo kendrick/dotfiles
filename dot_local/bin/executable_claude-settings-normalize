@@ -38,12 +38,17 @@ and never touches a file.
 """
 
 import json
+import glob
 import os
 import subprocess
 import sys
 import tempfile
 
 TARGET = os.path.expanduser("~/.claude/settings.json")
+
+# Distinctive enough for .gitignore to match and for the sweep above to recognize its own
+# leavings without touching anything else in the source dir.
+TMP_PREFIX = ".normalize-tmp-"
 
 # Keys that describe this machine, this person, or this employer rather than
 # shared intent. Everything else in settings.json (permissions, hooks, enabled
@@ -107,8 +112,13 @@ def main():
     try:
         data = json.loads(plain)
     except json.JSONDecodeError as exc:
+        # Nonzero, not 0. `chezmoi re-add` captures live settings.json, so a capture
+        # taken while Claude Code rewrites the file yields half a document — and the
+        # half already in source may carry the `env` gateway token. The sync aborts on
+        # a nonzero normalizer and on nothing else, so returning 0 here would hand it
+        # an unparsed blob and call that success.
         print(f"settings.json in source isn't valid JSON: {exc}", file=sys.stderr)
-        return 0
+        return 1
 
     removed = [key for key in LOCAL_KEYS if key in data]
     for key in removed:
@@ -154,6 +164,16 @@ def main():
     if encrypted.returncode != 0:
         print(f"failed to re-encrypt settings.json: {encrypted.stderr}", file=sys.stderr)
         return 1
+    # A SIGKILL or a power loss between the temp's creation and the rename skips the
+    # cleanup below, stranding the file in the worktree. Sweep what a previous run left
+    # before adding another; .gitignore covers the window in between, when this hasn't
+    # run yet and the daily sync's `git add -A` has.
+    for stale in glob.glob(os.path.join(os.path.dirname(src), TMP_PREFIX + "*")):
+        try:
+            os.unlink(stale)
+        except OSError:
+            pass
+
     # Rename a finished file into place rather than writing through the existing one.
     # `open(src, "w")` truncates before the ciphertext lands, so an interrupted run leaves
     # a partial blob — and the sync's `git add -A` would commit that, producing an
@@ -163,7 +183,7 @@ def main():
     tmp = None
     try:
         with tempfile.NamedTemporaryFile(
-            "w", dir=os.path.dirname(src), prefix=".", suffix=".tmp", delete=False
+            "w", dir=os.path.dirname(src), prefix=TMP_PREFIX, suffix=".tmp", delete=False
         ) as fh:
             tmp = fh.name
             fh.write(encrypted.stdout)

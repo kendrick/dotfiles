@@ -252,3 +252,38 @@ STUB
 	run git -C "$REPO" status --porcelain
 	assert_not_contains "??"
 }
+
+# `chezmoi re-add` captures live settings.json, so a capture that lands while Claude Code
+# is rewriting the file yields half a JSON document. The parse arm used to swallow that
+# and return 0, which was harmless only while the sync ignored exit codes. Now that the
+# sync aborts on nonzero and on nothing else, reporting success here is what would commit
+# the gateway token this script exists to strip.
+@test "normalize: a source blob that isn't valid JSON fails instead of reporting success" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	printf '{\n  "env": {"ANTHROPIC_AUTH_TOKEN": "sk-corp-secret"},\n  "permissions"\n' | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -ne 0 ]
+	assert_contains "isn't valid JSON"
+}
+
+# The sibling of npmrc-normalize's sweep case. A SIGKILL between the temp's creation and
+# os.replace skips the except arm, stranding the file inside the worktree.
+@test "normalize: a stranded replacement temp is swept before the rewrite" {
+	settings_without_model | encrypt_to_source
+	commit_source
+
+	local orphan="$REPO/dot_claude/.normalize-tmp-deadbeef.tmp"
+	printf 'partial ciphertext\n' >"$orphan"
+
+	printf '{\n  "cleanupPeriodDays": 45,\n  "model": "opus"\n}\n' | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+
+	[ ! -e "$orphan" ]
+	run git -C "$REPO" status --porcelain
+	assert_not_contains "??"
+}

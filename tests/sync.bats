@@ -474,3 +474,42 @@ notification_body() {
 	[ "$status" -eq 0 ]
 	assert_contains "Committed locally"
 }
+
+# A normalizer that exits 2 is saying it never read the blob. Treating that as a pass is
+# how the sanitization guard gets bypassed by the very skip paths it exists to cover, so
+# the dirty-source check has to run for it exactly as if nothing had run at all.
+@test "sync: a normalizer that skipped without reading does not count as verified" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	printf 'freshly captured ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	printf '#!/usr/bin/env bash\nexit 2\n' >"$STUBS/npmrc-normalize"
+	chmod +x "$STUBS/npmrc-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "did not verify it"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+}
+
+# And a skip over an unchanged blob stays harmless, or every bootstrap run would abort.
+@test "sync: a normalizer that skipped over an unchanged source still commits" {
+	fresh_repo
+	printf 'committed ciphertext\n' >"$REPO/encrypted_private_dot_npmrc.age"
+	git -C "$REPO" add -A
+	git -C "$REPO" commit -q -m 'npmrc'
+	printf 'change\n' >"$REPO/change.txt"
+
+	printf '#!/usr/bin/env bash\nexit 2\n' >"$STUBS/npmrc-normalize"
+	chmod +x "$STUBS/npmrc-normalize"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Committed locally"
+}

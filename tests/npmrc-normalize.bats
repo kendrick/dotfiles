@@ -222,7 +222,7 @@ STUB
 	chmod +x "$STUBS/chezmoi"
 
 	run run_normalize
-	[ "$status" -eq 0 ]
+	[ "$status" -eq 2 ]
 	assert_contains "couldn't decrypt"
 }
 
@@ -341,7 +341,7 @@ STUB
 	chmod +x "$STUBS/chezmoi"
 
 	run run_normalize
-	[ "$status" -eq 0 ]
+	[ "$status" -eq 2 ]
 	assert_contains "couldn't decrypt"
 }
 
@@ -372,4 +372,43 @@ STUB
 	run run_normalize
 	[ "$status" -ne 0 ]
 	assert_contains "differs from HEAD"
+}
+
+# Exit 2, not 0. This path never opened the file, and dotfiles-sync reads a plain 0 as
+# "a normalizer vouched for this blob" and skips its own dirty-source check on the
+# strength of it. Reporting success from here is what lets an unread capture through.
+@test "normalize: an unresolvable target reports a skip rather than a verified pass" {
+	npmrc_with_token | encrypt_to_source
+	commit_source
+
+	cat >"$STUBS/chezmoi" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+source-path) exit 1 ;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -eq 2 ]
+}
+
+# The sibling resolution failure: the target resolves but the repo root does not, so the
+# script still never reads the blob and still must not claim it did.
+@test "normalize: chezmoi not answering for the repo root reports a skip, not a pass" {
+	npmrc_with_token | encrypt_to_source
+	commit_source
+
+	cat >"$STUBS/chezmoi" <<STUB
+#!/usr/bin/env bash
+case "\$1" in
+source-path)
+	if [ -n "\$2" ]; then echo "$SRCFILE"; else exit 1; fi
+	;;
+esac
+STUB
+	chmod +x "$STUBS/chezmoi"
+
+	run run_normalize
+	[ "$status" -eq 2 ]
 }

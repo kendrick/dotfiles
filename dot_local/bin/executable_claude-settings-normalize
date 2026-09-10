@@ -35,6 +35,13 @@ nondeterminism turns it into a full 9.9KB commit that changes nothing.
 Doing nothing is the common case and costs one decrypt. To pin a model durably
 enough to survive an apply, use ANTHROPIC_MODEL instead; it outranks this setting
 and never touches a file.
+
+Exit codes are a three-way answer, because dotfiles-sync needs to tell "I read this blob
+and it's clean" from "I never opened it". 0 means inspected, 2 means skipped without
+reading, anything else is failure. The distinction is load-bearing: the sync skips its
+own dirty-source check whenever a normalizer vouches for a file, so a skip that reported
+0 would wave an unread capture straight through. A new early exit has to pick one, and
+if it didn't read the source the answer is 2.
 """
 
 import json
@@ -43,6 +50,9 @@ import os
 import subprocess
 import sys
 import tempfile
+
+# Exit code for a skip that never read the source. See the module docstring.
+SKIPPED_UNREAD = 2
 
 TARGET = os.path.expanduser("~/.claude/settings.json")
 
@@ -134,13 +144,13 @@ def main():
     src = run(["chezmoi", "source-path", TARGET])
     if src.returncode != 0:
         print("settings.json isn't a chezmoi target; nothing to normalize.", file=sys.stderr)
-        return 0
+        return SKIPPED_UNREAD
     src = src.stdout.strip()
 
     repo = run(["chezmoi", "source-path"])
     if repo.returncode != 0:
         print("chezmoi not available; skipping settings normalize.", file=sys.stderr)
-        return 0
+        return SKIPPED_UNREAD
     repo = repo.stdout.strip()
 
     plain = decrypt(src)
@@ -164,7 +174,7 @@ def main():
             # No age key on this machine, which is a normal state mid-bootstrap. The
             # encrypted config isn't deployed there either, so there's nothing to strip.
             print("couldn't decrypt settings.json; skipping normalize.", file=sys.stderr)
-            return 0
+            return SKIPPED_UNREAD
         # An identity that exists but can't open this blob is the dangerous case, not the
         # harmless one. age encrypts to a recipient hardcoded in .chezmoi.toml, so a
         # corrupt or foreign key still lets `chezmoi re-add` capture live's machine-local

@@ -286,12 +286,22 @@ fi
 settings_verified=0
 echo "==> Normalizing Claude settings"
 if command -v claude-settings-normalize &>/dev/null; then
-  if ! claude-settings-normalize; then
+  # Three-way, not pass/fail. Exit 2 means the script never opened the blob — an
+  # unresolvable target, or chezmoi not answering — and that is not something to vouch
+  # for. Folding it into success would let the guard below skip its dirty-source check
+  # on the strength of a run that read nothing. `|| rc=$?` because errexit is on and a
+  # bare call would abort before the mapping ran.
+  rc=0
+  claude-settings-normalize || rc=$?
+  case "$rc" in
+  0) settings_verified=1 ;;
+  2) echo "    settings normalize skipped without reading the source" ;;
+  *)
     echo "    ! settings normalize failed; refusing to commit"
     notify_fail "Claude settings normalize failed. Nothing committed. See $LOG."
     exit 1
-  fi
-  settings_verified=1
+    ;;
+  esac
 else
   echo "    claude-settings-normalize not found, skipping"
 fi
@@ -299,12 +309,22 @@ fi
 npmrc_verified=0
 echo "==> Normalizing npmrc"
 if command -v npmrc-normalize &>/dev/null; then
-  if ! npmrc-normalize; then
+  # Three-way, not pass/fail. Exit 2 means the script never opened the blob — an
+  # unresolvable target, or chezmoi not answering — and that is not something to vouch
+  # for. Folding it into success would let the guard below skip its dirty-source check
+  # on the strength of a run that read nothing. `|| rc=$?` because errexit is on and a
+  # bare call would abort before the mapping ran.
+  rc=0
+  npmrc-normalize || rc=$?
+  case "$rc" in
+  0) npmrc_verified=1 ;;
+  2) echo "    npmrc normalize skipped without reading the source" ;;
+  *)
     echo "    ! npmrc normalize failed; refusing to commit"
     notify_fail "npmrc normalize failed. Nothing committed. See $LOG."
     exit 1
-  fi
-  npmrc_verified=1
+    ;;
+  esac
 else
   echo "    npmrc-normalize not found, skipping"
 fi

@@ -35,6 +35,7 @@ round-trip would destroy comments, blank lines, and ordering that npmrc
 legitimately allows.
 """
 
+import glob
 import os
 import re
 import subprocess
@@ -42,6 +43,10 @@ import sys
 import tempfile
 
 TARGET = os.path.expanduser("~/.npmrc")
+
+# Distinctive enough for .gitignore to match and for the sweep above to recognize its own
+# leavings without touching anything else in the source dir.
+TMP_PREFIX = ".normalize-tmp-"
 
 # Keys that describe this machine's network path rather than shared intent.
 # Everything else in .npmrc (audit, the registry auth token) is shared intent
@@ -164,6 +169,16 @@ def main():
     if encrypted.returncode != 0:
         print(f"failed to re-encrypt .npmrc: {encrypted.stderr}", file=sys.stderr)
         return 1
+    # A SIGKILL or a power loss between the temp's creation and the rename skips the
+    # cleanup below, stranding the file in the worktree. Sweep what a previous run left
+    # before adding another; .gitignore covers the window in between, when this hasn't
+    # run yet and the daily sync's `git add -A` has.
+    for stale in glob.glob(os.path.join(os.path.dirname(src), TMP_PREFIX + "*")):
+        try:
+            os.unlink(stale)
+        except OSError:
+            pass
+
     # Rename a finished file into place rather than writing through the existing one.
     # `open(src, "w")` truncates before the ciphertext lands, so an interrupted run leaves
     # a partial blob — and the sync's `git add -A` would commit that, producing an
@@ -173,7 +188,7 @@ def main():
     tmp = None
     try:
         with tempfile.NamedTemporaryFile(
-            "w", dir=os.path.dirname(src), prefix=".", suffix=".tmp", delete=False
+            "w", dir=os.path.dirname(src), prefix=TMP_PREFIX, suffix=".tmp", delete=False
         ) as fh:
             tmp = fh.name
             fh.write(encrypted.stdout)

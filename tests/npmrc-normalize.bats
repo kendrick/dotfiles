@@ -264,3 +264,24 @@ NPMRC
 	assert_contains "registry=https://custom.registry.example.com/"
 	assert_not_contains "proxy="
 }
+
+# The cleanup in the write path only covers an exception. A SIGKILL or a power loss
+# between the temp's creation and os.replace skips it entirely and leaves the file inside
+# the worktree, where the next sync's `git add -A` would commit it. Sweeping on the way in
+# is what stops one run's corpse accumulating across later runs.
+@test "normalize: a stranded replacement temp is swept before the rewrite" {
+	npmrc_with_token | encrypt_to_source
+	commit_source
+
+	local orphan="$REPO/.normalize-tmp-deadbeef.tmp"
+	printf 'partial ciphertext\n' >"$orphan"
+
+	npmrc_edited_with_proxy | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+
+	[ ! -e "$orphan" ]
+	run git -C "$REPO" status --porcelain
+	assert_not_contains "??"
+}

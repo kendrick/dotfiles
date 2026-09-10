@@ -1,40 +1,38 @@
 #!/usr/bin/env python3
-"""Keep the synced Claude settings free of machine-local keys and of pointless churn.
+"""Keep the synced npmrc free of this machine's corporate proxy.
 
-`LOCAL_KEYS` denylists top-level keys that describe this machine, this person, or
-this employer rather than shared intent. `model` was the original case: /model
-writes it into ~/.claude/settings.json by design ("saves your choice as the default
-for new sessions"), settings.json is an encrypted chezmoi target, and dotfiles-sync
-runs a blanket `chezmoi re-add`. So every model switch rides into source and gets
-committed. That costs more than it looks: age ciphertext doesn't delta, so a
-one-line pin change rewrites all 9KB of the blob and parks another full copy in a
-public repo's history, permanently.
+`proxy` / `https-proxy` are the problem keys. This box sits behind a corporate
+gateway and npm breaks without them, so live ~/.npmrc carries:
 
-None of the four keys added alongside it are worth sharing either, each for its own
-reason. Which model this box should default to is a machine question, the same way
-installPath was for the plugin manifests, and f5ab21b already settled that class of
-problem by normalizing live state down to intent. `env` carries this box's corporate
-gateway token and headers — the one thing that must never reach a public repo.
-`companyAnnouncements` and `spinnerVerbs` are employer branding with no business
-being shared beyond this machine. `$schema` is an editor affordance with no runtime
-effect, pure machine-local noise. All five ride the same blanket re-add regardless
-of why they don't belong in source.
+    proxy=http://<gateway>:<port>
+    https-proxy=http://<gateway>:<port>
 
-Runs AFTER re-add, and edits source rather than the live file. That ordering is the
-whole point: strip the live copy instead and every sync would wipe the pin you just
-set. Left alone, live keeps your `/model` choice across restarts and only a manual
-`chezmoi apply` clears it, which is rare—the sync never applies.
+dotfiles-sync runs a blanket `chezmoi re-add`, which has no way to tell that
+line from `audit=false` or the shared registry auth token — it just captures
+whatever live holds. So every sync re-commits this machine's gateway address
+into an encrypted file whose whole point is to be shared across machines that
+don't sit behind it. Commit 00e8e17 stripped these by hand once already, and
+auto-sync commit eb2b919 put them straight back four days later, because
+nothing stood between the live file and the next re-add. This is that thing.
 
-Two jobs, and the second one outlived the first. Stripping the pin is the reason this
-exists, but any path that leaves source holding HEAD's exact plaintext under fresh
-ciphertext gets the committed blob restored, pin or no pin. `chezmoi re-add` compares
-live against source rather than against HEAD, so an app that writes a key and later
-takes it back produces exactly that state with nothing to strip, and age's
-nondeterminism turns it into a full 9.9KB commit that changes nothing.
+Runs AFTER re-add, and edits source rather than the live file. That ordering
+is the whole point: strip the live copy instead and npm stops working on this
+machine until someone notices and re-adds the proxy lines by hand. Left
+alone, live keeps the proxy across restarts and only a manual `chezmoi apply`
+would clear it from live, which is rare — the sync never applies.
 
-Doing nothing is the common case and costs one decrypt. To pin a model durably
-enough to survive an apply, use ANTHROPIC_MODEL instead; it outranks this setting
-and never touches a file.
+Two jobs, and the second one outlived the first. Stripping the proxy is the
+reason this exists, but any path that leaves source holding HEAD's exact
+plaintext under fresh ciphertext gets the committed blob restored, strip or
+no strip. `chezmoi re-add` compares live against source rather than against
+HEAD, so an app that writes a key and later takes it back produces exactly
+that state with nothing to strip, and age's nondeterminism turns it into a
+full commit that changes nothing.
+
+Doing nothing is the common case and costs one decrypt. Line-based, not JSON:
+npmrc is ini-flavored key=value text, not JSON, and a json.loads/dumps
+round-trip would destroy comments, blank lines, and ordering that npmrc
+legitimately allows.
 
 Exit codes are a three-way answer, because dotfiles-sync needs to tell "I read this blob
 and it's clean" from "I never opened it". 0 means inspected, 2 means skipped without
@@ -44,9 +42,9 @@ own dirty-source check whenever a normalizer vouches for a file, so a skip that 
 if it didn't read the source the answer is 2.
 """
 
-import json
 import glob
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -54,22 +52,23 @@ import tempfile
 # Exit code for a skip that never read the source. See the module docstring.
 SKIPPED_UNREAD = 2
 
-TARGET = os.path.expanduser("~/.claude/settings.json")
+TARGET = os.path.expanduser("~/.npmrc")
 
 # Distinctive enough for .gitignore to match and for the sweep above to recognize its own
 # leavings without touching anything else in the source dir.
 TMP_PREFIX = ".normalize-tmp-"
 
-# Keys that describe this machine, this person, or this employer rather than
-# shared intent. Everything else in settings.json (permissions, hooks, enabled
-# plugins, marketplaces) is shared intent and keeps syncing exactly as before.
-LOCAL_KEYS = (
-    "model",  # /model's per-machine pin; the original problem key, see docstring.
-    "env",  # this box's corporate gateway token/headers — must never reach the repo.
-    "companyAnnouncements",  # employer banner text, not shared intent.
-    "spinnerVerbs",  # employer branding, not shared intent.
-    "$schema",  # editor affordance only; no runtime effect, pure machine noise.
-)
+# Keys that describe this machine's network path rather than shared intent.
+# Everything else in .npmrc (audit, the registry auth token) is shared intent
+# and keeps syncing exactly as before.
+LOCAL_KEYS = ("proxy", "https-proxy", "http-proxy", "noproxy", "no-proxy")
+
+# npm config keys are case-insensitive and tolerate whitespace around `=`, so
+# matching has to key off everything left of the first `=`, lowercased and
+# trimmed — not a substring match, which would also catch the registry auth
+# line's `//registry.npmjs.org/:_authToken=...` if "proxy" ever appeared in a
+# URL there.
+_KEY_RE = re.compile(r"^\s*([^=]+?)\s*=")
 
 
 def run(cmd, **kw):
@@ -140,16 +139,35 @@ def head_plaintext(repo, src):
         os.unlink(tmp)
 
 
+def strip_local_keys(plain):
+    """Line-based strip, not a JSON round-trip: npmrc isn't JSON, and a
+    parse/re-serialize would flatten the comments, blank lines, and spacing
+    it legitimately allows. Byte-for-byte preservation of everything else
+    matters because age ciphertext doesn't delta — any incidental
+    reformatting here would cost a full re-encrypt for no reason.
+    """
+    removed = []
+    kept_lines = []
+    for line in plain.splitlines(keepends=True):
+        match = _KEY_RE.match(line)
+        key = match.group(1).lower() if match else None
+        if key in LOCAL_KEYS:
+            removed.append(key)
+            continue
+        kept_lines.append(line)
+    return "".join(kept_lines), removed
+
+
 def main():
     src = run(["chezmoi", "source-path", TARGET])
     if src.returncode != 0:
-        print("settings.json isn't a chezmoi target; nothing to normalize.", file=sys.stderr)
+        print(".npmrc isn't a chezmoi target; nothing to normalize.", file=sys.stderr)
         return SKIPPED_UNREAD
     src = src.stdout.strip()
 
     repo = run(["chezmoi", "source-path"])
     if repo.returncode != 0:
-        print("chezmoi not available; skipping settings normalize.", file=sys.stderr)
+        print("chezmoi not available; skipping npmrc normalize.", file=sys.stderr)
         return SKIPPED_UNREAD
     repo = repo.stdout.strip()
 
@@ -165,7 +183,7 @@ def main():
             # and calling that a clean bootstrap hands it straight to `git add -A`.
             if source_differs_from_head(repo, src):
                 print(
-                    f"couldn't decrypt settings.json, no age identity, and source differs from "
+                    f"couldn't decrypt .npmrc, no age identity, and source differs from "
                     f"HEAD; refusing to report success. Restore it with: "
                     f"git -C {repo} checkout HEAD -- {src}",
                     file=sys.stderr,
@@ -173,7 +191,7 @@ def main():
                 return 1
             # No age key on this machine, which is a normal state mid-bootstrap. The
             # encrypted config isn't deployed there either, so there's nothing to strip.
-            print("couldn't decrypt settings.json; skipping normalize.", file=sys.stderr)
+            print("couldn't decrypt .npmrc; skipping normalize.", file=sys.stderr)
             return SKIPPED_UNREAD
         # An identity that exists but can't open this blob is the dangerous case, not the
         # harmless one. age encrypts to a recipient hardcoded in .chezmoi.toml, so a
@@ -187,46 +205,33 @@ def main():
             else "an age identity is present"
         )
         print(
-            f"couldn't decrypt settings.json and {reason}; refusing to report success.",
+            f"couldn't decrypt .npmrc and {reason}; refusing to report success.",
             file=sys.stderr,
         )
         return 1
 
-    try:
-        data = json.loads(plain)
-    except json.JSONDecodeError as exc:
-        # Nonzero, not 0. `chezmoi re-add` captures live settings.json, so a capture
-        # taken while Claude Code rewrites the file yields half a document — and the
-        # half already in source may carry the `env` gateway token. The sync aborts on
-        # a nonzero normalizer and on nothing else, so returning 0 here would hand it
-        # an unparsed blob and call that success.
-        print(f"settings.json in source isn't valid JSON: {exc}", file=sys.stderr)
-        return 1
+    payload, removed = strip_local_keys(plain)
 
-    removed = [key for key in LOCAL_KEYS if key in data]
-    for key in removed:
-        del data[key]
-    # indent=2 with a trailing newline is byte-identical to what the CLI writes, so a
-    # round-trip through here leaves every untouched key exactly as it was.
-    payload = json.dumps(data, indent=2) + "\n"
-
-    # Checked before the "nothing to strip" exit, not after, because a pin is only one
-    # of the ways this file ends up re-encrypted for no reason. `chezmoi re-add`
-    # compares live against the *source's* plaintext, not against HEAD, so an app that
-    # writes a key and later takes it back leaves source holding HEAD's exact content
-    # under fresh ciphertext, with nothing local to strip. Gating this on `removed`
-    # meant that copy sat dirty until a sync committed 9.9KB of pure nondeterminism to
-    # a public repo's history. Four of the eight commits before this one were that.
+    # Checked before the "nothing to strip" exit, not after, because a proxy
+    # line is only one of the ways this file ends up re-encrypted for no
+    # reason. `chezmoi re-add` compares live against the *source's*
+    # plaintext, not against HEAD, so an app that writes a key and later
+    # takes it back leaves source holding HEAD's exact content under fresh
+    # ciphertext, with nothing local to strip. Gating this on `removed` alone
+    # would leave that copy dirty until a sync committed pure nondeterminism
+    # to a public repo's history — exactly what bcb395e fixed for the
+    # sibling settings-normalize script.
     #
-    # age encrypts nondeterministically, so restoring the committed blob is the only
-    # thing that actually leaves no diff. Re-encrypting identical content just hands
-    # the sync another bogus commit to make.
+    # age encrypts nondeterministically, so restoring the committed blob is
+    # the only thing that actually leaves no diff. Re-encrypting identical
+    # content just hands the sync another bogus commit to make.
     if payload == head_plaintext(repo, src):
-        # `checkout HEAD --`, not `checkout --`. The bare form restores from the index,
-        # which is the wrong tree to compare against: a sync that died between `git add
-        # -A` and `git commit` leaves the pin staged, and restoring that would put it
-        # straight back while this reported no net change. Naming HEAD also resets the
-        # index entry, so a half-finished previous run can't leak into this one.
+        # `checkout HEAD --`, not `checkout --`. The bare form restores from
+        # the index, which is the wrong tree to compare against: a sync that
+        # died between `git add -A` and `git commit` leaves the proxy lines
+        # staged, and restoring that would put them straight back while this
+        # reported no net change. Naming HEAD also resets the index entry, so
+        # a half-finished previous run can't leak into this one.
         checkout = run(["git", "-C", repo, "checkout", "HEAD", "--", src])
         if checkout.returncode != 0:
             print(f"failed to restore {src}: {checkout.stderr}", file=sys.stderr)
@@ -245,7 +250,7 @@ def main():
 
     encrypted = run(["chezmoi", "encrypt"], input=payload)
     if encrypted.returncode != 0:
-        print(f"failed to re-encrypt settings.json: {encrypted.stderr}", file=sys.stderr)
+        print(f"failed to re-encrypt .npmrc: {encrypted.stderr}", file=sys.stderr)
         return 1
     # A SIGKILL or a power loss between the temp's creation and the rename skips the
     # cleanup below, stranding the file in the worktree. Sweep what a previous run left
@@ -260,7 +265,7 @@ def main():
     # Rename a finished file into place rather than writing through the existing one.
     # `open(src, "w")` truncates before the ciphertext lands, so an interrupted run leaves
     # a partial blob — and the sync's `git add -A` would commit that, producing an
-    # settings.json in history that no key can open. The temp file goes in src's own
+    # .npmrc in history that no key can open. The temp file goes in src's own
     # directory because os.replace is only atomic within a filesystem, and the fsync is
     # what makes the rename swap in bytes that actually reached the disk.
     tmp = None

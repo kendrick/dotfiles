@@ -196,3 +196,22 @@ function pnpm() {
 	esac
 	return $rc
 }
+
+# gh has no per-directory account. Export the personal token while the cwd sits
+# under a personal checkout root and drop it everywhere else. GH_TOKEN lives in
+# one shell's environment, so two open terminals never fight the way they do
+# after `gh auth switch`. chpwd fires only on cd, so the bare call at the end
+# covers a shell opened straight into one of these dirs.
+_gh_account_for_cwd() {
+  local root
+  for root in "$HOME/repos/personal" "$HOME/code/personal"; do
+    if [[ "$PWD/" == "$root/"* ]]; then
+      [[ -n "$GH_TOKEN" ]] || export GH_TOKEN="$(gh auth token --user kendrick 2>/dev/null)"
+      return
+    fi
+  done
+  unset GH_TOKEN
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook chpwd _gh_account_for_cwd
+_gh_account_for_cwd

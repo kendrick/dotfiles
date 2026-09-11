@@ -246,6 +246,15 @@ assert_source_unchanged() {
 	cmp "$TOML_SRC" "$BATS_TEST_TMPDIR/toml.before"
 }
 
+# The line `font --add` inserts after: the fonts group's last line, found
+# the same way the script's own toml_fonts_group_anchor_line finds it — by
+# the literal `bundles = ["fonts"] },` substring, last match wins. Anchoring
+# on a named entry instead is what #47 fixed: it held only while that entry
+# happened to be last. Exits non-zero when the group has no lines at all.
+fonts_group_anchor_line() {
+	awk 'index($0, "bundles = [\"fonts\"] },") { l = NR } END { if (l) print l; else exit 1 }' "$1"
+}
+
 # Every fixture this file's cases need, built fresh per test rather than
 # shared, so one test's cask-family bookkeeping can never leak into another's.
 # Each one dials in exactly the evidence its case needs and nothing else —
@@ -419,17 +428,21 @@ build_all_fixtures() {
 }
 
 @test "the new package entry lands in the fonts group with its type column aligned to its neighbours" {
+	# Anchor taken BEFORE the add: afterwards the inserted line is itself the
+	# group's last `bundles = ["fonts"] },` line, so a post-add read would only
+	# prove "the new line is last", not "it sits directly under the line that
+	# was last" — which is the script's actual claim (step 8's own comment).
+	anchor=$(fonts_group_anchor_line "$TOML_SRC")
+	[ -n "$anchor" ]
+	anchor_line=$(sed -n "${anchor}p" "$TOML_SRC")
 	run font --add font-partial-test
 	[ "$status" -eq 0 ]
 	inserted=$(grep -n 'font-partial-test' "$TOML_SRC" | cut -d: -f1)
 	[ -n "$inserted" ]
-	anchor=$(grep -n 'font-symbols-only-nerd-font' "$TOML_SRC" | cut -d: -f1)
-	[ -n "$anchor" ]
-	# Inserted right after the fonts group's last existing line, per the
-	# script's own anchor comment — never at the whole array's tail.
+	# Inserted right after the fonts group's last existing line — never at
+	# the whole array's tail — for whatever the roster happens to be.
 	[ "$inserted" -eq "$((anchor + 1))" ]
 	inserted_line=$(sed -n "${inserted}p" "$TOML_SRC")
-	anchor_line=$(sed -n "${anchor}p" "$TOML_SRC")
 	assert_contains 'bundles = ["fonts"] },' "$inserted_line"
 	inserted_col=$(awk -v s="$inserted_line" 'BEGIN { print index(s, "type =") }')
 	anchor_col=$(awk -v s="$anchor_line" 'BEGIN { print index(s, "type =") }')
@@ -445,11 +458,20 @@ build_all_fixtures() {
 }
 
 @test "--remove of the active font exits non-zero and changes nothing" {
-	# The committed Ghostty config's active family is DankMono Nerd Font,
-	# exactly the dank entry's terminal.family — read out of the fixture
-	# rather than hardcoded, so a future re-add doesn't silently break this.
+	# The committed Ghostty config holds whatever font was active when it was
+	# last re-added, so the key is read out of the fixture rather than named:
+	# the in-block font-family, mapped back to its registry key by
+	# terminal.family — the same two reads the script's guard does. Looked up
+	# in $REGISTRY_SRC because --remove resolves its key there (via
+	# `chezmoi source-path`), not in the live copy.
+	active_family=$(sed -n '/BEGIN font/,/END font/p' "$GHOSTTY" |
+		sed -n 's/^font-family = "\(.*\)"$/\1/p' | head -1)
+	active_key=$(jq -r --arg f "$active_family" \
+		'to_entries[] | select(.value.terminal.family == $f) | .key' \
+		"$REGISTRY_SRC")
+	[ -n "$active_key" ]
 	snapshot_source
-	run font --remove dank
+	run font --remove "$active_key"
 	[ "$status" -ne 0 ]
 	assert_contains "active terminal font"
 	assert_source_unchanged

@@ -31,21 +31,43 @@ CURRENT_BACKUP=""
 CURRENT_TARGET=""
 WORKDIR=""
 
-cleanup() {
+# Puts CURRENT_TARGET back from CURRENT_BACKUP and removes the backup and
+# any stranded `.mutated` sidecar. Idempotent: a second call finds
+# CURRENT_BACKUP empty and touches nothing. The loop calls this after every
+# site and cleanup calls it on every exit, so the two paths cannot drift.
+restore_current() {
 	if [ -n "$CURRENT_BACKUP" ]; then
-		if [ -f "$CURRENT_BACKUP" ]; then
-			cp "$CURRENT_BACKUP" "$CURRENT_TARGET"
+		if ! cp "$CURRENT_BACKUP" "$CURRENT_TARGET"; then
+			echo "mutation-check: could not restore $CURRENT_TARGET — its pristine copy is at $CURRENT_BACKUP" >&2
+			return 1
 		fi
 		rm -f "$CURRENT_BACKUP"
 		CURRENT_BACKUP=""
 	fi
+	if [ -n "$CURRENT_TARGET" ]; then
+		rm -f "$CURRENT_TARGET.mutated"
+	fi
+	return 0
+}
+
+cleanup() {
+	# A second Ctrl-C while the restore copy is in flight must not abort it;
+	# the ignore is inherited by cp.
+	trap '' HUP INT TERM
+	restore_current
 	if [ -n "$WORKDIR" ]; then
 		if [ -d "$WORKDIR" ]; then
 			rm -rf "$WORKDIR"
 		fi
 	fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+# `exit` inside a signal handler still runs the EXIT trap on bash 3.2, so
+# cleanup runs exactly once, from EXIT, on every path. A handler that
+# returns instead resumes the loop at the next site (#48).
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if command -v git >/dev/null 2>&1; then
 	if root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
@@ -303,11 +325,16 @@ while IFS=$'\t' read -r kind file line testname; do
 	site_index=$((site_index + 1))
 
 	CURRENT_TARGET="$file"
-	CURRENT_BACKUP="$(mktemp)"
-	if ! cp "$file" "$CURRENT_BACKUP"; then
+	# Named into CURRENT_BACKUP only once it holds a complete copy: a signal
+	# between mktemp and cp must restore nothing, not copy an empty file over
+	# the target (#48).
+	backup="$(mktemp)"
+	if ! cp "$file" "$backup"; then
+		rm -f "$backup"
 		echo "mutation-check: could not back up $file before mutating — aborting without changes" >&2
 		exit 1
 	fi
+	CURRENT_BACKUP="$backup"
 
 	case "$kind" in
 	helper:assert_contains)
@@ -321,7 +348,16 @@ while IFS=$'\t' read -r kind file line testname; do
 		;;
 	esac
 
-	tap_output="$(bats --formatter tap "$file" 2>&1)"
+	# Backgrounded and reaped with `wait`, not captured with $( ): bats
+	# answers Ctrl-C by exiting normally with 130, and bash 3.2 then holds the
+	# shell's own INT trap until the child returns, so a $( ) run cannot be
+	# interrupted while bats is the foreground child — nearly all of its wall
+	# time. `wait` is interrupted the instant a trapped signal arrives. Job
+	# control is off in a script, so the background bats stays in this
+	# process group and still receives the terminal's Ctrl-C.
+	bats --formatter tap "$file" >"$WORKDIR/tap" 2>&1 </dev/null &
+	wait "$!"
+	tap_output="$(cat "$WORKDIR/tap")"
 
 	if tap_reports_not_ok "$tap_output" "$testname"; then
 		echo "site [$site_index/$total_sites] $file:$line test=\"$testname\" -> not ok (wired in)"
@@ -330,9 +366,9 @@ while IFS=$'\t' read -r kind file line testname; do
 		overall_status=1
 	fi
 
-	cp "$CURRENT_BACKUP" "$file"
-	rm -f "$CURRENT_BACKUP"
-	CURRENT_BACKUP=""
+	if ! restore_current; then
+		exit 1
+	fi
 done <"$SITES_FILE"
 
 echo "--- summary, by file ---"

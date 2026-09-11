@@ -9,7 +9,6 @@ crystal-spider.jsdoc-generator
 csstools.postcss
 davidanson.vscode-markdownlint
 dbaeumer.vscode-eslint
-docker.docker
 eamodio.gitlens
 esbenp.prettier-vscode
 formulahendry.auto-rename-tag

@@ -21,3 +21,8 @@ __pycache__/
 # the two steps strands it here. Each script sweeps stale ones on its next write, but the
 # daily sync's `git add -A` may run first, so this is what keeps one out of a commit.
 .normalize-tmp-*
+
+# tests/mutation-check.sh rewrites a test file by renaming a sidecar into
+# place, and only SIGKILL can now strand one. The daily sync's `git add -A`
+# must not commit it.
+tests/*.mutated

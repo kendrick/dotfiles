@@ -198,19 +198,43 @@ function pnpm() {
 }
 
 # gh has no per-directory account. Export the personal token while the cwd sits
-# under a personal checkout root and drop it everywhere else. GH_TOKEN lives in
-# one shell's environment, so two open terminals never fight the way they do
-# after `gh auth switch`. chpwd fires only on cd, so the bare call at the end
-# covers a shell opened straight into one of these dirs.
+# under a personal checkout root, and put back whatever was there on the way
+# out. GH_TOKEN lives in one shell's environment, so two open terminals never
+# fight the way they do after `gh auth switch`. chpwd fires only on cd, so the
+# bare call at the end covers a shell opened straight into one of these dirs.
+#
+# The three _GH_TOKEN_HOOK_ variables exist because a token already in the
+# environment may belong to someone else. gh reads GH_TOKEN ahead of its own
+# stored credentials, so an inherited token would otherwise act as the wrong
+# account inside a personal checkout. Unsetting it on the way out would throw
+# away a token the caller set on purpose. _GH_TOKEN_HOOK_OWNS records that the
+# hook installed the current value and may replace it. Anything the hook did
+# not install, it leaves alone. That flag doubles as the cache that keeps a
+# second cd inside a root from shelling out to gh again.
+#
+# _GH_TOKEN_HOOK_PRIOR_SET is separate from _GH_TOKEN_HOOK_PRIOR because an
+# inherited empty GH_TOKEN is not the same as no GH_TOKEN, so the restore puts
+# back an empty value only where a shell inherited one.
 _gh_account_for_cwd() {
   local root
   for root in "$HOME/repos/personal" "$HOME/code/personal"; do
     if [[ "$PWD/" == "$root/"* ]]; then
-      [[ -n "$GH_TOKEN" ]] || export GH_TOKEN="$(gh auth token --user kendrick 2>/dev/null)"
+      if [[ -z "$_GH_TOKEN_HOOK_OWNS" ]]; then
+        _GH_TOKEN_HOOK_PRIOR_SET=${GH_TOKEN+1}
+        _GH_TOKEN_HOOK_PRIOR=${GH_TOKEN-}
+        _GH_TOKEN_HOOK_OWNS=1
+        export GH_TOKEN="$(gh auth token --user kendrick 2>/dev/null)"
+      fi
       return
     fi
   done
-  unset GH_TOKEN
+  [[ -n "$_GH_TOKEN_HOOK_OWNS" ]] || return
+  if [[ -n "$_GH_TOKEN_HOOK_PRIOR_SET" ]]; then
+    export GH_TOKEN="$_GH_TOKEN_HOOK_PRIOR"
+  else
+    unset GH_TOKEN
+  fi
+  unset _GH_TOKEN_HOOK_OWNS _GH_TOKEN_HOOK_PRIOR _GH_TOKEN_HOOK_PRIOR_SET
 }
 autoload -Uz add-zsh-hook
 add-zsh-hook chpwd _gh_account_for_cwd

@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "4be88e24efc1aad26410be213bdaa43ad4ac069f",
+      "skillFolderHash": "9c8fd1bc7d41f7d125bb9a8965be11827e8423f3",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-09-08T16:24:11.196Z"
+      "updatedAt": "2026-09-11T03:45:45.581Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -526,9 +526,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "inbox-to-memory/SKILL.md",
-      "skillFolderHash": "8b490e8e7255f1bdc645ca92662ea64dde6d5da4",
+      "skillFolderHash": "60243e4643d013487ca4a02c6409b0d06f5932e8",
       "installedAt": "2026-07-10T21:06:31.566Z",
-      "updatedAt": "2026-09-01T01:58:05.504Z"
+      "updatedAt": "2026-09-11T03:45:49.148Z"
     },
     "readme-coauthorship": {
       "source": "kendrick/skills",
@@ -562,9 +562,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "adversarial-review/SKILL.md",
-      "skillFolderHash": "1514688ab3c4137548d300cf19e5f977081c445b",
+      "skillFolderHash": "4ddf1d52eabaa94e44cccd762823d7df15708c3b",
       "installedAt": "2026-08-20T17:19:36.495Z",
-      "updatedAt": "2026-08-20T18:56:55.800Z"
+      "updatedAt": "2026-09-11T03:45:52.049Z"
     },
     "technical-writing": {
       "source": "kendrick/skills",
@@ -607,9 +607,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "d69aee481d10ab1eefd5c66c54a4050524abba46",
+      "skillFolderHash": "de5d854d15dd9f92752a9a229fe68076e1cb8f6b",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-09-08T16:24:23.464Z"
+      "updatedAt": "2026-09-11T03:46:11.426Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
@@ -735,18 +735,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "divvy-up/SKILL.md",
-      "skillFolderHash": "396863f7c0427a38da5bb1f00157a78ad2356eac",
+      "skillFolderHash": "cf9383f84f1c94c322da1ac15d1d6e5641423f08",
       "installedAt": "2026-09-02T02:46:12.250Z",
-      "updatedAt": "2026-09-08T16:23:49.507Z"
+      "updatedAt": "2026-09-11T03:45:54.366Z"
     },
     "jira-refine": {
       "source": "kendrick/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "jira-refine/SKILL.md",
-      "skillFolderHash": "829fde1ef3a900e7d768cddb84c97f2385ec19df",
+      "skillFolderHash": "977dbffac5e52fae53dda99c41ddeabb9ee2ef30",
       "installedAt": "2026-09-08T16:23:49.533Z",
-      "updatedAt": "2026-09-08T16:23:49.533Z"
+      "updatedAt": "2026-09-11T03:45:56.856Z"
     }
   },
   "dismissed": {

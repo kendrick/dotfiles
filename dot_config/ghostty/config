@@ -1,6 +1,6 @@
 theme = dark:Synthwave Everything,light:Light Owl
 # BEGIN font (managed by `font`)
-font-family = "Lilex Nerd Font"
+font-family = "RecMonoLinear Nerd Font"
 font-size = 14
 font-feature = calt
 # END font

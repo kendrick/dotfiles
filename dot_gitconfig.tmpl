@@ -51,3 +51,9 @@
 [credential "https://gist.github.com"]
   helper =
   helper = !/opt/homebrew/bin/gh auth git-credential
+# Personal checkouts. includeIf can't OR paths, so one stanza per root, both
+# pointing at the same file. A root that doesn't exist on this machine is a no-op.
+[includeIf "gitdir:~/repos/personal/"]
+  path = ~/.config/git/personal
+[includeIf "gitdir:~/code/personal/"]
+  path = ~/.config/git/personal

@@ -1,0 +1,11 @@
+# Identity for personal repos. The includeIf stanzas in ~/.gitconfig splice
+# these values in at global level, so a repo's own .git/config still wins.
+[user]
+  name = Kendrick Arnett
+  email = kmarnett@gmail.com
+# Host github.com in ~/.ssh/config carries the work key, so a plain
+# git@github.com: remote would push as the work account. The github_personal
+# alias carries the personal key. Rewriting here lets remotes stay as plain
+# git@github.com: URLs.
+[url "git@github_personal:"]
+  insteadOf = git@github.com:

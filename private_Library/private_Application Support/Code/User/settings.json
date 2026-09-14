@@ -48,8 +48,6 @@
 	"claudeCode.preferredLocation": "panel",
 	"editor.minimap.enabled": false,
 	"git.openRepositoryInParentFolders": "never",
-	"editor.lineHeight": 0,
-	"editor.fontSize": 15,
 	"extensions.ignoreRecommendations": true,
 	"terminal.integrated.fontFamily": "RecMonoLinear Nerd Font",
 	"terminal.integrated.fontLigatures.enabled": true,
@@ -59,4 +57,6 @@
 	"chat.disableAIFeatures": true,
 	"editor.fontWeight": "600",
 	"claudeCode.hideOnboarding": true,
+	"editor.lineHeight": 0,
+	"editor.fontSize": 13,
 }

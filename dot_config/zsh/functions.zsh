@@ -203,27 +203,48 @@ function pnpm() {
 # fight the way they do after `gh auth switch`. chpwd fires only on cd, so the
 # bare call at the end covers a shell opened straight into one of these dirs.
 #
-# The three _GH_TOKEN_HOOK_ variables exist because a token already in the
-# environment may belong to someone else. gh reads GH_TOKEN ahead of its own
-# stored credentials, so an inherited token would otherwise act as the wrong
-# account inside a personal checkout. Unsetting it on the way out would throw
-# away a token the caller set on purpose. _GH_TOKEN_HOOK_OWNS records that the
-# hook installed the current value and may replace it. Anything the hook did
-# not install, it leaves alone. That flag doubles as the cache that keeps a
-# second cd inside a root from shelling out to gh again.
+# The _GH_TOKEN_HOOK_ variables exist because a token already in the environment
+# may belong to someone else. gh reads GH_TOKEN ahead of its own stored
+# credentials, so an inherited token would otherwise act as the wrong account
+# inside a personal checkout. Unsetting it on the way out would throw away a
+# token the caller set on purpose. _GH_TOKEN_HOOK_OWNS records that the hook has
+# taken over GH_TOKEN and has a prior value to put back.
+#
+# _GH_TOKEN_HOOK_PINNED is a separate flag because `gh auth token` fails for
+# reasons that have nothing to do with the account: a keyring still locked after
+# a reboot, a logged-out account, no gh on PATH. Ownership survives that and
+# pinning does not, so the next cd inside the root asks again rather than
+# caching the failure for the life of the shell. A failed lookup also clears
+# GH_TOKEN instead of leaving an inherited one in place, since falling back to
+# gh's active account is easier to diagnose than acting as whoever the parent
+# shell happened to be. _GH_TOKEN_HOOK_WARNED holds that warning to one line per
+# failure rather than one per cd.
 #
 # _GH_TOKEN_HOOK_PRIOR_SET is separate from _GH_TOKEN_HOOK_PRIOR because an
 # inherited empty GH_TOKEN is not the same as no GH_TOKEN, so the restore puts
 # back an empty value only where a shell inherited one.
 _gh_account_for_cwd() {
-  local root
+  local root token
   for root in "$HOME/repos/personal" "$HOME/code/personal"; do
     if [[ "$PWD/" == "$root/"* ]]; then
       if [[ -z "$_GH_TOKEN_HOOK_OWNS" ]]; then
         _GH_TOKEN_HOOK_PRIOR_SET=${GH_TOKEN+1}
         _GH_TOKEN_HOOK_PRIOR=${GH_TOKEN-}
         _GH_TOKEN_HOOK_OWNS=1
-        export GH_TOKEN="$(gh auth token --user kendrick 2>/dev/null)"
+      fi
+      if [[ -z "$_GH_TOKEN_HOOK_PINNED" ]]; then
+        token="$(gh auth token --user kendrick 2>/dev/null)"
+        if [[ -n "$token" ]]; then
+          export GH_TOKEN="$token"
+          _GH_TOKEN_HOOK_PINNED=1
+          unset _GH_TOKEN_HOOK_WARNED
+        else
+          unset GH_TOKEN
+          if [[ -z "$_GH_TOKEN_HOOK_WARNED" ]]; then
+            print -u2 "gh: no stored token for kendrick, so commands here fall back to gh's active account"
+            _GH_TOKEN_HOOK_WARNED=1
+          fi
+        fi
       fi
       return
     fi
@@ -234,7 +255,8 @@ _gh_account_for_cwd() {
   else
     unset GH_TOKEN
   fi
-  unset _GH_TOKEN_HOOK_OWNS _GH_TOKEN_HOOK_PRIOR _GH_TOKEN_HOOK_PRIOR_SET
+  unset _GH_TOKEN_HOOK_OWNS _GH_TOKEN_HOOK_PINNED _GH_TOKEN_HOOK_PRIOR \
+    _GH_TOKEN_HOOK_PRIOR_SET _GH_TOKEN_HOOK_WARNED
 }
 autoload -Uz add-zsh-hook
 add-zsh-hook chpwd _gh_account_for_cwd

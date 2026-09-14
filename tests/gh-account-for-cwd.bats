@@ -43,11 +43,29 @@ setup() {
 	export GH_LOG="$BATS_TEST_TMPDIR/gh.log"
 	: >"$GH_LOG"
 
+	export GH_FAILS="$BATS_TEST_TMPDIR/gh.fails"
+	: >"$GH_FAILS"
+
+	# The hook warns on stderr. Keeping that out of $output lets a test assert
+	# on the token value directly instead of parsing past a warning line.
+	export GH_WARN="$BATS_TEST_TMPDIR/gh.warn"
+	: >"$GH_WARN"
+
+	# STUB_GH_FAILS is a countdown, not a flag: a test that wants gh to
+	# recover sets it to 1 and the second call succeeds. The count lives in a
+	# file because each call is its own process.
 	cat >"$STUBS/gh" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$GH_LOG"
 case "$*" in
 	"auth token --user kendrick")
+		n=$(cat "$GH_FAILS" 2>/dev/null || echo 0)
+		: "${n:=0}"
+		if [ "$n" -gt 0 ]; then
+			echo $((n - 1)) >"$GH_FAILS"
+			echo "gh: could not read the keyring" >&2
+			exit 1
+		fi
 		printf '%s\n' "$STUB_GH_TOKEN"
 		;;
 	*)
@@ -69,9 +87,9 @@ run_hook() {
 	local startdir="$1" script="$2"
 	shift 2
 	env -i HOME="$FAKE_HOME" PATH="$PATH" GH_LOG="$GH_LOG" \
-		STUB_GH_TOKEN="$PERSONAL" "$@" \
+		GH_FAILS="$GH_FAILS" STUB_GH_TOKEN="$PERSONAL" "$@" \
 		"$REAL_ZSH" -c "cd '$startdir'; source '$FUNCS'; $script
-printf '%s' \"\${GH_TOKEN-<unset>}\""
+printf '%s' \"\${GH_TOKEN-<unset>}\"" 2>"$GH_WARN"
 }
 
 gh_calls() {
@@ -155,4 +173,48 @@ gh_calls() {
 	[ "$status" -eq 0 ]
 	[ "$output" = "<unset>" ]
 	[ "$(gh_calls)" -eq 0 ]
+}
+
+# gh can fail for reasons that have nothing to do with the account: a locked
+# keyring after a reboot, a logged-out account, no gh on PATH at all. The hook
+# has to come out of that without claiming it pinned an account it never got.
+
+@test "gh-account: a failed lookup does not leave an inherited token in a personal root" {
+	echo 1 >"$GH_FAILS"
+
+	run run_hook "$FAKE_HOME/repos/personal/proj" ":" "GH_TOKEN=$FOREIGN"
+
+	[ "$status" -eq 0 ]
+	[ "$output" = "<unset>" ]
+}
+
+@test "gh-account: a failed lookup is retried on the next cd inside the root" {
+	# Staying inside the root is the point. Leaving and coming back would
+	# clear ownership on the way out and mask a hook that never retries.
+	echo 1 >"$GH_FAILS"
+
+	run run_hook "$FAKE_HOME/repos/personal/proj" "cd '$FAKE_HOME/repos/personal'"
+
+	[ "$status" -eq 0 ]
+	[ "$output" = "$PERSONAL" ]
+}
+
+@test "gh-account: a failed lookup still restores the inherited token on the way out" {
+	echo 9 >"$GH_FAILS"
+
+	run run_hook "$FAKE_HOME/repos/personal/proj" "cd '$FAKE_HOME/repos/work'" \
+		"GH_TOKEN=$FOREIGN"
+
+	[ "$status" -eq 0 ]
+	[ "$output" = "$FOREIGN" ]
+}
+
+@test "gh-account: a failed lookup warns once, not on every cd inside the root" {
+	echo 9 >"$GH_FAILS"
+
+	run run_hook "$FAKE_HOME/repos/personal" \
+		"cd proj; cd '$FAKE_HOME/code/personal/proj'"
+
+	[ "$status" -eq 0 ]
+	[ "$(/usr/bin/grep -c 'no stored token' "$GH_WARN")" -eq 1 ]
 }

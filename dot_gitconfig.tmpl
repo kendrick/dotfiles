@@ -53,6 +53,15 @@
   helper = !/opt/homebrew/bin/gh auth git-credential
 # Personal checkouts. includeIf can't OR paths, so one stanza per root, both
 # pointing at the same file. A root that doesn't exist on this machine is a no-op.
+#
+# gitdir matches the resolved git directory, which for a linked worktree is the
+# admin dir under its main repo, never the checkout you are standing in. So a
+# worktree parked under a personal root whose main repo lives elsewhere keeps
+# the work identity, and a worktree anywhere else whose main repo sits under a
+# personal root gets the personal one. Git has no condition that matches the
+# working tree path, so the identity follows the repo the worktree belongs to.
+# That is usually the answer you wanted anyway, but it is not what the directory
+# rule above advertises.
 [includeIf "gitdir:~/repos/personal/"]
   path = ~/.config/git/personal
 [includeIf "gitdir:~/code/personal/"]

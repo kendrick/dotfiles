@@ -29,7 +29,7 @@ setup() {
 	export HOME="$BATS_TEST_TMPDIR/home"
 	export STUBS="$BATS_TEST_TMPDIR/stubs"
 	export FIXTURE="$BATS_TEST_TMPDIR/src"
-	mkdir -p "$HOME" "$STUBS" "$FIXTURE/dot_config/font"
+	mkdir -p "$HOME" "$STUBS" "$FIXTURE/dot_config/font" "$FIXTURE/dot_config/theme"
 	# Otherwise chezmoi resolves its config out of the real ~/.config no matter where
 	# $HOME points, the same reason font.bats and packages.bats unset these.
 	unset XDG_CONFIG_HOME XDG_CACHE_HOME
@@ -126,6 +126,10 @@ write_bundles() {
 
 write_registry() {
 	cat >"$FIXTURE/dot_config/font/registry.json"
+}
+
+write_theme_registry() {
+	cat >"$FIXTURE/dot_config/theme/registry.json"
 }
 
 # The os-held partial's contract (#23): a JSON array of the registry entries the running
@@ -573,6 +577,44 @@ JSON
 	*undeclared* | *casks*) ;;
 	*) return 1 ;;
 	esac
+}
+
+# The theme registry's one dependency: the extension that ships a family's light and
+# dark pair. Ghostty's themes come with the app and Herdr's are built in, so this is the
+# only piece a fresh machine can turn out not to have.
+@test "names the theme key and extension when the tracked list lacks it" {
+	write_theme_registry <<'JSON'
+{
+  "catppuccin": { "vscode": { "extension": "catppuccin.catppuccin-vsc" } },
+  "tokyo-night": { "vscode": { "extension": "fixture.extension" } }
+}
+JSON
+	run deps_section
+	assert_contains "catppuccin  catppuccin.catppuccin-vsc"
+	# The family whose extension is tracked must not be reported, or the section stops
+	# distinguishing a real gap from a fully-declared entry.
+	assert_not_contains "tokyo-night"
+}
+
+@test "says nothing about themes when every extension is tracked" {
+	write_theme_registry <<'JSON'
+{
+  "catppuccin": { "vscode": { "extension": "fixture.extension" } }
+}
+JSON
+	run deps_section
+	assert_not_contains "catppuccin"
+	assert_contains "every theme family"
+}
+
+@test "a theme entry with no extension is its own gap" {
+	write_theme_registry <<'JSON'
+{
+  "catppuccin": { "vscode": { "dark": "Catppuccin Mocha" } }
+}
+JSON
+	run deps_section
+	assert_contains "catppuccin  has no"
 }
 
 @test "skips rather than dies when there is no registry to read" {

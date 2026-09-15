@@ -59,7 +59,7 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 | ------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | Shell (zsh)  | Powerlevel10k prompt, Znap plugin manager, aliases/functions/exports                               | `~/.config/zsh/`, sourced by `~/.zshrc`         |
 | Git          | delta pager, the aliases I actually use, `g*` shell shortcuts (`gco`, `gd`, `gs`)                  | `~/.config/git/`, `~/.gitconfig`                |
-| Terminal     | Ghostty. Synthwave Everything (dark), Light Owl (light); FantasqueSansM Nerd Font 14px             | `~/.config/ghostty/config`                      |
+| Terminal     | Ghostty and Herdr. Theme and font both come from a switcher (see `theme` and `font` below)         | `~/.config/ghostty/config`, `~/.config/herdr/`  |
 | Editor       | VS Code settings, keybindings, snippets; extensions from a tracked text list                       | `~/Library/Application Support/Code/User/`      |
 | Apps         | Formulae, casks, and Mac App Store apps, each filed into bundles a machine opts into               | `.chezmoidata.toml`                             |
 | Node         | nvm (via Homebrew), default floored at 24, pnpm through corepack, two globals lists                | `~/.config/npm-globals.txt`, `pnpm-globals.txt` |
@@ -71,7 +71,16 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 <details>
 <summary>Scripts in <code>~/.local/bin</code></summary>
 
-`awssso`, `cless`, `cscreen`, `dotfiles-apps`, `dotfiles-doctor`, `dotfiles-sync`, `dotfiles-teardown`, `dotfiles-undo`, `draw`, `e`, `font`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`
+`awssso`, `cless`, `cscreen`, `dotfiles-apps`, `dotfiles-doctor`, `dotfiles-sync`, `dotfiles-teardown`, `dotfiles-undo`, `draw`, `e`, `font`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`, `theme`
+
+</details>
+
+<details>
+<summary>How themes are managed</summary>
+
+`theme` switches Herdr, Ghostty, and VS Code to one theme family at a time, light and dark together. Each app keeps following the macOS appearance on its own. The switcher makes sure all three light/dark pairs come from the same family, and nothing more. `theme` alone lists the roster and marks what's active. `theme <key>` switches, and `theme <key> --force` skips the check that every piece is installed.
+
+The roster lives in `~/.config/theme/registry.json`. Each entry names the family's dark and light theme in all three apps, plus the VS Code extension that ships the VS Code pair. To add a family, write an entry there and add its extension to `~/.config/vscode-extensions.txt`. That extension is the only piece a fresh machine can be missing, because Ghostty's themes ship with the app (`ghostty +list-themes`) and Herdr's are built in (`herdr --default-config` names them). `dotfiles-doctor` reports a registry entry whose extension the tracked list lacks. On a switch, the script writes Ghostty's `theme` line, the `[theme]` table between markers in Herdr's config, and VS Code's preferred dark and light themes. Then it re-adds all three files and asks a running Herdr to reload. Ghostty picks the change up on its next config reload.
 
 </details>
 
@@ -130,7 +139,7 @@ The repo is the source of truth. Change something on one machine, push it, pull 
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | `dotfiles-sync`     | regenerates the VS Code list, re-adds every changed managed file, flags installed packages the registry doesn't track, then commits and pushes | on the machine you changed                     |
 | `chezmoi update`    | pull, then apply                                                                                                                         | on every other machine                         |
-| `dotfiles-doctor`   | read-only drift report: installed-but-untracked, tracked-but-not-installed, and configs naming a font no enabled bundle installs         | after a `chezmoi update`                       |
+| `dotfiles-doctor`   | read-only drift report: installed-but-untracked, tracked-but-not-installed, and configs naming a font or theme the tracked lists don't provide | after a `chezmoi update`                       |
 | `dotfiles-apps`     | move packages between bundles, adopt untracked ones, or pick which bundles this machine installs                                          | when an app is in the wrong place              |
 | `dotfiles-undo`     | panic button that reverts the most recent `[auto-sync]` commit and pushes the revert                                                     | when auto-sync captured something it shouldn't |
 | `dotfiles-teardown` | removes the secrets, and with `--full` the dotfiles and the repo too                                                                     | when handing a client machine back             |
@@ -207,6 +216,8 @@ chezmoi runs scripts based on naming conventions:
 ~/.config/
 ├── chezmoi/chezmoi.toml        # local only, never committed
 ├── ghostty/config
+├── herdr/config.toml
+├── font/registry.json, theme/registry.json
 ├── gh/config.yml
 ├── git/                        # ignore, gitattributes, git-aliases.sh
 ├── zsh/                        # aliases, exports, functions, plugins, ...

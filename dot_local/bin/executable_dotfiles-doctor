@@ -259,6 +259,34 @@ if command -v jq &>/dev/null; then
   else
     echo "    font registry not found at $registry — skipping"
   fi
+
+  # Themes are the second resource named by string. Each entry in the theme registry
+  # names the VS Code extension that ships its light and dark pair, and the loop below
+  # asserts the tracked extension list carries it. Ghostty's themes ship with the app and Herdr's are
+  # built in, so the extension is the only piece a fresh machine can be missing.
+  theme_registry="$SRC/dot_config/theme/registry.json"
+  ext_list="$SRC/dot_config/vscode-extensions.txt"
+  echo "-- themes the registry names whose VS Code extension the tracked list lacks:"
+  if [[ -f "$theme_registry" ]]; then
+    theme_gaps=0
+    while IFS=$'\t' read -r key ext; do
+      if [[ "$ext" == "!undeclared" ]]; then
+        echo "    $key  has no \"vscode.extension\" key — name the extension that ships its themes"
+        theme_gaps=1
+      elif ! grep -qixF "$ext" "$ext_list" 2>/dev/null; then
+        echo "    $key  $ext"
+        theme_gaps=1
+      fi
+    done < <(jq -r '
+      to_entries[]
+      | .key as $key
+      | (.value.vscode.extension // "!undeclared") as $ext
+      | "\($key)\t\($ext)"
+    ' "$theme_registry")
+    [[ "$theme_gaps" -eq 0 ]] && echo "    none — every theme family the registry names ships from an extension you track"
+  else
+    echo "    theme registry not found at $theme_registry — skipping"
+  fi
 else
   echo "    jq not found — skipping"
 fi

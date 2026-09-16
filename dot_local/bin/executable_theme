@@ -1,0 +1,356 @@
+#!/usr/bin/env bash
+#
+# Switch the color theme across Herdr, Ghostty, and VS Code together, in both
+# appearances at once, then hand all three files back to chezmoi so the change
+# survives the next apply.
+#
+# One family per switch. Each app keeps its own light/dark pair and follows the
+# macOS appearance by itself. This script only makes sure the three pairs belong
+# to the same family. The registry is the whole roster: you add a family by
+# writing one entry there and one line in the VS Code extension list, and
+# nothing below names a theme by string.
+#
+# Modeled on `font`, and under the same rules. No config becomes a template,
+# since `chezmoi re-add` skips templates and the file would drop out of sync
+# capture. Every write is anchored or marker-delimited. Every check runs before
+# the first byte is written, so a refusal can't leave the three configs
+# disagreeing with each other.
+#
+# teardown:none
+
+set -euo pipefail
+
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+REGISTRY="$CONFIG_HOME/theme/registry.json"
+# Points into `font`'s config on purpose. Both tools parse the same settings
+# file, so one reader is enough.
+JSONC="$CONFIG_HOME/font/jsonc.jq"
+GHOSTTY="$CONFIG_HOME/ghostty/config"
+HERDR="$CONFIG_HOME/herdr/config.toml"
+VSCODE="$HOME/Library/Application Support/Code/User/settings.json"
+
+# The script rewrites Herdr's [theme] table whole, so it sits between markers
+# the way Ghostty's font block does. Ghostty's own theme is one line, so that
+# one is an anchored replacement instead.
+BEGIN_MARKER='# BEGIN theme (managed by `theme`)'
+END_MARKER='# END theme'
+
+# The VS Code keys this script owns. The preferred pair is what auto-detect
+# reads. colorTheme is what VS Code falls back to with auto-detect off, and it
+# is also what the theme picker writes, so it gets the half matching the current
+# appearance instead of staying on whatever the picker chose last.
+AUTO_DETECT_KEY='window.autoDetectColorScheme'
+DARK_KEY='workbench.preferredDarkColorTheme'
+LIGHT_KEY='workbench.preferredLightColorTheme'
+ACTIVE_KEY='workbench.colorTheme'
+
+die() {
+	echo "theme: $*" >&2
+	exit 1
+}
+
+# Same trap `font` documents: mktemp creates 0600, and a bare `mv` would
+# tighten the target's mode enough for chezmoi to re-add it as a `private_`
+# entry, turning one edit into a delete plus an add.
+replace_preserving_mode() {
+	local tmp=$1 target=$2 mode
+	mode=$(stat -f '%Lp' "$target" 2>/dev/null || echo 644)
+	mv "$tmp" "$target"
+	chmod "$mode" "$target"
+}
+
+require_deps() {
+	command -v jq >/dev/null 2>&1 || die "jq is not installed; it is declared in the Brewfile"
+	[ -f "$REGISTRY" ] || die "registry not found at $REGISTRY"
+	[ -f "$JSONC" ] || die "JSONC filter not found at $JSONC"
+}
+
+# macOS stores only the dark setting. Light is the key being absent, which
+# `defaults` reports as an error, so the exit status is the answer.
+appearance() {
+	if defaults read -g AppleInterfaceStyle >/dev/null 2>&1; then
+		echo dark
+	else
+		echo light
+	fi
+}
+
+# `+list-themes` tags each name with where it came from, "(resources)" for the
+# bundled set and "(user)" for ~/.config/ghostty/themes. Both count.
+ghostty_themes() {
+	ghostty +list-themes 2>/dev/null | sed -E 's/ \([a-z]+\)$//'
+}
+
+installed_extensions() {
+	code --list-extensions 2>/dev/null
+}
+
+# Runs before the script touches any config. Ghostty falls back to its default palette
+# for a theme it can't find and VS Code to its default theme for one that isn't
+# installed, and neither says a word, so the only useful failure is a refusal
+# that names the missing piece while there's still time to install it.
+check_available() {
+	local entry=$1
+	local label themes half name ext
+
+	label=$(jq -r '.label' <<<"$entry")
+
+	command -v ghostty >/dev/null 2>&1 ||
+		die "ghostty is not on PATH, so there is no way to tell which themes it knows; pass --force to write anyway"
+	themes=$(ghostty_themes)
+	for half in dark light; do
+		name=$(jq -r --arg h "$half" '.ghostty[$h]' <<<"$entry")
+		grep -qxF "$name" <<<"$themes" ||
+			die "$label: Ghostty has no theme named \"$name\" ($half).
+  Bundled themes ship with the app; a custom one goes in $CONFIG_HOME/ghostty/themes/.
+  Pass --force to write anyway."
+	done
+
+	command -v code >/dev/null 2>&1 ||
+		die "code is not on PATH, so there is no way to tell which extensions are installed; pass --force to write anyway"
+	ext=$(jq -r '.vscode.extension' <<<"$entry")
+	installed_extensions | grep -qixF "$ext" ||
+		die "$label: VS Code extension $ext is not installed.
+  It is in the tracked list, so \`chezmoi apply\` installs it; so does \`code --install-extension $ext\`.
+  Pass --force to write anyway."
+}
+
+# Reads the VS Code settings through the JSONC filter. Trailing commas are
+# tolerated because Prettier owns them; comments fail here on purpose.
+read_settings() {
+	[ -f "$VSCODE" ] || die "VS Code settings not found at $VSCODE"
+	jq -Rs -f "$JSONC" "$VSCODE" 2>/dev/null ||
+		die "cannot parse $VSCODE; if it has comments, remove them by hand rather than letting this script strip them"
+}
+
+vscode_key_count() {
+	local escaped=${1//./\\.}
+	grep -cE "^[[:space:]]*\"$escaped\"[[:space:]]*:" "$VSCODE" || true
+}
+
+# The dark half of Ghostty's theme line. Empty when the line names a single
+# theme, the shape a hand-written config has.
+current_ghostty_dark() {
+	sed -n 's/^theme = dark:\(.*\),light:.*$/\1/p' "$GHOSTTY" | head -1
+}
+
+# Prints "begin end" for the Herdr marker block, or refuses. A file without
+# markers is one Herdr rewrote or one nobody set up, and guessing where a
+# [theme] table belongs in someone else's TOML is how a config gets two of them.
+herdr_bounds() {
+	local begin end
+	begin=$(grep -nxF "$BEGIN_MARKER" "$HERDR" | head -1 | cut -d: -f1 || true)
+	end=$(grep -nxF "$END_MARKER" "$HERDR" | head -1 | cut -d: -f1 || true)
+	[ -n "$begin" ] || die "$HERDR has no '$BEGIN_MARKER' line; refusing to guess where the theme table belongs"
+	[ -n "$end" ] || die "$HERDR has no '$END_MARKER' line; refusing to guess where the theme table ends"
+	[ "$end" -gt "$begin" ] || die "$HERDR has its theme markers out of order"
+	echo "$begin $end"
+}
+
+# Every anchor, checked before any write. The three writers below assume their
+# anchors are there, and this is what lets a refusal happen while all three
+# files still agree with each other.
+preflight_anchors() {
+	local n key
+	n=$(grep -cE '^theme = ' "$GHOSTTY" || true)
+	[ "$n" -eq 1 ] ||
+		die "expected exactly one 'theme = ' line in $GHOSTTY, found $n; refusing to guess which one to rewrite"
+	herdr_bounds >/dev/null
+	for key in "$AUTO_DETECT_KEY" "$DARK_KEY" "$LIGHT_KEY" "$ACTIVE_KEY"; do
+		n=$(vscode_key_count "$key")
+		[ "$n" -eq 1 ] ||
+			die "expected exactly one \"$key\" line in $VSCODE, found $n; refusing to write a partial config"
+	done
+}
+
+cmd_list() {
+	local active themes exts active_key
+	active=$(current_ghostty_dark)
+	# Listing reports what's missing where switching refuses on it, so a machine
+	# that hasn't installed a family yet still sees the whole roster.
+	themes=""
+	exts=""
+	command -v ghostty >/dev/null 2>&1 && themes=$(ghostty_themes)
+	command -v code >/dev/null 2>&1 && exts=$(installed_extensions)
+
+	jq -r --arg active "$active" --arg themes "$themes" --arg exts "$exts" '
+		($themes | split("\n")) as $known
+		| ($exts | split("\n") | map(ascii_downcase)) as $installed
+		| to_entries
+		| sort_by(.value.order)
+		| .[]
+		| .value as $v
+		| ([
+			(if ($known | index($v.ghostty.dark)) then empty else "ghostty \($v.ghostty.dark)" end),
+			(if ($known | index($v.ghostty.light)) then empty else "ghostty \($v.ghostty.light)" end),
+			(if ($installed | index($v.vscode.extension | ascii_downcase)) then empty else "vscode \($v.vscode.extension)" end)
+		]) as $missing
+		| (if $v.ghostty.dark == $active then "* " else "  " end)
+			+ .key + "  " + $v.label
+			+ (if ($missing | length) > 0 then "  (missing: " + ($missing | join(", ")) + ")" else "" end)
+	' "$REGISTRY"
+	echo
+	active_key=$(jq -r --arg active "$active" \
+		'to_entries[] | select(.value.ghostty.dark == $active) | .key' "$REGISTRY" | head -1)
+	echo "active: ${active_key:-none}"
+}
+
+write_ghostty() {
+	local dark=$1 light=$2 tmp
+	tmp=$(mktemp)
+	awk -v dark="$dark" -v light="$light" '
+		/^theme = / { print "theme = dark:" dark ",light:" light; next }
+		{ print }
+	' "$GHOSTTY" >"$tmp"
+	replace_preserving_mode "$tmp" "$GHOSTTY"
+}
+
+# The dark half goes into `name` too. It's the theme Herdr shows when someone
+# turns auto_switch off by hand, and leaving it stale would make that toggle
+# jump to a different family.
+write_herdr() {
+	local dark=$1 light=$2 begin end tmp
+	read -r begin end < <(herdr_bounds)
+	tmp=$(mktemp)
+	{
+		head -n "$begin" "$HERDR"
+		echo '[theme]'
+		echo "name = \"$dark\""
+		echo 'auto_switch = true'
+		echo "dark_name = \"$dark\""
+		echo "light_name = \"$light\""
+		tail -n "+$end" "$HERDR"
+	} >"$tmp"
+	replace_preserving_mode "$tmp" "$HERDR"
+}
+
+# Rewrites one key's value in place, leaving every other byte alone. The whole
+# object is never serialized back out: jq emits strict JSON, which would strip
+# the trailing commas that format-on-save then restores, churning this file on
+# every switch.
+write_vscode_key() {
+	local key=$1 value=$2 matches tmp
+
+	matches=$(vscode_key_count "$key")
+	[ "$matches" -eq 1 ] ||
+		die "expected exactly one \"$key\" line in $VSCODE, found $matches; refusing to write a partial config"
+
+	tmp=$(mktemp)
+	awk -v key="$key" -v value="$value" '
+		BEGIN { pattern = "^[[:space:]]*\"" key "\"[[:space:]]*:"; gsub(/\./, "\\.", pattern) }
+		$0 ~ pattern {
+			match($0, /^[[:space:]]*/)
+			indent = substr($0, 1, RLENGTH)
+			comma = ($0 ~ /,[[:space:]]*$/) ? "," : ""
+			print indent "\"" key "\": " value comma
+			next
+		}
+		{ print }
+	' "$VSCODE" >"$tmp"
+	replace_preserving_mode "$tmp" "$VSCODE"
+}
+
+# Herdr reads its config on launch and on request, so a running server gets
+# asked. A reload that fails is a server that isn't up, which is not a reason to
+# fail a switch whose files are already written. For a theme name it doesn't
+# know, the reload exits 0 and puts the complaint in `diagnostics`, so the
+# script prints that array.
+reload_herdr() {
+	local out
+	if ! command -v herdr >/dev/null 2>&1; then
+		echo "theme: herdr is not on PATH; the config is written and Herdr reads it on launch"
+		return 0
+	fi
+	if out=$(herdr server reload-config 2>&1); then
+		jq -r '.result.diagnostics[]? | "theme: herdr: \(.)"' <<<"$out" 2>/dev/null || true
+	else
+		echo "theme: herdr is not running (reload-config said: ${out:-nothing}); it reads the new theme on its next launch"
+	fi
+}
+
+cmd_switch() {
+	local key=$1 force=$2
+	local entry label mode active_theme
+	local h_dark h_light g_dark g_light v_dark v_light
+
+	entry=$(jq -e --arg k "$key" '.[$k] // empty' "$REGISTRY") ||
+		die "unknown theme '$key'; run 'theme' with no arguments to see the roster"
+
+	# Read and validate everything before writing anything.
+	read_settings >/dev/null
+	[ -f "$GHOSTTY" ] || die "Ghostty config not found at $GHOSTTY"
+	[ -f "$HERDR" ] || die "Herdr config not found at $HERDR"
+	preflight_anchors
+	[ "$force" -eq 1 ] || check_available "$entry"
+
+	label=$(jq -r '.label' <<<"$entry")
+	h_dark=$(jq -r '.herdr.dark' <<<"$entry")
+	h_light=$(jq -r '.herdr.light' <<<"$entry")
+	g_dark=$(jq -r '.ghostty.dark' <<<"$entry")
+	g_light=$(jq -r '.ghostty.light' <<<"$entry")
+	v_dark=$(jq -r '.vscode.dark' <<<"$entry")
+	v_light=$(jq -r '.vscode.light' <<<"$entry")
+
+	mode=$(appearance)
+	if [ "$mode" = dark ]; then
+		active_theme=$v_dark
+	else
+		active_theme=$v_light
+	fi
+
+	write_ghostty "$g_dark" "$g_light"
+	write_herdr "$h_dark" "$h_light"
+	write_vscode_key "$AUTO_DETECT_KEY" true
+	write_vscode_key "$DARK_KEY" "$(jq -n --arg v "$v_dark" '$v')"
+	write_vscode_key "$LIGHT_KEY" "$(jq -n --arg v "$v_light" '$v')"
+	write_vscode_key "$ACTIVE_KEY" "$(jq -n --arg v "$active_theme" '$v')"
+
+	# Without the re-add, the next `chezmoi apply` reverts all three files.
+	chezmoi re-add "$GHOSTTY" "$VSCODE" "$HERDR"
+
+	reload_herdr
+
+	echo "theme: switched to $label (dark: $g_dark, light: $g_light)"
+	echo "theme: VS Code has picked it up; Ghostty reloads its config on cmd+shift+, or in a new window"
+}
+
+usage() {
+	echo "usage: theme [<key>] [--force]"
+	echo "  theme                 list the roster and show what's active"
+	echo "  theme <key>           switch Herdr, Ghostty, and VS Code to <key>, light and dark"
+	echo "  theme <key> --force   switch without checking that the pieces are installed"
+}
+
+main() {
+	local key="" force=0
+
+	require_deps
+
+	while [ $# -gt 0 ]; do
+		case $1 in
+		-h | --help)
+			usage
+			return 0
+			;;
+		--force) force=1 ;;
+		-*) die "unknown option '$1'; run 'theme --help'" ;;
+		*)
+			[ -z "$key" ] || die "unexpected argument '$1'; usage is 'theme [<key>]'"
+			key=$1
+			;;
+		esac
+		shift
+	done
+
+	if [ "$force" -eq 1 ]; then
+		[ -n "$key" ] || die "--force requires a theme key"
+	fi
+
+	if [ -z "$key" ]; then
+		cmd_list
+	else
+		cmd_switch "$key" "$force"
+	fi
+}
+
+main "$@"

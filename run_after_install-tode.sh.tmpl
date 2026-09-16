@@ -29,6 +29,7 @@ ui_exit() {
 trap ui_exit EXIT
 
 RECEIPT="{{ joinPath .chezmoi.homeDir ".local" "state" "tode" "install.json" }}"
+BIN="{{ joinPath .chezmoi.homeDir ".local" "bin" "tode" }}"
 
 # Every other installer here guards its tool and skips when it is absent; this one reads the
 # receipt through jq, so it owes the same guard. Without it a missing jq empties both reads,
@@ -73,7 +74,11 @@ version_at_least() { # have, want
 have=""
 [ -f "$RECEIPT" ] && have="$(jq -r '.version // empty' "$RECEIPT" 2>/dev/null)"
 
-if version_at_least "$have" "$WANT"; then
+# The receipt is a claim about the past, so it only settles this together with the binary
+# it describes. A restore that brings back ~/.local/state without ~/.local/bin leaves the
+# claim true and tode gone, and a receipt-only guard would skip the repair forever. Nothing
+# else here would catch that: tode has no dotfiles-doctor entry.
+if [ -x "$BIN" ] && version_at_least "$have" "$WANT"; then
   step_ok "tode" "$have"
   exit 0
 fi
@@ -81,7 +86,10 @@ fi
 # No set -e. A failed download must not abort the rest of the `chezmoi apply`. It also must
 # not record anything: leaving the receipt untouched is what makes the next apply retry.
 step_begin "tode"
-if ! step_run command bash -c 'curl -fsSL https://tode.sh/install | bash'; then
+# pipefail is load-bearing, not hygiene. Without it the pipeline reports bash's status, and
+# bash handed an empty stdin exits 0, so a DNS or HTTP failure reads as a successful install
+# and the run falls through to the version check to report a baffling "got unknown".
+if ! step_run command bash -c 'set -o pipefail; curl -fsSL https://tode.sh/install | bash'; then
   step_warn "tode" "install failed"
   exit 0
 fi

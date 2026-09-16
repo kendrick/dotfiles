@@ -7,3 +7,9 @@ font-feature = calt
 cursor-style = block
 shell-integration-features = no-cursor
 keybind = shift+enter=text:\x1b\r
+config-file = ?tode/keybinds.ghostty
+
+# >>> herdr-radar font block
+font-codepoint-map = U+E1A0-U+E1B6="Herdr Agent Icons Max"
+font-codepoint-map = U+E1C0-U+E1C5="Herdr Agent Icons Max"
+# <<< herdr-radar font block

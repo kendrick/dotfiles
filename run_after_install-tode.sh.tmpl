@@ -30,6 +30,14 @@ trap ui_exit EXIT
 
 RECEIPT="{{ joinPath .chezmoi.homeDir ".local" "state" "tode" "install.json" }}"
 
+# Every other installer here guards its tool and skips when it is absent; this one reads the
+# receipt through jq, so it owes the same guard. Without it a missing jq empties both reads,
+# which puts the version below the floor forever and reinstalls on every apply.
+if ! command -v jq &>/dev/null; then
+  step_warn "tode" "jq not found"
+  exit 0
+fi
+
 # WANT is a floor, not an equality. The installer only ever serves upstream's current
 # stable, so the moment upstream ships a release this repo has not caught up to, an
 # exact-match guard can never be satisfied: every apply would download the full tarball,
@@ -38,10 +46,24 @@ RECEIPT="{{ joinPath .chezmoi.homeDir ".local" "state" "tode" "install.json" }}"
 #
 # It also means this never tries to downgrade. It could not succeed if it did, since the
 # installer has no older release to hand back.
+# awk rather than `sort -V`. Apple's sort does support -V on current macOS, but it is an
+# optional flag on a tool this script does not control the resolution of, and the failure is
+# the worst kind: an unsupported flag yields an empty substitution, the comparison reads
+# false, and every apply silently downloads 130MB again. awk's split is POSIX and cannot
+# degrade that way. Fields compare numerically, so v0.3.10 is correctly above v0.3.9.
 version_at_least() { # have, want
   [ -n "$1" ] || return 1
   [ "$1" = "$2" ] && return 0
-  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$2" ]
+  awk -v h="${1#v}" -v w="${2#v}" 'BEGIN {
+    nh = split(h, H, "."); nw = split(w, W, ".")
+    n = nh > nw ? nh : nw
+    for (i = 1; i <= n; i++) {
+      a = H[i] + 0; b = W[i] + 0
+      if (a > b) exit 0
+      if (a < b) exit 1
+    }
+    exit 0
+  }'
 }
 
 # The installer writes install.json on every successful run, so the guard below reads the

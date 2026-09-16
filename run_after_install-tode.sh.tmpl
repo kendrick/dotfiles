@@ -1,7 +1,12 @@
 #!/bin/bash
-# Bump WANT below to upgrade. It is the only version string here on purpose: chezmoi keys
-# run_onchange_ on the rendered content, so editing WANT is already what re-runs this
-# script, and a separate marker comment would be a second place to forget.
+# Set WANT below to the version this machine should have.
+#
+# This runs on every apply rather than on change, because the failure path exits 0. A dead
+# download must not abort the rest of the apply, but chezmoi records a run_onchange_ script
+# that exits 0 as done, so one bad network moment would retire the script for good. Nothing
+# else here looks for tode, not even dotfiles-doctor, so the machine would sit without it
+# until somebody happened to edit this file. Running every time costs one stat and one jq
+# against the receipt, which is what makes the guard below worth having.
 #
 # WANT records the version this repo expects—it cannot request one. https://tode.sh/install
 # is regenerated per release with its own version and the tarball's sha256 baked in, and it

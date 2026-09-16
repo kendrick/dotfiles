@@ -1,15 +1,19 @@
 #!/bin/bash
-# tode version: v0.3.4
-# Bump that line to re-run this script. The line records the version this repo expects—it
-# cannot request one. https://tode.sh/install is regenerated per release with its own
-# version and the tarball's sha256 baked in, and it reads no version argument, so every
-# run installs upstream's current stable. Only the comparison after the install reports a
-# mismatch.
+# Bump WANT below to upgrade. It is the only version string here on purpose: chezmoi keys
+# run_onchange_ on the rendered content, so editing WANT is already what re-runs this
+# script, and a separate marker comment would be a second place to forget.
+#
+# WANT records the version this repo expects—it cannot request one. https://tode.sh/install
+# is regenerated per release with its own version and the tarball's sha256 baked in, and it
+# reads no version argument, so every run installs upstream's current stable. Only the
+# comparison after the install reports a mismatch.
 #
 # Installs an app, and teardown stops short of uninstalling it, the same way the package
 # step leaves casks alone. tode's own data lives under ~/.local/share/tode.
 #
 # teardown:none
+
+WANT="v0.3.4"
 
 {{ template "sh-ui.sh" . }}
 
@@ -19,7 +23,6 @@ ui_exit() {
 }
 trap ui_exit EXIT
 
-WANT="v0.3.4"
 RECEIPT="{{ joinPath .chezmoi.homeDir ".local" "state" "tode" "install.json" }}"
 
 # The installer writes install.json on every successful run, so the guard below reads the

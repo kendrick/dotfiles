@@ -13,8 +13,10 @@
 # only the repos and specs read below so the file is identical on every machine.
 #
 # Those manifests are deliberately not chezmoi targets (see .chezmoiignore), so the
-# teardown:data line below is what clears them — it covers the whole plugins dir,
-# including the cloned marketplace repos the CLI drops alongside them.
+# `teardown:data` line below is what clears them. It covers the whole plugins dir,
+# including the cloned marketplace repos the CLI drops alongside them. Keep the backticks:
+# dotfiles-teardown finds declarations by grepping for `# teardown:` at the start of a
+# line, so an unquoted mention that wraps to column 0 is read as a real declaration.
 #
 # teardown:data ~/.claude/plugins
 

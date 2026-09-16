@@ -1,4 +1,4 @@
-theme = dark:Synthwave Everything,light:Light Owl
+theme = dark:Catppuccin Mocha,light:Catppuccin Latte
 # BEGIN font (managed by `font`)
 font-family = "RecMonoLinear Nerd Font"
 font-size = 14

@@ -1,0 +1,35 @@
+{
+	"catppuccin": {
+		"order": 0,
+		"label": "Catppuccin",
+		"herdr": { "dark": "catppuccin", "light": "catppuccin-latte" },
+		"ghostty": { "dark": "Catppuccin Mocha", "light": "Catppuccin Latte" },
+		"vscode": {
+			"dark": "Catppuccin Mocha",
+			"light": "Catppuccin Latte",
+			"extension": "catppuccin.catppuccin-vsc"
+		}
+	},
+	"tokyo-night": {
+		"order": 10,
+		"label": "Tokyo Night",
+		"herdr": { "dark": "tokyo-night", "light": "tokyo-night-day" },
+		"ghostty": { "dark": "TokyoNight", "light": "TokyoNight Day" },
+		"vscode": {
+			"dark": "Tokyo Night",
+			"light": "Tokyo Night Light",
+			"extension": "enkia.tokyo-night"
+		}
+	},
+	"rose-pine": {
+		"order": 20,
+		"label": "Rosé Pine",
+		"herdr": { "dark": "rose-pine", "light": "rose-pine-dawn" },
+		"ghostty": { "dark": "Rose Pine", "light": "Rose Pine Dawn" },
+		"vscode": {
+			"dark": "Rosé Pine",
+			"light": "Rosé Pine Dawn",
+			"extension": "mvllow.rose-pine"
+		}
+	}
+}

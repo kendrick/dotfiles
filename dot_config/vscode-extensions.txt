@@ -4,15 +4,19 @@ aaron-bond.better-comments
 adamerose.markdown-wysiwyg
 akamud.vscode-theme-onelight
 anthropic.claude-code
+beardedbear.beardedtheme
 bierner.markdown-mermaid
 bierner.markdown-preview-github-styles
 bradlc.vscode-tailwindcss
+catppuccin.catppuccin-vsc
 crystal-spider.jsdoc-generator
 csstools.postcss
 davidanson.vscode-markdownlint
 dbaeumer.vscode-eslint
 docker.docker
+dracula-theme.theme-dracula
 eamodio.gitlens
+enkia.tokyo-night
 esbenp.prettier-vscode
 formulahendry.auto-rename-tag
 fosshaas.fontsize-shortcuts
@@ -22,6 +26,7 @@ ms-azuretools.vscode-containers
 ms-azuretools.vscode-docker
 ms-vscode.live-server
 ms-vsliveshare.vsliveshare
+mvllow.rose-pine
 oderwat.indent-rainbow
 redhat.vscode-xml
 richie5um2.vscode-sort-json

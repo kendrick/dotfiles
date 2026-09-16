@@ -119,6 +119,9 @@ keys_in_order() {
 }
 
 @test "switching rewrites the Ghostty block and the VS Code keys together" {
+	# The theme line belongs to `theme`, so it is read from the fixture rather
+	# than pinned: what matters is that a font switch leaves it as it found it.
+	theme_line=$(grep '^theme = ' "$GHOSTTY")
 	run font victor
 	[ "$status" -eq 0 ]
 	grep -qxF 'font-family = "VictorMono Nerd Font"' "$GHOSTTY"
@@ -126,7 +129,7 @@ keys_in_order() {
 	# The marker block stays intact and everything outside it is untouched.
 	grep -qxF '# BEGIN font (managed by `font`)' "$GHOSTTY"
 	grep -qxF '# END font' "$GHOSTTY"
-	grep -qxF 'theme = dark:Synthwave Everything,light:Light Owl' "$GHOSTTY"
+	[ "$(grep '^theme = ' "$GHOSTTY")" = "$theme_line" ]
 	grep -qxF 'cursor-style = block' "$GHOSTTY"
 }
 

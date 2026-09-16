@@ -1,0 +1,49 @@
+#!/bin/bash
+# tode version: v0.3.4
+# Bump that line to re-run this script. The line records the version this repo expects—it
+# cannot request one. https://tode.sh/install is regenerated per release with its own
+# version and the tarball's sha256 baked in, and it reads no version argument, so every
+# run installs upstream's current stable. Only the comparison after the install reports a
+# mismatch.
+#
+# Installs an app, and teardown stops short of uninstalling it, the same way the package
+# step leaves casks alone. tode's own data lives under ~/.local/share/tode.
+#
+# teardown:none
+
+{{ template "sh-ui.sh" . }}
+
+ui_exit() {
+  ui_st=$?
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
+
+WANT="v0.3.4"
+RECEIPT="{{ joinPath .chezmoi.homeDir ".local" "state" "tode" "install.json" }}"
+
+# The installer writes install.json on every successful run, so the guard below reads the
+# installed version without an exec and without the network. The network matters here
+# because the installer has no already-current short-circuit: it downloads the full
+# tarball, about 130MB, before it compares anything.
+have=""
+[ -f "$RECEIPT" ] && have="$(jq -r '.version // empty' "$RECEIPT" 2>/dev/null)"
+
+if [ "$have" = "$WANT" ]; then
+  step_ok "tode" "$WANT"
+  exit 0
+fi
+
+# No set -e. A failed download must not abort the rest of the `chezmoi apply`.
+step_begin "tode"
+if ! step_run command bash -c 'curl -fsSL https://tode.sh/install | bash'; then
+  step_warn "tode" "install failed"
+  exit 0
+fi
+
+got="$(jq -r '.version // empty' "$RECEIPT" 2>/dev/null)"
+if [ "$got" != "$WANT" ]; then
+  step_warn "tode" "wanted $WANT, got ${got:-unknown}"
+  exit 0
+fi
+step_ok "tode" "$got"

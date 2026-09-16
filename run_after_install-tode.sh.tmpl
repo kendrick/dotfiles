@@ -1,0 +1,102 @@
+#!/bin/bash
+# Set WANT below to the version this machine should have.
+#
+# This runs on every apply rather than on change, because the failure path exits 0. A dead
+# download must not abort the rest of the apply, but chezmoi records a run_onchange_ script
+# that exits 0 as done, so one bad network moment would retire the script for good. Nothing
+# else here looks for tode, not even dotfiles-doctor, so the machine would sit without it
+# until somebody happened to edit this file. Running every time costs one stat and one jq
+# against the receipt, which is what makes the guard below worth having.
+#
+# WANT records the version this repo expects—it cannot request one. https://tode.sh/install
+# is regenerated per release with its own version and the tarball's sha256 baked in, and it
+# reads no version argument, so every run installs upstream's current stable. Only the
+# comparison after the install reports a mismatch.
+#
+# Installs an app, and teardown stops short of uninstalling it, the same way the package
+# step leaves casks alone. tode's own data lives under ~/.local/share/tode.
+#
+# teardown:none
+
+WANT="v0.3.4"
+
+{{ template "sh-ui.sh" . }}
+
+ui_exit() {
+  ui_st=$?
+  ui_finalize "$ui_st"
+}
+trap ui_exit EXIT
+
+RECEIPT="{{ joinPath .chezmoi.homeDir ".local" "state" "tode" "install.json" }}"
+BIN="{{ joinPath .chezmoi.homeDir ".local" "bin" "tode" }}"
+
+# Every other installer here guards its tool and skips when it is absent; this one reads the
+# receipt through jq, so it owes the same guard. Without it a missing jq empties both reads,
+# which puts the version below the floor forever and reinstalls on every apply.
+if ! command -v jq &>/dev/null; then
+  step_warn "tode" "jq not found"
+  exit 0
+fi
+
+# WANT is a floor, not an equality. The installer only ever serves upstream's current
+# stable, so the moment upstream ships a release this repo has not caught up to, an
+# exact-match guard can never be satisfied: every apply would download the full tarball,
+# about 130MB, compare it to a WANT it cannot reach, warn, and do it all again next time.
+# A floor makes upstream running ahead a non-event, which is the only thing it can be.
+#
+# It also means this never tries to downgrade. It could not succeed if it did, since the
+# installer has no older release to hand back.
+# awk rather than `sort -V`. Apple's sort does support -V on current macOS, but it is an
+# optional flag on a tool this script does not control the resolution of, and the failure is
+# the worst kind: an unsupported flag yields an empty substitution, the comparison reads
+# false, and every apply silently downloads 130MB again. awk's split is POSIX and cannot
+# degrade that way. Fields compare numerically, so v0.3.10 is correctly above v0.3.9.
+version_at_least() { # have, want
+  [ -n "$1" ] || return 1
+  [ "$1" = "$2" ] && return 0
+  awk -v h="${1#v}" -v w="${2#v}" 'BEGIN {
+    nh = split(h, H, "."); nw = split(w, W, ".")
+    n = nh > nw ? nh : nw
+    for (i = 1; i <= n; i++) {
+      a = H[i] + 0; b = W[i] + 0
+      if (a > b) exit 0
+      if (a < b) exit 1
+    }
+    exit 0
+  }'
+}
+
+# The installer writes install.json on every successful run, so the guard below reads the
+# installed version without an exec and without the network. That matters because the
+# installer has no already-current short-circuit of its own: it downloads the whole tarball
+# before it compares anything.
+have=""
+[ -f "$RECEIPT" ] && have="$(jq -r '.version // empty' "$RECEIPT" 2>/dev/null)"
+
+# The receipt is a claim about the past, so it only settles this together with the binary
+# it describes. A restore that brings back ~/.local/state without ~/.local/bin leaves the
+# claim true and tode gone, and a receipt-only guard would skip the repair forever. Nothing
+# else here would catch that: tode has no dotfiles-doctor entry.
+if [ -x "$BIN" ] && version_at_least "$have" "$WANT"; then
+  step_ok "tode" "$have"
+  exit 0
+fi
+
+# No set -e. A failed download must not abort the rest of the `chezmoi apply`. It also must
+# not record anything: leaving the receipt untouched is what makes the next apply retry.
+step_begin "tode"
+# pipefail is load-bearing, not hygiene. Without it the pipeline reports bash's status, and
+# bash handed an empty stdin exits 0, so a DNS or HTTP failure reads as a successful install
+# and the run falls through to the version check to report a baffling "got unknown".
+if ! step_run command bash -c 'set -o pipefail; curl -fsSL https://tode.sh/install | bash'; then
+  step_warn "tode" "install failed"
+  exit 0
+fi
+
+got="$(jq -r '.version // empty' "$RECEIPT" 2>/dev/null)"
+if ! version_at_least "$got" "$WANT"; then
+  step_warn "tode" "wanted $WANT or newer, got ${got:-unknown}"
+  exit 0
+fi
+step_ok "tode" "$got"

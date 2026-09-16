@@ -10,7 +10,7 @@ Safe to re-run. On a repo that is already partly set up, report what is already 
 
 Work in this order.
 
-1. **Audit before writing anything.** Read the repo's own docs (existing README, AGENTS.md/CLAUDE.md, CONTRIBUTING, any constitution/ADR/vocabulary files), the manifest, the CI workflows, and `gh repo view`. Take the homepage from `gh api repos/{owner}/{repo}/pages` where a Pages deploy exists. Note the visibility, since it decides which security features are free. Done when every item in step 4's list is marked set, unset, or wrong.
+1. **Audit before writing anything.** Read the repo's own docs (existing README, AGENTS.md/CLAUDE.md, CONTRIBUTING, any constitution/ADR/vocabulary files), the manifest, the CI workflows, and `gh repo view`. Take the homepage from `gh api repos/{owner}/{repo}/pages` where a Pages deploy exists. Note the visibility and whether the owner is a user or an org, since between them they decide which security features are free. Done when every item in step 4's list is marked set, unset, or wrong.
 
    Where I name a repo whose shape I already like, read its settings with `gh api repos/{owner}/{repo}` and propose this repo as a diff against that one.
 
@@ -42,4 +42,5 @@ Gotchas that cost a run to find:
 - Dependabot security updates require vulnerability alerts enabled first.
 - `delete_branch_on_merge` defaults off and reads as on, because branches disappearing after a merge looks identical to somebody deleting them by hand. Check the value.
 - Dependabot malware alerts and grouped security updates have no REST API. `security_and_analysis` accepts only `advanced_security`, `code_security`, and the `secret_scanning_*` properties, so name both as web UI follow-ups. Malware alerts are worth turning on anywhere they're offered, since they fire only on packages flagged malicious; whether a private repo on a free plan gets them is unverified. Grouped updates only matter where there is enough dependency traffic to group.
+- `secret_scanning_non_provider_patterns` and `secret_scanning_validity_checks` need GitHub Secret Protection, which is sold per organization or enterprise, so a personal-account repo cannot reach them at any visibility. The PATCH hides this: it returns 200, and the body it hands back already reports both as `disabled`. Settings → Advanced Security renders those two rows only where the entitlement exists, so there is no web UI follow-up to name either. Propose them on an org repo. On a personal one, say that secret scanning alerts and push protection are free and carry the bulk of the value.
 - The social preview image has no `gh` command. Name it as a follow-up for the web UI.

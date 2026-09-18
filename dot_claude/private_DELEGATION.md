@@ -8,7 +8,9 @@ Read it before any dispatch, fan-out or not. Where a skill's own routing table d
 
 ### Does This Task Define the Spec, or Implement Against One?
 
-Spec-defining work doesn't delegate at all. Deciding what "done" means, picking an interface, settling an ambiguity somebody wrote down, reading a merged diff against the plan it came from—that stays in session, on whatever model the session is running. Delegation that also delegates the judgment of whether the work came back right saves nothing. It moves the mistake somewhere nobody is looking.
+Spec-defining work doesn't delegate at all. Deciding what "done" means, picking an interface, settling an ambiguity somebody wrote down—that stays in session, on whatever model the session is running. Delegation that also delegates the judgment of whether the work came back right saves nothing. It moves the mistake somewhere nobody is looking.
+
+An ambiguous spec is this question's business, not a reason to buy a bigger model. Settle the ambiguity, then route the settled task. A rung up doesn't resolve an ambiguity, it produces a more confident guess at one, and divvy-up's Step 1 says the same thing: write the question down instead of guessing at it.
 
 That question ends most routing calls by itself. When it doesn't:
 
@@ -20,21 +22,33 @@ The cheaper the check, the cheaper the rung. Correctness a script settles routes
 
 | Rung | What routes here | Example |
 | --- | --- | --- |
-| stays in session | spec-defining work, and every gate on delegated output | deriving a wave table; reading a merged diff against its plan |
+| stays in session | spec-defining work, and the ruling on whatever a check reports | deciding an interface; accepting or rejecting a verdict |
 | `haiku` | mechanical transcription, where a script settles correctness | a repo-wide grep-and-report; a rename; formatting |
 | `sonnet` | implementation against a settled spec, checked against stated behavior | a bats case written to behavior the spec already fixed |
-| `opus` | correctness you can only judge against intent, or real blast radius: auth, payments, migrations, deletes, infra, public API | a README rewrite, where every claim has to be checked against the code it describes; any task whose spec is ambiguous |
+| `opus` | correctness you can only judge against intent, or anything under the irreversibility rule below | a README rewrite, where every claim has to be checked against the code it describes |
 | `fable` | explicit assignment, and the rung above `opus` after an `opus` task fails | — |
 
-Name the rung on every dispatch. An omitted model inherits the session's, which is usually the most expensive one available, and the routing evaporates while the run still looks correct.
+Name the rung on every dispatch. An omitted model usually inherits the session's, which is the most expensive one available, and a typed agent takes whatever its own definition names instead. Either way the routing evaporates while the run still looks correct.
 
 A task sitting between two rungs goes up. Guessing downward costs a revert, a retry, and the gate that caught it. Guessing upward costs the difference in price.
 
 `haiku`, `sonnet`, `opus`, and `fable` are today's lineup. The family turns over and these names outlive the mapping, so when it changes, re-check what each rung points at instead of assuming it still means what it meant here.
 
+## Irreversibility Beats Both Questions
+
+Both questions assume a wrong answer can be thrown away. Auth, payments, migrations, deletes, and infra are where that assumption fails. The check runs after the damage, and the retry in the constraints below has nothing left to revert. A script can confirm the tables are gone and report a pass.
+
+So this overrides the routing above. Work that can't be undone goes to the top rung however cheap its check looks, and the cheapness of the check is the trap—a delete is about as script-checkable as work gets.
+
+## Delegating a Check Is Fine
+
+An independent checker that re-derives a worker's claims beats reading the worker's own report, which is why `code-review` runs its axes in subagents and why the guild gives every task a checker it didn't write. Dispatch those freely, and route them by the same two questions as anything else.
+
+The ruling is the part that stays with you: whether the verdict is right, and whether the task is done. Hand that to something you dispatched and nothing is left watching.
+
 ## When a Skill's Table Says Otherwise
 
-`divvy-up` routes docs and changelogs to `haiku`. In my skills repo a README task failed its gate on `sonnet` and passed on `opus`: every claim in it had to be checked against the file it described, which is the second question's top row and not a documentation job at all. Route on what checking the work takes, not on what kind of file it is.
+`divvy-up` routes docs and changelogs to `haiku`. In my skills repo a README task failed its gate on `sonnet` and passed on `opus`. Checking it meant verifying every claim against the file it described, which is the second question's top row whatever the file extension says. Route on what checking the work takes, not on what kind of file it is.
 
 ## The Floor
 
@@ -48,5 +62,5 @@ Put these in the dispatch. A subagent has no other way to learn them, and a repo
 
 1. The files it owns. Write only those, and report every path touched, including the ones you didn't mean to. A stray write clobbers a peer's work that the writer never saw and can't reconcile with.
 2. Delete nothing it didn't create. A subagent reads a deletion as cleanup. Whoever dispatched it reads a missing file with no author.
-3. The verification command, run, with its real output. Report what the command printed, not a characterization of it. "Tests pass" is evidence of what the subagent believed; the output is evidence of what happened.
+3. The verification command, actually run, with its real output. Report what the command printed, not a characterization of it. "Tests pass" is evidence of what the subagent believed; the output is evidence of what happened.
 4. One rung up on failure. Revert the paths the task owned, then re-dispatch it alone one rung up with the failure attached. Revert first, or the next agent spends its budget debugging the last one's leftovers. Nothing sits above `fable`, so a failure there stops the run.

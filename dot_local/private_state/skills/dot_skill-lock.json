@@ -562,9 +562,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "adversarial-review/SKILL.md",
-      "skillFolderHash": "4ddf1d52eabaa94e44cccd762823d7df15708c3b",
+      "skillFolderHash": "6e653eafc92d61cc84d71d37b622538bee7a62b8",
       "installedAt": "2026-08-20T17:19:36.495Z",
-      "updatedAt": "2026-09-11T03:45:52.049Z"
+      "updatedAt": "2026-09-18T01:38:31.308Z"
     },
     "technical-writing": {
       "source": "kendrick/skills",
@@ -735,9 +735,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "divvy-up/SKILL.md",
-      "skillFolderHash": "cf9383f84f1c94c322da1ac15d1d6e5641423f08",
+      "skillFolderHash": "d5c17ddbe579a142780adfcaa80450df63284787",
       "installedAt": "2026-09-02T02:46:12.250Z",
-      "updatedAt": "2026-09-11T03:45:54.366Z"
+      "updatedAt": "2026-09-18T01:38:33.776Z"
     },
     "jira-refine": {
       "source": "kendrick/skills",
@@ -753,9 +753,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/herdrdev/herdr.git",
       "skillPath": "skills/herdr/SKILL.md",
-      "skillFolderHash": "b9dcfddcfa7ce43e2e4cf60e724c519be553f149",
+      "skillFolderHash": "6985a5e8418d43171c45c2a9e04b02de7308e1d8",
       "installedAt": "2026-09-11T16:16:57.901Z",
-      "updatedAt": "2026-09-15T21:38:01.430Z"
+      "updatedAt": "2026-09-18T01:38:36.970Z"
+    },
+    "work-issue": {
+      "source": "kendrick/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kendrick/skills.git",
+      "skillPath": "work-issue/SKILL.md",
+      "skillFolderHash": "6dec320242a1e0e94886ccdf93c482206cefd170",
+      "installedAt": "2026-09-18T01:38:20.355Z",
+      "updatedAt": "2026-09-18T01:38:20.355Z"
     }
   },
   "dismissed": {

@@ -38,7 +38,7 @@ A task sitting between two rungs goes up. Guessing downward costs a revert, a re
 
 Both questions assume a wrong answer can be thrown away. Auth, payments, migrations, deletes, and infra are where that assumption fails. The check runs after the damage, and the retry in the constraints below has nothing left to revert. A script can confirm the tables are gone and report a pass.
 
-So this overrides the routing above. Work that can't be undone goes to the top rung however cheap its check looks, and the cheapness of the check is the trap—a delete is about as script-checkable as work gets.
+So this overrides the routing above. Work that can't be undone goes to `opus` however cheap its check looks, and the cheapness of the check is the trap—a delete is about as script-checkable as work gets. `fable` is an escalation destination, never a routing answer.
 
 ## Delegating a Check Is Fine
 
@@ -61,6 +61,6 @@ One thing overrides the floor. A task whose output would flood the session earns
 Put these in the dispatch. A subagent has no other way to learn them, and a repo's own agent docs are usually written for an agent working alone.
 
 1. The files it owns. Write only those, and report every path touched, including the ones you didn't mean to. A stray write clobbers a peer's work that the writer never saw and can't reconcile with.
-2. Delete nothing it didn't create. A subagent reads a deletion as cleanup. Whoever dispatched it reads a missing file with no author.
+2. Delete only a path the task names explicitly, or one that's in the files it owns. Everything else, leave alone. A subagent reads an unassigned deletion as cleanup. Whoever dispatched it reads a missing file with no author.
 3. The verification command, actually run, with its real output. Report what the command printed, not a characterization of it. "Tests pass" is evidence of what the subagent believed; the output is evidence of what happened.
-4. One rung up on failure. Revert the paths the task owned, then re-dispatch it alone one rung up with the failure attached. Revert first, or the next agent spends its budget debugging the last one's leftovers. Nothing sits above `fable`, so a failure there stops the run.
+4. One rung up on failure, by default. Revert the paths the task owned, then re-dispatch it alone one rung up with the failure attached. Revert first, or the next agent spends its budget debugging the last one's leftovers. Where a workflow runs its own retry ladder with recorded state enforced by a hook, that ladder wins instead (agent-guild's, for instance). Nothing sits above `fable`, so a failure there stops the run.

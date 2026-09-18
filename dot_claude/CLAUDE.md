@@ -40,4 +40,10 @@ Before drafting anything addressed to a person—emails above all, but also DMs,
 
 That's a separate job from the humanizer pass above, and for messages it replaces it: VOICE.md drafts from verbatim samples of my sent mail and carries its own audit checklist, so don't run the humanizer on top—it would sand the voice back off.
 
+## Delegation
+
+Before dispatching any subagent, read `~/.claude/DELEGATION.md` and route the task by it. The trigger is the dispatch, fan-out or not: one subagent for one task counts the same as a wave of nine. Open the file fresh each time; don't work from a remembered summary.
+
+The file carries the rungs, the floor below which delegating costs more than it saves, and the constraints every dispatch has to spell out. Where a skill's own routing table disagrees with it, the file wins.
+
 @RTK.md

@@ -44,6 +44,6 @@ That's a separate job from the humanizer pass above, and for messages it replace
 
 Before dispatching any subagent, read `~/.claude/DELEGATION.md` and route the task by it. The trigger is the dispatch, fan-out or not: one subagent for one task counts the same as a wave of nine. Open the file fresh each time; don't work from a remembered summary.
 
-The file carries the rungs, the floor below which delegating costs more than it saves, and the constraints every dispatch has to spell out. Where a skill's own routing table disagrees with it, the file wins. A workflow that enforces its own retry ladder in a hook, like agent-guild's, still owns how its reworks escalate.
+The file carries the rungs, the floor below which delegating costs more than it saves, and the constraints every dispatch has to spell out. A skill that says how it dispatches owns that while it's driving, and the file decides everywhere else.
 
 @RTK.md

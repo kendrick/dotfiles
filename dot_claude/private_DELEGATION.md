@@ -2,7 +2,7 @@
 
 This file decides which model a delegated task goes to, and what that task inherits when it gets there.
 
-Read it before any dispatch, fan-out or not. This file is the default for any dispatch. A skill that says how it dispatches owns that while it's driving, since its table is written for the work in front of it. Where a skill is silent, contradicts itself, or leaves the call open, this file decides.
+Read it before any dispatch, fan-out or not. This file is the default for any dispatch. Anything that says how it dispatches owns that while it's driving—a skill, project instructions, a workflow's own lifecycle—since its table is written for the work in front of it. Where it is silent, contradicts itself, or leaves the call open, this file decides.
 
 ## Two Questions
 
@@ -30,7 +30,7 @@ A README rewrite reads like a docs job until you ask what checking it takes. Che
 | `opus` | correctness you can only judge against intent, or anything under the irreversibility rule below | a README rewrite |
 | `fable` | explicit assignment, and the rung above `opus` after an `opus` task fails | — |
 
-Name the rung on every dispatch. An omitted model usually inherits the session's, which is the most expensive one available, and a typed agent takes whatever its own definition names instead. Either way the routing evaporates while the run still looks correct.
+Name the rung on every dispatch that picks a model. An omitted model usually inherits the session's, which is the most expensive one available, and a typed agent takes whatever its own definition names instead. Either way the routing evaporates while the run still looks correct. A lane that carries no model of its own has no rung to name, and naming one breaks the only contract it does have—agent-guild's courier relays to another vendor's CLI, so there is no rung on this ladder that means anything to it.
 
 A task sitting between two rungs goes up. Guessing downward costs a revert, a retry, and the gate that caught it. Guessing upward costs the difference in price.
 
@@ -61,4 +61,4 @@ Put these in the dispatch. A subagent has no other way to learn them, and a repo
 1. The files it owns. Write only those, and report every path touched, including the ones you didn't mean to. A stray write clobbers a peer's work that the writer never saw and can't reconcile with. Don't edit an owned path yourself while its task is in flight either, because the revert on failure can't tell your edit from the worker's.
 2. Delete only a path the task names explicitly, or one that's in the files it owns. Everything else, leave alone. A subagent reads an unassigned deletion as cleanup. Whoever dispatched it reads a missing file with no author.
 3. The verification command, actually run, with its real output. Report what the command printed, not a characterization of it. "Tests pass" is evidence of what the subagent believed; the output is evidence of what happened.
-4. One rung up on failure, unless you're inside something that runs its own retry ladder. Revert the paths the task owned to the state captured before the dispatch went out, not to HEAD or to clean—ownership says where the worker could write, not that the path started clean. With no captured baseline, the owned paths have to be clean before dispatch, or the work doesn't get delegated. Then re-dispatch it one rung up with the failure attached. Revert first, or the next agent spends its budget debugging the last one's leftovers. Nothing sits above `fable`, so a failure there stops the run.
+4. One rung up on failure, where nothing else owns the retry. Inside a protocol running its own retry ladder, that ladder decides the tier, the counter, and how the tree gets restored, and nothing else in this item applies. Everywhere else, revert the paths the task owned to the state captured before the dispatch went out, not to HEAD or to clean—ownership says where the worker could write, not that the path started clean. With no captured baseline, the owned paths have to be clean before dispatch, or the work doesn't get delegated. Then re-dispatch it one rung up with the failure attached. Revert first, or the next agent spends its budget debugging the last one's leftovers. Nothing sits above `fable`, so a failure there stops the run.

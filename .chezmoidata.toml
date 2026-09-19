@@ -37,6 +37,8 @@ taps = [
   { name = "sbcinnovation/tap",     bundles = ["dev"] },
   # Same deal for deskflow: the cask lives in the project's own tap, not homebrew-cask.
   { name = "deskflow/tap",          bundles = ["dev"] },
+  # zoetrope ships from its maintainer's own tap, so the two switch together.
+  { name = "furkankly/tap",         bundles = ["ai"] },
   { name = "databricks/tap",        bundles = ["cloud"] },
 ]
 

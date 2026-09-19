@@ -44,7 +44,7 @@ That's a separate job from the humanizer pass above, and for messages it replace
 
 Before dispatching any subagent, read `~/.claude/DELEGATION.md` and route the task by it. The trigger is the dispatch, fan-out or not: one subagent for one task counts the same as a wave of nine. Open the file fresh each time; don't work from a remembered summary.
 
-The file carries the rungs, the floor below which delegating costs more than it saves, and the constraints every dispatch has to spell out. Whatever says how it dispatches owns that while it's driving, skill or project instructions alike, and the file decides everywhere else.
+The file carries the rungs, the floor below which delegating costs more than it saves, the constraints every dispatch has to spell out, and who wins when something else already says how it dispatches.
 
 ## Verification
 

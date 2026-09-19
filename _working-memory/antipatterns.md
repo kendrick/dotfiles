@@ -14,6 +14,18 @@
 <!-- The last line is the agent-targeted lever. Be specific. "Don't suggest    -->
 <!-- moving X to Y" beats "don't suggest big refactors."                       -->
 
+## 2026-09-19 — Don't scope a policy exception by naming the kind of thing it applies to
+**Tried:** `DELEGATION.md`'s precedence carve-out read "A skill that says how it dispatches owns that while it's driving."
+**What broke:** agent-guild loads through `@.agent-guild/CLAUDE.md` as project instructions, not as a skill, so the one dispatcher with a full retry lifecycle of its own was the only one the exception never reached. The same shape recurred twice more in the same file: "name the rung on every dispatch" had no exemption for a dispatch carrying no model, and the irreversibility stop reached this file's own retry but not a protocol's ladder.
+**Why we backed out:** A rule keyed to a mechanism type silently excludes every mechanism that arrives another way, and the exclusion is invisible in the diff. Keying on behaviour ("anything that says how it dispatches", "every dispatch that picks a model") covers the cases nobody enumerated.
+**Don't suggest:** Writing an exception in these files that names a skill, a workflow, a plugin, or any other delivery mechanism. Name what the thing does. Also don't re-narrow this to "a skill" on the grounds that it reads more concretely; that was the original bug. _(GitHub #60, PR #62 review threads 4052059867 and 4050075999)_
+
+## 2026-09-19 — Don't hand a step to another protocol without grepping its contract for that step
+**Tried:** Scoping `DELEGATION.md`'s constraint 4 so that a protocol running its own retry ladder owned "the tier, the counter, and how the tree gets restored", with "nothing else in this item applies."
+**What broke:** `grep -ciE "revert|restor|baseline" .agent-guild/CLAUDE.md` returns 0. The guild's ladder copies a diagnosis, increments `retries`, and re-dispatches the same executor; it restores nothing. So the handoff deleted the only restoration rule that existed, on exactly the path the fix was written for, and a rework would have built on the failed worker's leftovers. A second round of the same mistake exempted irreversible work from this file's retry while constraint 4 handed the retry to a ladder that re-dispatches automatically.
+**Why we backed out:** Handing over a responsibility assumes the receiver has one. Both times the receiving contract was never checked, and both times the review that caught it had to read the two documents side by side.
+**Don't suggest:** Delegating a step to "whatever protocol is driving" without first grepping that protocol's contract for the mechanism. Where the receiver is silent, this file keeps the rule rather than dropping it. _(GitHub #60, PR #62 review threads 4050076012 and 4052086294)_
+
 ## 2026-08-31 — Don't cite SF Mono as the tag-with-no-substitution example; cite BlexMono instead
 **Tried:** Re-verifying the 2026-08-05 entry's claim that SF Mono carries a `calt` tag that substitutes nothing, while building #15's admission rule.
 **What broke:** The claim doesn't hold on this machine. All twelve `SF-Mono-*.otf` faces plus `/System/Library/Fonts/SFNSMono.ttf` report a GSUB FeatureList of exactly `c2sc, ccmp, locl, smcp, ss03, ss04`, no `calt` among them, and a raw byte grep for `calt` across every one of those files returns zero hits. Checked twice.

@@ -4,7 +4,7 @@ onboarding = false
 # >>> herdr-radar tab-bar block
 tab_bar_right_separator = " · "
 tab_bar_right = [
-  { type = 'command', command = 'cat "/Users/k.arnett/.local/state/herdr/plugins/hhdebb.herdr-radar/tabbar.txt"', interval_seconds = 6, timeout_seconds = 2 },
+  { type = 'command', command = 'cat "$HOME/.local/state/herdr/plugins/hhdebb.herdr-radar/tabbar.txt" 2>/dev/null || true', interval_seconds = 6, timeout_seconds = 2 },
 ]
 # <<< herdr-radar tab-bar block
 

@@ -1,4 +1,4 @@
-Include /Users/k.arnett/.ssh/conductor_config
+Include ~/.ssh/conductor_config
 
 Host github_personal
 	HostName github.com

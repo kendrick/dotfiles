@@ -78,3 +78,10 @@
 - `.chezmoiignore` matches TARGET paths (home-relative), not source paths. A source-name entry (`private_Library/…`, `dot_local/bin/executable_x`) silently no-ops — use the deployed path (`Library/…`, `.local/bin/x`) and verify with `chezmoi ignored`. _(.chezmoiignore, chezmoi ignored)_
 - Files generated from live state, or rendered purely as data for a script, are source-only: `.chezmoiignore` the target so the daily `chezmoi re-add` can't clobber the freshly-generated source with a stale deployed copy. _(VS Code ext list; the Brewfile is rendered inline by the installer)_
 - A dot-prefixed source entry (`.chezmoidata.toml`, `.chezmoitemplates/`, `.agent-guild/`) is source-only for free, since chezmoi never gives it a target, so it needs no `.chezmoiignore` line at all. The rule above is for entries that would otherwise deploy. _(.chezmoidata.toml)_
+
+## Always-loaded policy files
+
+`dot_claude/CLAUDE.md` and `dot_claude/private_DELEGATION.md` deploy to `~/.claude/` and load into every session, alongside `.agent-guild/CLAUDE.md` in this repo. Every defect found in #60 was one of those documents contradicting another, and none of them was visible in the diff.
+
+So before editing either, read them beside `.agent-guild/CLAUDE.md` and walk three failure paths end to end: an ordinary subagent failing, a guild worker failing mid-job, and an irreversible task failing. Each has to land on exactly one compliant action. Where you are about to hand a step to another protocol, grep that protocol's contract for the mechanism first. A review of the diff alone passes all four defects. _(GitHub #60, decisionLog 2026-09-19, antipatterns 2026-09-19)_
+

@@ -46,4 +46,12 @@ Before dispatching any subagent, read `~/.claude/DELEGATION.md` and route the ta
 
 The file carries the rungs, the floor below which delegating costs more than it saves, and the constraints every dispatch has to spell out. A skill that says how it dispatches owns that while it's driving, and the file decides everywhere else.
 
+## Verification
+
+The two rules below are the whole of this section, worded to paste verbatim into a project's AGENTS.md when I ask, since a review subagent reads that repo and never reads user config. They are also what `DELEGATION.md` means by a checker re-deriving a worker's claims, and the standard I accept a verdict against.
+
+Assert in the consumer's units. The consumer is whatever evaluates a value next and lies outside this codebase's control: a rasterizer, a parser, a wire format, a database, another team's client, a later version of this codebase. Once a value reaches one, assert what that consumer produced, not a producer-side value converted into its units. Assert the composited pixel rather than the declared color, the parsed archive rather than the schema that wrote it, the rendered string rather than the model that formatted it, and what two consumers agree on rather than each copy valid on its own. A test phrased in the producer's terms can be written first, pass every run for the life of the feature, and still measure the wrong quantity.
+
+A verification that recomputes the implementation has verified only that the code agrees with itself. An outside reviewer can clear a real defect this way, because the obvious way to work a number out is usually the way the code already works it out. Independence of authorship is not independence of method. Settle the expected value from the requirement, or from what the consumer reports, before reading how the code arrives at it.
+
 @RTK.md

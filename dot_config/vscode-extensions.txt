@@ -5,6 +5,7 @@ akamud.vscode-theme-onelight
 anthropic.claude-code
 beardedbear.beardedtheme
 bierner.markdown-mermaid
+bierner.markdown-preview-github-styles
 bradlc.vscode-tailwindcss
 catppuccin.catppuccin-vsc
 crystal-spider.jsdoc-generator
@@ -20,8 +21,11 @@ fosshaas.fontsize-shortcuts
 github.vscode-github-actions
 jaspernorth.vscode-pigments
 ms-azuretools.vscode-containers
+ms-azuretools.vscode-docker
+ms-vscode-remote.remote-wsl
 ms-vscode.cpptools
 ms-vscode.live-server
+ms-vsliveshare.vsliveshare
 mvllow.rose-pine
 oderwat.indent-rainbow
 openai.chatgpt
@@ -39,5 +43,7 @@ tomoki1207.pdf
 unifiedjs.vscode-mdx
 usernamehw.errorlens
 vunguyentuan.vscode-css-variables
+webhint.vscode-webhint
+xyc.vscode-mdx-preview
 yoavbls.pretty-ts-errors
 yzhang.markdown-all-in-one

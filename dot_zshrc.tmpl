@@ -78,7 +78,11 @@ unset _pnpm_dir
 # zsh-autocomplete runs compinit itself, on the first prompt, so nothing here may call
 # it. Adding to fpath at this point still lands in time, because that hook fires after
 # .zshrc has finished. Autocomplete also manages its own menu zstyles.
-fpath+=( ~/.zfunc $ZSH_CONFIG/completions )
+#
+# Prepend rather than append. clarketm/zsh-completions ships its own _nvm, and an
+# appended entry loses to it: the thinner completion wins on order alone. These two
+# directories hold the copies that should beat anything a plugin supplies.
+fpath=( ~/.zfunc $ZSH_CONFIG/completions $fpath )
 
 # bun
 [ -s "{{ .chezmoi.homeDir }}/.bun/_bun" ] && source "{{ .chezmoi.homeDir }}/.bun/_bun"

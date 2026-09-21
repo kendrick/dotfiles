@@ -75,9 +75,10 @@ done
 unset _pnpm_dir
 # pnpm end
 
-fpath+=~/.zfunc; autoload -Uz compinit; compinit
-
-zstyle ':completion:*' menu select
+# zsh-autocomplete runs compinit itself, on the first prompt, so nothing here may call
+# it. Adding to fpath at this point still lands in time, because that hook fires after
+# .zshrc has finished. Autocomplete also manages its own menu zstyles.
+fpath+=( ~/.zfunc $ZSH_CONFIG/completions )
 
 # bun
 [ -s "{{ .chezmoi.homeDir }}/.bun/_bun" ] && source "{{ .chezmoi.homeDir }}/.bun/_bun"

@@ -607,9 +607,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "a87c9e8174280e8165cdccb13ef515f0aec29463",
+      "skillFolderHash": "b15b596ca202592330107c5adff030614e88d877",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-09-19T03:57:05.416Z"
+      "updatedAt": "2026-09-21T17:28:10.326Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
@@ -762,9 +762,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "6dec320242a1e0e94886ccdf93c482206cefd170",
+      "skillFolderHash": "92b0a68f92a7b1312c8377635c51ca5c385f7f18",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-09-18T01:38:20.355Z"
+      "updatedAt": "2026-09-21T17:27:55.287Z"
     }
   },
   "dismissed": {

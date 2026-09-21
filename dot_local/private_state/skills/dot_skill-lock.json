@@ -35,9 +35,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "skillPath": "skills/systematic-debugging/SKILL.md",
-      "skillFolderHash": "ab83fc82f82582e047d96fc516bac9bc03095ee0",
+      "skillFolderHash": "9a48dfda84bf339cba4b03fd803ba0dca2e158e3",
       "installedAt": "2026-05-27T13:10:06.834Z",
-      "updatedAt": "2026-07-27T17:29:16.931Z"
+      "updatedAt": "2026-09-19T03:56:46.793Z"
     },
     "docx": {
       "source": "anthropics/skills",
@@ -139,9 +139,9 @@
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "ref": "main",
       "skillPath": "skills/subagent-driven-development/SKILL.md",
-      "skillFolderHash": "8133f2b10d4e71e73d867f2e2e365e0778ff0e4e",
+      "skillFolderHash": "5d44ced88725298e847c62c67a726dcc29e20d00",
       "installedAt": "2026-05-28T03:15:48.151Z",
-      "updatedAt": "2026-08-21T00:42:08.531Z"
+      "updatedAt": "2026-09-19T03:56:48.881Z"
     },
     "dispatching-parallel-agents": {
       "source": "obra/superpowers",
@@ -159,9 +159,9 @@
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "ref": "main",
       "skillPath": "skills/test-driven-development/SKILL.md",
-      "skillFolderHash": "a82cf8b413600c6bd7c4b482272d7990e9588cf1",
+      "skillFolderHash": "847144cf0824095922c0d4875648b9fa74877e1a",
       "installedAt": "2026-05-28T03:23:52.355Z",
-      "updatedAt": "2026-07-27T17:29:22.751Z"
+      "updatedAt": "2026-09-19T03:56:50.395Z"
     },
     "frontend-slides": {
       "source": "zarazhangrui/frontend-slides",
@@ -562,9 +562,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "adversarial-review/SKILL.md",
-      "skillFolderHash": "6e653eafc92d61cc84d71d37b622538bee7a62b8",
+      "skillFolderHash": "d77e8d97a140ac4ec4abf1b44f6d0263fd7e6e4a",
       "installedAt": "2026-08-20T17:19:36.495Z",
-      "updatedAt": "2026-09-18T01:38:31.308Z"
+      "updatedAt": "2026-09-19T03:56:52.451Z"
     },
     "technical-writing": {
       "source": "kendrick/skills",
@@ -607,9 +607,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "6ce840146555c1555daa28fcce61b5bdfafd02a7",
+      "skillFolderHash": "a87c9e8174280e8165cdccb13ef515f0aec29463",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-09-15T21:36:03.126Z"
+      "updatedAt": "2026-09-19T03:57:05.416Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",

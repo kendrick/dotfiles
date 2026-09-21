@@ -2,7 +2,6 @@ alias add-dock-spacer="defaults write com.apple.dock persistent-apps -array-add 
 alias bulkerase='drutil bulkerase quick'
 alias bubu='brew update && brew outdated && brew upgrade && brew cleanup'
 alias brewup='brew -v update && brew -v upgrade && brew upgrade --cask && brew -v cleanup --prune=5 && brew doctor'
-alias cat='ccat'
 alias changelog='conventional-changelog -p angular -i CHANGELOG.md -s'
 
 # Only interactive-specific aliases should go here. Aliases that don't

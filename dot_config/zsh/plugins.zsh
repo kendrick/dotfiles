@@ -1,7 +1,7 @@
 znap source zsh-users/zsh-syntax-highlighting
 znap source zsh-users/zsh-history-substring-search
-znap source grigorii-zander/zsh-npm-scripts-autocomplete
 znap source "marlonrichert/zsh-autocomplete"
+znap source grigorii-zander/zsh-npm-scripts-autocomplete
 znap source "ael-code/zsh-colored-man-pages"
 znap source "clarketm/zsh-completions"
 znap source "MichaelAquilina/zsh-auto-notify"

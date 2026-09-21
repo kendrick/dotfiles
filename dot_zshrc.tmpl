@@ -26,12 +26,41 @@ source $ZSH_CONFIG/styles.zsh
 source $ZSH_CONFIG/aliases.zsh
 source $ZSH_CONFIG/options.zsh
 
-# NVM_DIR is set in exports.zsh
-. "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
-. "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+# NVM_DIR is set in exports.zsh.
+#
+# Sourcing nvm.sh outright costs ~1.5s of a 1.7s startup: nvm_auto resolves the `default`
+# alias through a tree of subshells at every shell start. All that work produces one PATH
+# entry, so cache the entry and leave nvm unloaded until something calls it.
+#
+# Resolve the alias here by hand and you will pick the wrong node. Globs sort lexically,
+# which puts v24.9.0 above v24.21.0, so the cold path below leaves the resolving to nvm.
+#
+# NVM_BIN has to land ahead of $HOMEBREW_PREFIX/bin, which ships a node of its own, and
+# behind the pnpm and bun prepends further down. Leave this block where it sits.
+_nvm_cache=${XDG_CACHE_HOME:-$HOME/.cache}/nvm-default-path.zsh
+if [[ -s $_nvm_cache && $_nvm_cache -nt $NVM_DIR/alias/default
+      && $_nvm_cache -nt $NVM_DIR/versions/node ]]; then
+  source $_nvm_cache
+  # `nvm install` and `nvm alias` touch $NVM_DIR/versions/node or $NVM_DIR/alias/default,
+  # leaving the cache older than one of them, so the next shell rebuilds it. `nvm use`
+  # still works here: the first call loads nvm.sh, with --no-use because the cache has
+  # already put the default version on PATH.
+  nvm() {
+    unfunction nvm
+    . "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" --no-use
+    . "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+    nvm "$@"
+  }
+else
+  . "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
+  . "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+  mkdir -p ${_nvm_cache:h}
+  print -rl -- "path=( ${(q)NVM_BIN} \$path )" \
+               "export NVM_BIN=${(q)NVM_BIN} NVM_INC=${(q)NVM_INC}" >| $_nvm_cache
+fi
+unset _nvm_cache
 
 source $ZSH_CONFIG/functions.zsh
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
 # pnpm
 export PNPM_HOME="{{ .chezmoi.homeDir }}/.local/share/pnpm"

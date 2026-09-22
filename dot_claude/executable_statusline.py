@@ -5,7 +5,7 @@ Single-line adaptation of @kyleledbetter's Dreambase Panel, rendered on one
 line instead of a boxed three-row panel.
 
 Layout:
-    ◆ Model  ·  branch │ bar pct of SIZE │ ↓in ↑out │ ⏱dur │ 5h · n% ↻r │ 7d · n% ↻r
+    ◆ Model  ·  branch │ bar pct of SIZE │ ↓in ↑out │ ⏱dur │ 5h · n% ↻ r │ 7d · n% ↻ r
 
 Colors come from the terminal's 16-color palette (SGR 30-37 plus bold and dim)
 wherever that palette has the hue, so they follow whatever theme the terminal
@@ -96,7 +96,7 @@ def fmt_dur(ms):
 
 
 def fmt_eta(seconds):
-    """Compact countdown: 3d4h, 2h7m, 7m, or <1m. Past a day the minutes drop
+    """Compact countdown: 3d 4h, 2h 7m, 7m, or <1m. Past a day the minutes drop
     out as well. Only the 7d window runs that long, and nobody plans around
     the minute of a reset three days out. No seconds—the status line
     only re-renders on events (and on refreshInterval), so a ticking second
@@ -107,9 +107,9 @@ def fmt_eta(seconds):
     h, rem = divmod(rem, 3600)
     m = rem // 60
     if d:
-        return f"{d}d{h}h"
+        return f"{d}d {h}h"
     if h:
-        return f"{h}h{m}m"
+        return f"{h}h {m}m"
     if m:
         return f"{m}m"
     return "<1m"
@@ -150,7 +150,10 @@ if partial:
 bar += "░" * empty
 
 ctx_label = "1M" if ctx_size >= 1_000_000 else "200K"
-warn = f" {RED}{B}⚠{R}" if exceeds_200k else ""
+# Red is the ladder's top rung and has to keep meaning "act now". This flag is
+# informational: it reports the last API response crossing a fixed 200k total,
+# and can flip back off on the next turn. Grey carries it without the alarm.
+warn = f" {GRY}⚠{R}" if exceeds_200k else ""
 
 
 # ── Git branch (cached for perf) ──────────────────────────
@@ -206,7 +209,7 @@ else:
 
 
 def limit_segment(label, key):
-    """`5h · 26% ↻2h7m`, colored on the same ladder as the context bar.
+    """`5h · 26% ↻ 2h 7m`, colored on the same ladder as the context bar.
     Returns None when the window is absent so the caller can drop the separator
     with it, rather than printing an empty cell between two pipes."""
     window = rate_limits.get(key)
@@ -219,7 +222,7 @@ def limit_segment(label, key):
     seg = f"{RUST_D}{label}{R} {D}·{R} {usage_color(p)}{B}{p}%{R}"
     resets_at = window.get("resets_at")
     if resets_at:
-        seg += f" {GRY}↻{fmt_eta(float(resets_at) - time.time())}{R}"
+        seg += f" {GRY}↻ {fmt_eta(float(resets_at) - time.time())}{R}"
     return seg
 
 

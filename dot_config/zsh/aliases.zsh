@@ -11,7 +11,6 @@ alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
 alias cls='clear && fortune | cowsay | lolcat'
-alias docker='podman'
 alias fake='faker-cli'
 alias fhere='find . -name'
 alias h='history'

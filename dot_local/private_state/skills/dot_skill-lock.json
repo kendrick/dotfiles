@@ -571,9 +571,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "technical-writing/SKILL.md",
-      "skillFolderHash": "7a5533ffcd0a96d188c299b5e31ba019e70e337b",
+      "skillFolderHash": "90b933275c3cc090cfe4a0b522e918d398525680",
       "installedAt": "2026-08-20T17:19:36.512Z",
-      "updatedAt": "2026-08-24T02:59:36.127Z"
+      "updatedAt": "2026-09-23T03:31:37.544Z"
     },
     "jd-audit": {
       "source": "kendrick/skills",
@@ -762,9 +762,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "de8ca4b941ecb0a48e094d147c86f2635db65937",
+      "skillFolderHash": "cc0726264e81d2e6ff45a92062b3c694b50f54dc",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-09-22T15:41:34.065Z"
+      "updatedAt": "2026-09-23T03:31:40.069Z"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",

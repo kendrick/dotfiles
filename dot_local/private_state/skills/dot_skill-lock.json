@@ -562,9 +562,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "adversarial-review/SKILL.md",
-      "skillFolderHash": "d435b031485680ec7e298a68e7ca5332f575c694",
+      "skillFolderHash": "c1c92c8cd382822386498f5d5924d25ca1e39ddf",
       "installedAt": "2026-08-20T17:19:36.495Z",
-      "updatedAt": "2026-09-25T16:01:33.787Z"
+      "updatedAt": "2026-09-25T20:41:57.688Z"
     },
     "technical-writing": {
       "source": "kendrick/skills",
@@ -762,9 +762,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "6fa7c84893e2a4c44b1d5457253fade25db063b1",
+      "skillFolderHash": "de9e6b70b8158f3073dc22b03d83050c0ce1aa98",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-09-25T16:01:36.859Z"
+      "updatedAt": "2026-09-25T20:42:00.191Z"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",

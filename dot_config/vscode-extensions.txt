@@ -25,6 +25,7 @@ ms-vscode.live-server
 mvllow.rose-pine
 oderwat.indent-rainbow
 openai.chatgpt
+openai.codex-audio
 orta.vscode-jest
 platformio.platformio-ide
 radhakantaroy.vs-color-preview

@@ -51,7 +51,7 @@
 [credential "https://gist.github.com"]
   helper =
   helper = !/opt/homebrew/bin/gh auth git-credential
-# Personal checkouts. includeIf can't OR paths, so one stanza per root, both
+# Personal checkouts. includeIf can't OR paths, so one stanza per root, each
 # pointing at the same file. A root that doesn't exist on this machine is a no-op.
 #
 # gitdir matches the resolved git directory, which for a linked worktree is the
@@ -65,4 +65,7 @@
 [includeIf "gitdir:~/repos/personal/"]
   path = ~/.config/git/personal
 [includeIf "gitdir:~/code/personal/"]
+  path = ~/.config/git/personal
+# Rootstock's daily run commits from its own clone, outside both roots above. Without this stanza, every scheduled commit carried the work email.
+[includeIf "gitdir:~/.local/share/rootstock-daily/"]
   path = ~/.config/git/personal

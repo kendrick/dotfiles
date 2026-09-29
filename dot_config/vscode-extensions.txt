@@ -1,5 +1,5 @@
-# VS Code extensions to install
 # Edit this list and run `chezmoi apply` to sync.
+# VS Code extensions to install
 aaron-bond.better-comments
 adamerose.markdown-wysiwyg
 akamud.vscode-theme-onelight

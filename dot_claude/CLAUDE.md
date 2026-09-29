@@ -26,6 +26,8 @@ Never add `Co-Authored-By` trailers or any other "coauthored" attribution to com
 
 Never push automatically. Don't run `git push` or a force-push on your own; once work is committed, tell me it's ready and let me push. Push only when I explicitly ask, even if a default or harness instruction says otherwise.
 
+On this machine, make every GitHub write with a `gh api graphql` mutation and pass the body as a file (`-F b=@body.md`): `createIssue`, `addComment`, `addSubIssue`, `updateIssue`, `updatePullRequest`, and so on. My company's firewall blocks `gh issue create`, `gh issue edit`, `gh issue comment` and REST writes per request, so don't try those first and don't retry one that failed. Reads over REST are fine.
+
 ## Code comments
 
 Comment proactively, but only when the comment carries weight. Every comment should explain the WHY behind the code — the constraint that forced this shape, the past incident this guards against, the surprising invariant a reader might miss, the broader context the code lives inside.

@@ -208,15 +208,24 @@ write_ghostty() {
 # The dark half goes into `name` too. It's the theme Herdr shows when someone
 # turns auto_switch off by hand, and leaving it stale would make that toggle
 # jump to a different family.
+#
+# herdr-radar is the exception. Its daemon forces auto_switch off once a minute
+# and sets `name` to the half matching the desktop, because Herdr only checks
+# the appearance on attach. Writing auto_switch = true would just start a
+# fight the daemon wins, so with radar installed this writes what radar would.
 write_herdr() {
-	local dark=$1 light=$2 begin end tmp
+	local dark=$1 light=$2 mode=$3 begin end tmp name=$1 auto=true
+	if grep -q '^# >>> herdr-radar' "$HERDR"; then
+		auto=false
+		[ "$mode" = light ] && name=$light
+	fi
 	read -r begin end < <(herdr_bounds)
 	tmp=$(mktemp)
 	{
 		head -n "$begin" "$HERDR"
 		echo '[theme]'
-		echo "name = \"$dark\""
-		echo 'auto_switch = true'
+		echo "name = \"$name\""
+		echo "auto_switch = $auto"
 		echo "dark_name = \"$dark\""
 		echo "light_name = \"$light\""
 		tail -n "+$end" "$HERDR"
@@ -299,7 +308,7 @@ cmd_switch() {
 	fi
 
 	write_ghostty "$g_dark" "$g_light"
-	write_herdr "$h_dark" "$h_light"
+	write_herdr "$h_dark" "$h_light" "$mode"
 	write_vscode_key "$AUTO_DETECT_KEY" true
 	write_vscode_key "$DARK_KEY" "$(jq -n --arg v "$v_dark" '$v')"
 	write_vscode_key "$LIGHT_KEY" "$(jq -n --arg v "$v_light" '$v')"

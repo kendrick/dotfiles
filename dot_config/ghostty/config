@@ -1,4 +1,7 @@
-theme = dark:Catppuccin Mocha,light:Catppuccin Latte
+theme = dark:Synthwave Everything,light:Light Owl
+# Light Owl's bright white is 1.1:1 against its background, so text drawn in it vanishes.
+# 2 lifts anything that faint, from any program, and barely touches the rest of either palette.
+minimum-contrast = 2
 # BEGIN font (managed by `font`)
 font-family = "RecMonoLinear Nerd Font"
 font-size = 14

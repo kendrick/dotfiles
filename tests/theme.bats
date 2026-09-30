@@ -149,11 +149,37 @@ assert_unchanged() {
 	grep -qxF "theme = dark:$(field "$key" ghostty.dark),light:$(field "$key" ghostty.light)" "$GHOSTTY"
 	grep -qxF "dark_name = \"$(field "$key" herdr.dark)\"" "$HERDR"
 	grep -qxF "light_name = \"$(field "$key" herdr.light)\"" "$HERDR"
-	grep -qxF "name = \"$(field "$key" herdr.dark)\"" "$HERDR"
-	grep -qxF 'auto_switch = true' "$HERDR"
 	grep -qF "\"workbench.preferredDarkColorTheme\": \"$(field "$key" vscode.dark)\"" "$VSCODE"
 	grep -qF "\"workbench.preferredLightColorTheme\": \"$(field "$key" vscode.light)\"" "$VSCODE"
 	grep -qF '"window.autoDetectColorScheme": true' "$VSCODE"
+}
+
+# Without herdr-radar, Herdr follows the desktop by itself, so auto_switch goes on.
+@test "a Herdr config without herdr-radar gets auto_switch and the dark half as name" {
+	sed -i '' '/^# >>> herdr-radar/,/^# <<< herdr-radar/d' "$HERDR"
+	key=$(second_key)
+	run theme "$key"
+	[ "$status" -eq 0 ]
+	grep -qxF "name = \"$(field "$key" herdr.dark)\"" "$HERDR"
+	grep -qxF 'auto_switch = true' "$HERDR"
+}
+
+# herdr-radar's daemon forces auto_switch off and sets name from the desktop
+# once a minute. Writing anything else is a change the daemon reverts, and the
+# sync would capture both flips.
+@test "with herdr-radar, the switch writes what radar would for the current appearance" {
+	grep -q '^# >>> herdr-radar' "$HERDR"
+	key=$(second_key)
+	run theme "$key"
+	[ "$status" -eq 0 ]
+	grep -qxF "name = \"$(field "$key" herdr.light)\"" "$HERDR"
+	grep -qxF 'auto_switch = false' "$HERDR"
+
+	touch "$HOME/dark-mode"
+	run theme "$key"
+	[ "$status" -eq 0 ]
+	grep -qxF "name = \"$(field "$key" herdr.dark)\"" "$HERDR"
+	grep -qxF 'auto_switch = false' "$HERDR"
 }
 
 # The marker block is the only part of Herdr's file this script owns; the UI

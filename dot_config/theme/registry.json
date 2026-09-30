@@ -31,5 +31,16 @@
 			"light": "Rosé Pine Dawn",
 			"extension": "mvllow.rose-pine"
 		}
+	},
+	"synthwave-owl": {
+		"order": 30,
+		"label": "Synthwave / Light Owl",
+		"herdr": { "dark": "catppuccin", "light": "catppuccin-latte" },
+		"ghostty": { "dark": "Synthwave Everything", "light": "Light Owl" },
+		"vscode": {
+			"dark": "Catppuccin Mocha",
+			"light": "Catppuccin Latte",
+			"extension": "catppuccin.catppuccin-vsc"
+		}
 	}
 }

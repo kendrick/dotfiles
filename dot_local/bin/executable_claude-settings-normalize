@@ -69,6 +69,7 @@ LOCAL_KEYS = (
     "companyAnnouncements",  # employer banner text, not shared intent.
     "spinnerVerbs",  # employer branding, not shared intent.
     "$schema",  # editor affordance only; no runtime effect, pure machine noise.
+    "strictKnownMarketplaces",  # employer policy pinning plugins to its own marketplace.
 )
 
 

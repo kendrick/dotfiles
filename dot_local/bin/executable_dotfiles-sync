@@ -29,7 +29,14 @@ SRC="$(chezmoi source-path)"
 # which tells a reader less than even a stale name would. scutil is guarded because it
 # lives in /usr/sbin, off the minimal PATH launchd supplies, and set -e would otherwise
 # take the whole run down over a name.
-HOST="$(scutil --get LocalHostName 2>/dev/null || true)"
+#
+# A client-issued Mac's LocalHostName is often its serial number, which ties every commit to
+# one managed asset. The machine-label file overrides it, and lives outside chezmoi because
+# each machine needs its own.
+LABEL_FILE="$HOME/.config/dotfiles/machine-label"
+HOST=""
+[ -r "$LABEL_FILE" ] && HOST="$(head -n1 "$LABEL_FILE" | tr -cd 'A-Za-z0-9._-')"
+[ -n "$HOST" ] || HOST="$(scutil --get LocalHostName 2>/dev/null || true)"
 [ -n "$HOST" ] || HOST="$(hostname -s 2>/dev/null || true)"
 [ -n "$HOST" ] || HOST="unknown-host"
 LOGDIR="$HOME/.local/state/dotfiles"

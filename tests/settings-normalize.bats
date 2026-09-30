@@ -219,6 +219,24 @@ JSON
 	assert_contains "45"
 }
 
+# The two marketplace keys look alike and mean opposite things. The strict one is employer
+# policy that locks plugins to its repo; the extra one is the user's own list and must sync.
+@test "normalize: a strict marketplace pin is stripped and extra marketplaces survive" {
+	printf '{\n  "extraKnownMarketplaces": {"mine": {"source": {"source": "github", "repo": "me/plugins"}}}\n}\n' | encrypt_to_source
+	commit_source
+
+	printf '{\n  "extraKnownMarketplaces": {"mine": {"source": {"source": "github", "repo": "me/plugins"}}},\n  "strictKnownMarketplaces": [{"source": "github", "repo": "corp/marketplace"}],\n  "cleanupPeriodDays": 45\n}\n' | encrypt_to_source
+
+	run run_normalize
+	[ "$status" -eq 0 ]
+	assert_contains "dropped strictKnownMarketplaces from source"
+
+	run "$STUBS/chezmoi" decrypt "$SRCFILE"
+	assert_not_contains "corp/marketplace"
+	assert_contains "me/plugins"
+	assert_contains "45"
+}
+
 # The bootstrap case: no age key, so nothing decrypts. The encrypted config isn't deployed
 # on such a machine either, so the script has nothing to normalize and must not treat that
 # as an error the sync should report.

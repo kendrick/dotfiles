@@ -40,6 +40,7 @@ richie5um2.vscode-sort-json
 robbowen.synthwave-vscode
 robole.markdown-snippets
 shd101wyy.markdown-preview-enhanced
+silvenon.mdx
 simonsiefke.svg-preview
 stylelint.vscode-stylelint
 tomoki1207.pdf

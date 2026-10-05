@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "b2e0665f191905ee55b34b17e504803c956cd86e",
+      "skillFolderHash": "b51db732455707eb933f36fa877d66e394795884",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-09-30T03:21:43.087Z"
+      "updatedAt": "2026-10-05T15:53:28.693Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -605,18 +605,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "e2dbbff94504513faa9cf558fc4e4927a61b477e",
+      "skillFolderHash": "585a486c057a9a9cf9623638b976969cc3703cfb",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-09-30T03:22:24.189Z"
+      "updatedAt": "2026-10-05T15:53:51.694Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/ask-matt/SKILL.md",
-      "skillFolderHash": "8ab83b2d681b3a343b869e0840535ecf832a17b5",
+      "skillFolderHash": "da068f2392e1144469cbc602ffff96ef47881a88",
       "installedAt": "2026-09-01T21:54:29.400Z",
-      "updatedAt": "2026-09-30T03:21:48.336Z"
+      "updatedAt": "2026-10-05T15:53:31.238Z"
     },
     "setup-matt-pocock-skills": {
       "source": "mattpocock/skills",
@@ -744,9 +744,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "be3e04a549a611dd813832140ad7b8c1765e1345",
+      "skillFolderHash": "6b629f5ab67e31a8f935797699eb086728edc2d2",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-09-30T03:22:02.909Z"
+      "updatedAt": "2026-10-05T15:53:33.620Z"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",

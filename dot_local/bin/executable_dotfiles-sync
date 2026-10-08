@@ -57,6 +57,44 @@ notify_fail() {
   notify "Dotfiles sync failed" "$1"
 }
 
+# #58: for 13 days F61GDXFM2W's daily captures landed on a feature branch and piled
+# unrelated commits onto its open PR. This runs before every phase because the VS Code
+# list, plugin manifests and `chezmoi re-add` all write into $SRC, and a skip that
+# leaves the tree dirty isn't a skip. It skips (exit 0, no notify_fail) rather than
+# fails because a checked-out feature branch is an ordinary state, not a fault. The
+# 2-day notify exists because a silent daily skip is how the strand went unnoticed.
+# A failed symbolic-ref (detached, mid-rebase) falls through to the arms near the
+# bottom, which own those cases.
+default_branch() {
+  local d
+  d="$(git -C "$SRC" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  d="${d#origin/}"
+  [ -n "$d" ] || d="$(git -C "$SRC" config init.defaultBranch 2>/dev/null || true)"
+  [ -n "$d" ] || d="main"
+  printf '%s\n' "$d"
+}
+
+OFF_DEFAULT_FILE="$LOGDIR/off-default-since"
+PAUSE_NOTIFY_AFTER=172800
+if cur_branch="$(git -C "$SRC" symbolic-ref -q --short HEAD 2>/dev/null)"; then
+  want_branch="$(default_branch)"
+  if [ "$cur_branch" != "$want_branch" ]; then
+    echo "==> Skipping: on branch $cur_branch, auto-sync only commits to $want_branch."
+    now="$(date +%s)"
+    since="$(cat "$OFF_DEFAULT_FILE" 2>/dev/null || true)"
+    if [[ "$since" =~ ^[0-9]+$ ]]; then
+      age=$((now - since))
+      if [ "$age" -ge "$PAUSE_NOTIFY_AFTER" ]; then
+        notify "Dotfiles sync paused" "On branch $cur_branch for $((age / 86400)) days; auto-sync only commits to $want_branch. Switch back to resume."
+      fi
+    else
+      printf '%s\n' "$now" >"$OFF_DEFAULT_FILE"
+    fi
+    exit 0
+  fi
+  rm -f "$OFF_DEFAULT_FILE"
+fi
+
 # ---- Phase: regenerate VS Code extension list ----
 echo "==> Regenerating VS Code extension list"
 if command -v code &>/dev/null; then

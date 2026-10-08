@@ -99,7 +99,11 @@ STUB
 	# depending on the second they happened to run in.
 	cat >"$STUBS/date" <<'STUB'
 #!/usr/bin/env bash
-echo "2026-01-01"
+# +%s feeds the off-default-branch age arithmetic; 1767225600 is 2026-01-01T00:00:00Z.
+case "$*" in
+*+%s*) echo "1767225600" ;;
+*) echo "2026-01-01" ;;
+esac
 STUB
 
 	chmod +x "$STUBS/chezmoi" "$STUBS/osascript" "$STUBS/date"
@@ -614,4 +618,117 @@ STUB
 	run_printed_recovery
 	run git -C "$REPO" status --porcelain
 	[ -z "$output" ]
+}
+
+# #58: a checked-out feature branch must make the run a no-op, not a commit onto the PR.
+# STUB_NOW matches the date stub's +%s answer, so seeded state files have a known age.
+STUB_NOW=1767225600
+STATE_FILE() { printf '%s\n' "$HOME/.local/state/dotfiles/off-default-since"; }
+
+seed_off_default_since() {
+	mkdir -p "$HOME/.local/state/dotfiles"
+	printf '%s\n' "$1" >"$(STATE_FILE)"
+}
+
+@test "sync: non-default branch skips, exits 0, writes nothing, names both branches" {
+	fresh_repo
+	git -C "$REPO" checkout -q -b feature
+	printf 'change\n' >"$REPO/change.txt"
+	local before_count before_status
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+	before_status="$(git -C "$REPO" status --porcelain)"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
+	[ "$(git -C "$REPO" status --porcelain)" = "$before_status" ]
+	assert_contains "Skipping"
+	assert_contains "feature"
+	assert_contains "main"
+	run grep -c "Dotfiles sync failed" "$OSA_LOG"
+	[ "$output" = "0" ]
+}
+
+@test "sync: default branch comes from origin/HEAD, so a renamed default still commits" {
+	fresh_repo
+	git -C "$REPO" branch -M trunk
+	git -C "$REPO" push -q origin trunk
+	git -C "$REPO" remote set-head origin trunk
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_not_contains "Skipping"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 2 ]
+}
+
+@test "sync: origin/HEAD naming trunk makes main a skip that names trunk" {
+	fresh_repo
+	git -C "$REPO" push -q origin main:trunk
+	git -C "$REPO" fetch -q origin
+	git -C "$REPO" remote set-head origin trunk
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Skipping"
+	assert_contains "on branch main"
+	assert_contains "commits to trunk"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 1 ]
+}
+
+@test "sync: first off-default skip records the time without notifying" {
+	fresh_repo
+	git -C "$REPO" checkout -q -b feature
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	[ -f "$(STATE_FILE)" ]
+	[ "$(cat "$(STATE_FILE)")" = "$STUB_NOW" ]
+	run grep -c "Dotfiles sync paused" "$OSA_LOG"
+	[ "$output" = "0" ]
+}
+
+@test "sync: a skip three days old notifies once and still exits 0" {
+	fresh_repo
+	git -C "$REPO" checkout -q -b feature
+	seed_off_default_since $((STUB_NOW - 259200))
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	grep -q "Dotfiles sync paused" "$OSA_LOG"
+	grep -q "feature" "$OSA_LOG"
+	grep -q "3 days" "$OSA_LOG"
+	run grep -c "Dotfiles sync failed" "$OSA_LOG"
+	[ "$output" = "0" ]
+}
+
+@test "sync: a skip one day old stays quiet" {
+	fresh_repo
+	git -C "$REPO" checkout -q -b feature
+	seed_off_default_since $((STUB_NOW - 86400))
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	run grep -c "Dotfiles sync paused" "$OSA_LOG"
+	[ "$output" = "0" ]
+}
+
+@test "sync: reaching the default branch clears the off-default clock and commits" {
+	fresh_repo
+	seed_off_default_since $((STUB_NOW - 259200))
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	[ ! -e "$(STATE_FILE)" ]
+	assert_contains "Committed locally"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 2 ]
 }

@@ -41,6 +41,9 @@ setup() {
 	export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
 	export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
 
+	# The date stub answers +%s with this, so state files seeded relative to it have a known age.
+	export STUB_NOW=1767225600
+
 	export OSA_LOG="$BATS_TEST_TMPDIR/osascript.log"
 	: >"$OSA_LOG"
 
@@ -74,6 +77,11 @@ source-path)
 re-add)
 	# :66 has no `command -v` guard in front of it, so failing here takes the whole
 	# run down before it ever reaches the code this suite exists to check.
+	# STUB_READD_WRITES makes it behave like a real re-add that captured something, so a
+	# case can tell a skip that ran before this phase from one that ran after.
+	if [ -n "${STUB_READD_WRITES:-}" ]; then
+		printf 'captured\n' >"$REPO/readd-captured.txt"
+	fi
 	exit 0
 	;;
 status)
@@ -99,9 +107,9 @@ STUB
 	# depending on the second they happened to run in.
 	cat >"$STUBS/date" <<'STUB'
 #!/usr/bin/env bash
-# +%s feeds the off-default-branch age arithmetic; 1767225600 is 2026-01-01T00:00:00Z.
+# +%s feeds the off-default-branch age arithmetic.
 case "$*" in
-*+%s*) echo "1767225600" ;;
+*+%s*) echo "$STUB_NOW" ;;
 *) echo "2026-01-01" ;;
 esac
 STUB
@@ -621,13 +629,12 @@ STUB
 }
 
 # #58: a checked-out feature branch must make the run a no-op, not a commit onto the PR.
-# STUB_NOW matches the date stub's +%s answer, so seeded state files have a known age.
-STUB_NOW=1767225600
-STATE_FILE() { printf '%s\n' "$HOME/.local/state/dotfiles/off-default-since"; }
+STATE_FILE="off-default-since"
+state_path() { printf '%s\n' "$HOME/.local/state/dotfiles/$STATE_FILE"; }
 
 seed_off_default_since() {
 	mkdir -p "$HOME/.local/state/dotfiles"
-	printf '%s\n' "$1" >"$(STATE_FILE)"
+	printf '%s\n' "$1" >"$(state_path)"
 }
 
 @test "sync: non-default branch skips, exits 0, writes nothing, names both branches" {
@@ -644,10 +651,52 @@ seed_off_default_since() {
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
 	[ "$(git -C "$REPO" status --porcelain)" = "$before_status" ]
 	assert_contains "Skipping"
-	assert_contains "feature"
-	assert_contains "main"
-	run grep -c "Dotfiles sync failed" "$OSA_LOG"
-	[ "$output" = "0" ]
+	assert_contains "on branch feature"
+	assert_contains "commits to main"
+	assert_not_contains "Dotfiles sync failed" "$(command cat "$OSA_LOG")"
+}
+
+@test "sync: the skip runs before any phase that writes into the source dir" {
+	fresh_repo
+	git -C "$REPO" checkout -q -b feature
+	printf 'change\n' >"$REPO/change.txt"
+	local before_status
+	before_status="$(git -C "$REPO" status --porcelain)"
+	export STUB_READD_WRITES=1
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Skipping"
+	[ ! -e "$REPO/readd-captured.txt" ]
+	[ "$(git -C "$REPO" status --porcelain)" = "$before_status" ]
+}
+
+@test "sync: the same re-add stub does dirty the tree on the default branch" {
+	fresh_repo
+	export STUB_READD_WRITES=1
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	[ -e "$REPO/readd-captured.txt" ]
+}
+
+@test "sync: merge in progress on a feature branch still refuses and notifies" {
+	fresh_repo
+	git -C "$REPO" checkout -q -b feature
+	git -C "$REPO" rev-parse HEAD >"$REPO/.git/MERGE_HEAD"
+	printf 'change\n' >"$REPO/change.txt"
+	local before_count
+	before_count="$(git -C "$REPO" rev-list --count HEAD)"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -ne 0 ]
+	assert_contains "$MERGE_MSG"
+	assert_not_contains "Skipping"
+	assert_contains "Dotfiles sync failed" "$(command cat "$OSA_LOG")"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq "$before_count" ]
 }
 
 @test "sync: default branch comes from origin/HEAD, so a renamed default still commits" {
@@ -687,27 +736,12 @@ seed_off_default_since() {
 	run bash "$SCRIPT"
 
 	[ "$status" -eq 0 ]
-	[ -f "$(STATE_FILE)" ]
-	[ "$(cat "$(STATE_FILE)")" = "$STUB_NOW" ]
-	run grep -c "Dotfiles sync paused" "$OSA_LOG"
-	[ "$output" = "0" ]
+	[ -f "$(state_path)" ]
+	[ "$(cat "$(state_path)")" = "$STUB_NOW" ]
+	assert_not_contains "Dotfiles sync paused" "$(command cat "$OSA_LOG")"
 }
 
-@test "sync: a skip three days old notifies once and still exits 0" {
-	fresh_repo
-	git -C "$REPO" checkout -q -b feature
-	seed_off_default_since $((STUB_NOW - 259200))
-
-	run bash "$SCRIPT"
-
-	[ "$status" -eq 0 ]
-	grep -q "Dotfiles sync paused" "$OSA_LOG"
-	grep -q "feature" "$OSA_LOG"
-	grep -q "3 days" "$OSA_LOG"
-	run grep -c "Dotfiles sync failed" "$OSA_LOG"
-	[ "$output" = "0" ]
-}
-
+# Below, exactly on, and above the 172800s threshold, since the comparison is -ge.
 @test "sync: a skip one day old stays quiet" {
 	fresh_repo
 	git -C "$REPO" checkout -q -b feature
@@ -716,8 +750,33 @@ seed_off_default_since() {
 	run bash "$SCRIPT"
 
 	[ "$status" -eq 0 ]
-	run grep -c "Dotfiles sync paused" "$OSA_LOG"
-	[ "$output" = "0" ]
+	assert_not_contains "Dotfiles sync paused" "$(command cat "$OSA_LOG")"
+}
+
+@test "sync: a skip exactly two days old notifies" {
+	fresh_repo
+	git -C "$REPO" checkout -q -b feature
+	seed_off_default_since $((STUB_NOW - 172800))
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Dotfiles sync paused" "$(command cat "$OSA_LOG")"
+	assert_contains "2 days" "$(command cat "$OSA_LOG")"
+}
+
+@test "sync: a skip three days old notifies and still exits 0" {
+	fresh_repo
+	git -C "$REPO" checkout -q -b feature
+	seed_off_default_since $((STUB_NOW - 259200))
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Dotfiles sync paused" "$(command cat "$OSA_LOG")"
+	assert_contains "feature" "$(command cat "$OSA_LOG")"
+	assert_contains "3 days" "$(command cat "$OSA_LOG")"
+	assert_not_contains "Dotfiles sync failed" "$(command cat "$OSA_LOG")"
 }
 
 @test "sync: reaching the default branch clears the off-default clock and commits" {
@@ -728,7 +787,7 @@ seed_off_default_since() {
 	run bash "$SCRIPT"
 
 	[ "$status" -eq 0 ]
-	[ ! -e "$(STATE_FILE)" ]
+	[ ! -e "$(state_path)" ]
 	assert_contains "Committed locally"
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 2 ]
 }

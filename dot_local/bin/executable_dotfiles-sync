@@ -57,14 +57,6 @@ notify_fail() {
   notify "Dotfiles sync failed" "$1"
 }
 
-# #58: for 13 days F61GDXFM2W's daily captures landed on a feature branch and piled
-# unrelated commits onto its open PR. This runs before every phase because the VS Code
-# list, plugin manifests and `chezmoi re-add` all write into $SRC, and a skip that
-# leaves the tree dirty isn't a skip. It skips (exit 0, no notify_fail) rather than
-# fails because a checked-out feature branch is an ordinary state, not a fault. The
-# 2-day notify exists because a silent daily skip is how the strand went unnoticed.
-# A failed symbolic-ref (detached, mid-rebase) falls through to the arms near the
-# bottom, which own those cases.
 default_branch() {
   local d
   d="$(git -C "$SRC" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)"
@@ -74,18 +66,36 @@ default_branch() {
   printf '%s\n' "$d"
 }
 
+# A merge or rebase keeps HEAD attached on a feature branch, so without this the skip
+# below would swallow it and the refuse-and-notify arms near the bottom would never
+# run. --git-path because $SRC may be a linked worktree, where .git is a file.
+op_in_progress() {
+  local m
+  for m in MERGE_HEAD rebase-merge rebase-apply; do
+    # Subshell: --git-path prints relative to the repo, and the test must resolve it there.
+    (cd "$SRC" && [ -e "$(git rev-parse --git-path "$m" 2>/dev/null)" ]) && return 0
+  done
+  return 1
+}
+
 OFF_DEFAULT_FILE="$LOGDIR/off-default-since"
 PAUSE_NOTIFY_AFTER=172800
-if cur_branch="$(git -C "$SRC" symbolic-ref -q --short HEAD 2>/dev/null)"; then
+# #58: one machine's daily captures landed on a feature branch for 13 days and piled
+# unrelated commits onto its open PR. Runs before every phase because the VS Code list,
+# plugin manifests and `chezmoi re-add` all write into $SRC. A skip, not a failure: a
+# checked-out feature branch is ordinary. The 2-day notify is there because a silent
+# daily skip is how that strand went unnoticed. A failed symbolic-ref (detached HEAD)
+# falls through to the arms near the bottom.
+if ! op_in_progress && cur_branch="$(git -C "$SRC" symbolic-ref -q --short HEAD 2>/dev/null)"; then
   want_branch="$(default_branch)"
   if [ "$cur_branch" != "$want_branch" ]; then
     echo "==> Skipping: on branch $cur_branch, auto-sync only commits to $want_branch."
     now="$(date +%s)"
     since="$(cat "$OFF_DEFAULT_FILE" 2>/dev/null || true)"
     if [[ "$since" =~ ^[0-9]+$ ]]; then
-      age=$((now - since))
-      if [ "$age" -ge "$PAUSE_NOTIFY_AFTER" ]; then
-        notify "Dotfiles sync paused" "On branch $cur_branch for $((age / 86400)) days; auto-sync only commits to $want_branch. Switch back to resume."
+      paused_for=$((now - since))
+      if [ "$paused_for" -ge "$PAUSE_NOTIFY_AFTER" ]; then
+        notify "Dotfiles sync paused" "On branch $cur_branch for $((paused_for / 86400)) days; auto-sync only commits to $want_branch. Switch back to resume."
       fi
     else
       printf '%s\n' "$now" >"$OFF_DEFAULT_FILE"

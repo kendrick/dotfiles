@@ -57,13 +57,11 @@ notify_fail() {
   notify "Dotfiles sync failed" "$1"
 }
 
+# Empty output means origin/HEAD is unset; callers must not guess a name.
 default_branch() {
   local d
   d="$(git -C "$SRC" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)"
-  d="${d#origin/}"
-  [ -n "$d" ] || d="$(git -C "$SRC" config init.defaultBranch 2>/dev/null || true)"
-  [ -n "$d" ] || d="main"
-  printf '%s\n' "$d"
+  printf '%s\n' "${d#origin/}"
 }
 
 # A merge or rebase keeps HEAD attached on a feature branch, so without this the skip
@@ -86,16 +84,29 @@ PAUSE_NOTIFY_AFTER=172800
 # checked-out feature branch is ordinary. The 2-day notify is there because a silent
 # daily skip is how that strand went unnoticed. A failed symbolic-ref (detached HEAD)
 # falls through to the arms near the bottom.
+# No fallback when origin/HEAD is unset: init.defaultBranch names the initial branch of
+# newly created repos, not this one's default, so using it (or a literal main) either
+# skips forever on the real default or commits on a stray branch that shares the name.
+# Skipping is the safe wrong answer. No network here to repair it either: under launchd
+# the SSH agent refuses, so the fix is printed for a person to run.
 if ! op_in_progress && cur_branch="$(git -C "$SRC" symbolic-ref -q --short HEAD 2>/dev/null)"; then
   want_branch="$(default_branch)"
-  if [ "$cur_branch" != "$want_branch" ]; then
+  # Initialized because an inherited pause_hint would make a run on the default branch skip.
+  pause_hint=""
+  if [ -z "$want_branch" ]; then
+    echo "==> Skipping: can't tell the default branch (origin/HEAD is unset). Run 'git -C \"$SRC\" remote set-head origin --auto' to fix."
+    pause_hint="origin/HEAD is unset, so the default branch is unknown. Run: git -C '$SRC' remote set-head origin --auto"
+  elif [ "$cur_branch" != "$want_branch" ]; then
     echo "==> Skipping: on branch $cur_branch, auto-sync only commits to $want_branch."
+    pause_hint="On branch $cur_branch; auto-sync only commits to $want_branch. Switch back to resume."
+  fi
+  if [ -n "$pause_hint" ]; then
     now="$(date +%s)"
     since="$(cat "$OFF_DEFAULT_FILE" 2>/dev/null || true)"
     if [[ "$since" =~ ^[0-9]+$ ]]; then
       paused_for=$((now - since))
       if [ "$paused_for" -ge "$PAUSE_NOTIFY_AFTER" ]; then
-        notify "Dotfiles sync paused" "On branch $cur_branch for $((paused_for / 86400)) days; auto-sync only commits to $want_branch. Switch back to resume."
+        notify "Dotfiles sync paused" "Paused for $((paused_for / 86400)) days. $pause_hint"
       fi
     else
       printf '%s\n' "$now" >"$OFF_DEFAULT_FILE"

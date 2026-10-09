@@ -132,6 +132,9 @@ fresh_repo() {
 	git -C "$REPO" branch -M main
 	git -C "$REPO" remote add origin "$origin"
 	git -C "$REPO" push -q origin main
+	# dotfiles-sync takes the default branch from origin/HEAD only and skips when it is
+	# unset; a bare `remote add` never sets it, so set it as a clone would.
+	git -C "$REPO" remote set-head origin main
 }
 
 @test "sync: attached branch with no operation in progress commits normally" {
@@ -788,6 +791,69 @@ seed_off_default_since() {
 
 	[ "$status" -eq 0 ]
 	[ ! -e "$(state_path)" ]
+	assert_contains "Committed locally"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 2 ]
+}
+
+@test "sync: origin/HEAD unset on main skips, leaves the tree alone, and says how to fix it" {
+	fresh_repo
+	git -C "$REPO" remote set-head origin --delete
+	printf 'change\n' >"$REPO/change.txt"
+	local before_status
+	before_status="$(git -C "$REPO" status --porcelain)"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Skipping: can't tell the default branch"
+	assert_contains "remote set-head origin --auto"
+	[ "$(git -C "$REPO" status --porcelain)" = "$before_status" ]
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 1 ]
+	assert_not_contains "Dotfiles sync failed" "$(command cat "$OSA_LOG")"
+	[ -f "$(state_path)" ]
+}
+
+@test "sync: origin/HEAD unset with a three-day-old clock notifies with the fix" {
+	fresh_repo
+	git -C "$REPO" remote set-head origin --delete
+	seed_off_default_since $((STUB_NOW - 259200))
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Dotfiles sync paused" "$(command cat "$OSA_LOG")"
+	assert_contains "3 days" "$(command cat "$OSA_LOG")"
+	assert_contains "set-head origin --auto" "$(command cat "$OSA_LOG")"
+	assert_not_contains "Dotfiles sync failed" "$(command cat "$OSA_LOG")"
+}
+
+@test "sync: init.defaultBranch is ignored when origin/HEAD is unset" {
+	fresh_repo
+	git -C "$REPO" remote set-head origin --delete
+	git -C "$REPO" config init.defaultBranch trunk
+	git -C "$REPO" checkout -q -b trunk
+	printf 'change\n' >"$REPO/change.txt"
+	local before_status
+	before_status="$(git -C "$REPO" status --porcelain)"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Skipping: can't tell the default branch"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 1 ]
+	[ "$(git -C "$REPO" status --porcelain)" = "$before_status" ]
+	assert_not_contains "Dotfiles sync failed" "$(command cat "$OSA_LOG")"
+}
+
+@test "sync: an inherited pause_hint does not make the default branch skip" {
+	fresh_repo
+	printf 'change\n' >"$REPO/change.txt"
+	export pause_hint=x
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_not_contains "Skipping"
 	assert_contains "Committed locally"
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 2 ]
 }

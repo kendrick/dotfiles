@@ -180,6 +180,8 @@ fresh_repo() {
 	git -C "$REPO" branch -M main
 	git -C "$REPO" remote add origin "$origin"
 	git -C "$REPO" push -q origin main
+	# dotfiles-sync reads the default branch from origin/HEAD only and skips when unset.
+	git -C "$REPO" remote set-head origin main
 }
 
 # Writes each argument as its own row in the status fixture. Every row is

@@ -15,6 +15,53 @@
 
 set -euo pipefail
 
+# The reads stay in this script, not a helper: it is the one place that names what we ask
+# `defaults` for. The temp file sits beside $2 (same filesystem, so mv is atomic) which means
+# inside the chezmoi source, where the sync's `git add -A` would commit a stray one. The
+# subshell scopes the cleanup trap so it can't clobber the script's own traps. The traps go
+# in before mktemp: a TERM landing between the two would otherwise strand the temp file.
+capture_macos_defaults() (
+  list="$1" out="$2" n=0 tmp=""
+  [ -r "$list" ] || { echo "==> macos-defaults: can't read $list"; exit 1; }
+  trap '[ -z "$tmp" ] || rm -f "$tmp"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  tmp="$(mktemp "$out.XXXXXX")" || { echo "==> macos-defaults: can't write beside $out"; exit 1; }
+  while IFS= read -r line || [ -n "$line" ]; do
+    n=$((n + 1))
+    case "$line" in '' | '#'*) continue ;; esac
+    d="" k="" t="" extra=""
+    read -r d k t extra <<<"$line" || true
+    case "$t" in
+      bool | int | float | string) ;;
+      *) t="" ;;
+    esac
+    if [ -z "$t" ] || [ -n "$extra" ]; then
+      echo "==> macos-defaults: skipping malformed line $n"
+      continue
+    fi
+    if val="$(defaults read "$d" "$k" 2>/dev/null </dev/null)" && [[ "$val" != *$'\n'* ]]; then
+      printf '%s %s %s %s\n' "$d" "$k" "$t" "$val" >>"$tmp"
+      continue
+    fi
+    echo "==> macos-defaults: unreadable $d $k, skipped"
+    old=""
+    [ -f "$out" ] && old="$(awk -v p="$d $k " 'index($0, p) == 1 { print; exit }' "$out")"
+    [ -z "$old" ] || printf '%s\n' "$old" >>"$tmp"
+  done <"$list"
+  if [ -f "$out" ] && cmp -s "$tmp" "$out"; then
+    exit 0
+  fi
+  mv "$tmp" "$out" || { echo "==> macos-defaults: can't replace $out"; exit 1; }
+)
+
+# Test entry point: runs only the capture, so tests need no source repo, branch guard or log.
+if [ "${1:-}" = "--capture-macos-defaults" ]; then
+  [ "$#" -eq 3 ] || { echo "usage: dotfiles-sync --capture-macos-defaults <list> <out>" >&2; exit 2; }
+  capture_macos_defaults "$2" "$3"
+  exit $?
+fi
+
 SRC="$(chezmoi source-path)"
 
 # The commit label answers one question: which machine captured this. `hostname -s` can't,
@@ -527,6 +574,19 @@ if command -v brew &>/dev/null && command -v jq &>/dev/null; then
   [[ "$drift" -eq 0 ]] && echo "    none, the registry matches what's installed"
 else
   echo "    brew or jq not found, skipping"
+fi
+
+# ---- Phase: capture macOS defaults (allowlist only) ----
+# #66: a System Settings tweak never left the machine that made it. Only allowlisted keys
+# are read, because machines that legitimately differ (display, locale) would otherwise
+# trade values on every sync. A key that can't be read keeps its previous captured line:
+# one that's missing on this machine must not erase what another machine captured. Never
+# fails the sync, since preferences are a side capture and must not block the dotfiles commit.
+# No heading and no "skipping" line: tests/sync-guard.bats diffs the whole run's output
+# against a pre-guard baseline, so any unconditional output here fails it.
+if [ -f "$SRC/dot_config/macos-defaults.txt" ]; then
+  capture_macos_defaults "$SRC/dot_config/macos-defaults.txt" "$SRC/dot_config/macos-defaults.captured" ||
+    echo "==> macos-defaults: capture failed, continuing"
 fi
 
 # ---- Phase: commit + push ----

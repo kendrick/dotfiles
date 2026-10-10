@@ -35,9 +35,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "skillPath": "skills/systematic-debugging/SKILL.md",
-      "skillFolderHash": "9a48dfda84bf339cba4b03fd803ba0dca2e158e3",
+      "skillFolderHash": "108961c080a6837ad8a188a553e593cc5e6df62d",
       "installedAt": "2026-05-27T13:10:06.834Z",
-      "updatedAt": "2026-09-19T03:56:46.793Z"
+      "updatedAt": "2026-10-10T18:02:54.167Z"
     },
     "docx": {
       "source": "anthropics/skills",
@@ -139,9 +139,9 @@
       "sourceUrl": "https://github.com/obra/superpowers.git",
       "ref": "main",
       "skillPath": "skills/subagent-driven-development/SKILL.md",
-      "skillFolderHash": "5d44ced88725298e847c62c67a726dcc29e20d00",
+      "skillFolderHash": "a9ec528b252e536a404fd0522e32cec31094d669",
       "installedAt": "2026-05-28T03:15:48.151Z",
-      "updatedAt": "2026-09-19T03:56:48.881Z"
+      "updatedAt": "2026-10-10T18:02:55.970Z"
     },
     "dispatching-parallel-agents": {
       "source": "obra/superpowers",
@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "8679962bc8a9cb18709f2f6beb3367e2ef76ebb1",
+      "skillFolderHash": "549fdd0e02f98eec785d7557223c9a12a6a9c3f0",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-10-09T02:59:47.945Z"
+      "updatedAt": "2026-10-10T18:03:00.131Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -519,9 +519,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "inbox-to-memory/SKILL.md",
-      "skillFolderHash": "60243e4643d013487ca4a02c6409b0d06f5932e8",
+      "skillFolderHash": "a89259bf61a1467477382d8cc563e161d6a867d0",
       "installedAt": "2026-07-10T21:06:31.566Z",
-      "updatedAt": "2026-09-11T03:45:49.148Z"
+      "updatedAt": "2026-10-10T18:03:12.138Z"
     },
     "readme-coauthorship": {
       "source": "kendrick/skills",
@@ -546,9 +546,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "file-issue/SKILL.md",
-      "skillFolderHash": "ba81d9886087e9e0beed064b79fdc40cbdefdee7",
+      "skillFolderHash": "ee73031c5741c982e346950b34b703da08f4007e",
       "installedAt": "2026-08-06T20:51:41.803Z",
-      "updatedAt": "2026-09-22T19:30:20.998Z"
+      "updatedAt": "2026-10-09T03:33:35.716Z"
     },
     "adversarial-review": {
       "source": "kendrick/skills",
@@ -600,9 +600,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "60ee9111199b446db81b85e0ba6c2d590f3207d0",
+      "skillFolderHash": "8ea76af062529d7631b5dc3878e98b3f84031efe",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-10-08T16:49:13.728Z"
+      "updatedAt": "2026-10-10T18:03:54.157Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
@@ -646,9 +646,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/wizard/SKILL.md",
-      "skillFolderHash": "47010ebd1f26c8263016f14cdba835355d278b9a",
+      "skillFolderHash": "e396d3ba97c723a78ffd350fb14a3c409137b306",
       "installedAt": "2026-09-01T21:54:29.529Z",
-      "updatedAt": "2026-10-08T16:48:41.641Z"
+      "updatedAt": "2026-10-10T18:03:05.767Z"
     },
     "writing-for-agents": {
       "source": "mattpocock/skills",
@@ -710,18 +710,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "divvy-up/SKILL.md",
-      "skillFolderHash": "4b961b1274d02dc93169773e58c9e305d14aaf23",
+      "skillFolderHash": "b6dfd9e2e7ed9788c58dd5342317a68991ac075d",
       "installedAt": "2026-09-02T02:46:12.250Z",
-      "updatedAt": "2026-10-09T02:59:52.456Z"
+      "updatedAt": "2026-10-10T18:38:13.950Z"
     },
     "jira-refine": {
       "source": "kendrick/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "jira-refine/SKILL.md",
-      "skillFolderHash": "977dbffac5e52fae53dda99c41ddeabb9ee2ef30",
+      "skillFolderHash": "04d6078d94e96d901d837d04ef0ff5edb3a7a496",
       "installedAt": "2026-09-08T16:23:49.533Z",
-      "updatedAt": "2026-09-11T03:45:56.856Z"
+      "updatedAt": "2026-10-10T18:03:20.471Z"
     },
     "herdr": {
       "source": "herdrdev/herdr",
@@ -737,9 +737,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "b9d6ef42c20fb7a5f7cc920c7cb893d0b63a4ead",
+      "skillFolderHash": "9b551fc3d9d4d3987f18e719287d816d55ae9766",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-10-09T02:59:55.866Z"
+      "updatedAt": "2026-10-10T18:38:22.748Z"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",
@@ -755,9 +755,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-wave/SKILL.md",
-      "skillFolderHash": "68fc35051d8588902fb9e9ac1d7dfcd5a44aaa96",
+      "skillFolderHash": "40c2afd9652e12e84feb8565d146c41fce64ddd5",
       "installedAt": "2026-09-24T21:07:13.811Z",
-      "updatedAt": "2026-10-03T17:41:27.767Z"
+      "updatedAt": "2026-10-10T18:38:25.283Z"
     }
   },
   "dismissed": {

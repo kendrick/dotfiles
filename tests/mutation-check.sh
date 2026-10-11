@@ -75,7 +75,7 @@ if command -v git >/dev/null 2>&1; then
 	fi
 fi
 
-# The guarded surface's six converted files (T-002..T-005), and no others.
+# The guarded surface's converted files (T-002..T-005, plus tests/macos-defaults.bats from #66), and no others.
 #
 # tests/install-failures.bats is excluded by name: its 30 assert_contains/
 # assert_not_contains call sites predate this job (#17) and, since T-001
@@ -86,7 +86,7 @@ fi
 # tests/lint.bats is excluded by name too: it is the reintroduction guard
 # added by this job (V-1), not a conversion target, and counting any helper
 # call it happens to make would inflate the per-file totals below.
-ALL_FILES="tests/apps.bats tests/doctor.bats tests/font.bats tests/font-add.bats tests/jsonc.bats tests/licensed-fonts.bats tests/packages.bats"
+ALL_FILES="tests/apps.bats tests/doctor.bats tests/font.bats tests/font-add.bats tests/jsonc.bats tests/licensed-fonts.bats tests/macos-defaults.bats tests/packages.bats"
 
 usage() {
 	echo "usage: tests/mutation-check.sh [FILE]" >&2
@@ -109,7 +109,7 @@ if [ "$#" -eq 1 ]; then
 		fi
 	done
 	if [ "$match" -ne 1 ]; then
-		echo "tests/mutation-check.sh: '$1' is not one of the six converted files" >&2
+		echo "tests/mutation-check.sh: '$1' is not one of the converted files" >&2
 		usage
 		exit 2
 	fi

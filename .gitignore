@@ -22,6 +22,10 @@ __pycache__/
 # daily sync's `git add -A` may run first, so this is what keeps one out of a commit.
 .normalize-tmp-*
 
+# The sync's capture writes dot_config/macos-defaults.captured through a temp beside it; a killed
+# run strands one, and `git add -A` in the daily sync would commit it.
+dot_config/macos-defaults.captured.*
+
 # tests/mutation-check.sh rewrites a test file by renaming a sidecar into
 # place, and only SIGKILL can now strand one. The daily sync's `git add -A`
 # must not commit it.

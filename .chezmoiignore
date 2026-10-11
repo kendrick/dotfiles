@@ -24,10 +24,15 @@ tests
 # just lets the daily re-add clobber each fresh list with the stale deployed one.
 # raycast-extensions.txt is hand-edited, but nothing reads its deployed copy
 # either, so it follows the same rule.
+# macos-defaults.txt is the allowlist the sync reads, and macos-defaults.captured is
+# written straight into source by the sync's capture phase (#66), so neither has a target.
 .config/vscode-extensions.txt
 .config/npm-globals.txt
 .config/pnpm-globals.txt
 .config/raycast-extensions.txt
+.config/macos-defaults.txt
+.config/macos-defaults.captured
+.config/macos-defaults.captured.*
 
 # ~/.config/Brewfile isn't deployed: the package installer renders the Brewfile
 # inline (brew bundle --file=/dev/stdin), so a deployed copy just goes stale and

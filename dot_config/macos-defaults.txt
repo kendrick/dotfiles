@@ -1,0 +1,39 @@
+# macOS defaults the daily sync captures into macos-defaults.captured.
+# Format: domain key type, one per line. type is bool, int, float, or string.
+# This is an allowlist on purpose: a key two machines legitimately disagree on
+# (display or locale settings, say) would trade values on every sync, each machine
+# overwriting the other's capture.
+#
+# Deliberately left off, and why:
+#   com.apple.dock autohide                depends on the attached display
+#   com.apple.screencapture location       a $HOME path
+#   AppleLanguages, AppleLocale,
+#   AppleMeasurementUnits, AppleMetricUnits  per-user locale
+#   com.apple.finder FXInfoPanesExpanded   a dict, not a scalar
+#   com.apple.Safari keys                  sandboxed, unreadable without Full Disk Access
+NSGlobalDomain NSNavPanelExpandedStateForSaveMode bool
+NSGlobalDomain PMPrintingExpandedStateForPrint bool
+NSGlobalDomain AppleKeyboardUIMode int
+NSGlobalDomain AppleShowAllExtensions bool
+NSGlobalDomain com.apple.mouse.tapBehavior int
+com.apple.LaunchServices LSQuarantine bool
+com.apple.CrashReporter DialogType string
+com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking bool
+com.apple.screencapture type string
+com.apple.screencapture disable-shadow bool
+com.apple.finder QuitMenuItem bool
+com.apple.finder AppleShowAllFiles bool
+com.apple.finder ShowStatusBar bool
+com.apple.finder ShowPathbar bool
+com.apple.finder FXDefaultSearchScope string
+com.apple.finder FXEnableExtensionChangeWarning bool
+com.apple.finder FXPreferredViewStyle string
+com.apple.desktopservices DSDontWriteNetworkStores bool
+com.apple.desktopservices DSDontWriteUSBStores bool
+com.apple.dock minimize-to-application bool
+com.apple.dock expose-animation-duration float
+com.apple.dock mru-spaces bool
+com.apple.dock showhidden bool
+com.apple.dock show-recents bool
+com.apple.ActivityMonitor OpenMainWindow bool
+com.apple.ActivityMonitor ShowCategory int

@@ -151,6 +151,29 @@ source_only_run() {
 	[ -z "$(ls "$BATS_TEST_TMPDIR/out" | grep '^captured\.' || true)" ]
 }
 
+@test "a failed append aborts the capture, keeps the previous file, and leaves no temp file" {
+	mkdir -p "$BATS_TEST_TMPDIR/bin" "$BATS_TEST_TMPDIR/out"
+	# The second read makes the temp file unwritable before answering, so the second key's append
+	# fails while the first key's already landed: a truncated capture the mv must never install.
+	cat >"$BATS_TEST_TMPDIR/bin/defaults" <<STUB
+#!/bin/sh
+echo x >>"$BATS_TEST_TMPDIR/calls"
+if [ "\$(wc -l <"$BATS_TEST_TMPDIR/calls")" -ge 2 ]; then
+	chmod a-w "$BATS_TEST_TMPDIR"/out/captured.*
+fi
+echo 1
+STUB
+	chmod +x "$BATS_TEST_TMPDIR/bin/defaults"
+	printf '%s\n' "$PLIST k1 int" "$PLIST k2 int" >"$LIST"
+	printf '%s\n' "$PLIST k1 int 7" "$PLIST k2 int 8" "$PLIST k3 int 9" >"$BATS_TEST_TMPDIR/out/captured"
+	cp "$BATS_TEST_TMPDIR/out/captured" "$BATS_TEST_TMPDIR/before"
+	run env PATH="$BATS_TEST_TMPDIR/bin:$PATH" bash "$SCRIPT" --capture-macos-defaults "$LIST" "$BATS_TEST_TMPDIR/out/captured"
+	[ "$status" -ne 0 ]
+	assert_contains "==> macos-defaults: can't write" "$output"
+	cmp "$BATS_TEST_TMPDIR/before" "$BATS_TEST_TMPDIR/out/captured"
+	[ -z "$(ls "$BATS_TEST_TMPDIR/out" | grep '^captured\.' || true)" ]
+}
+
 # --- the sync's own phase wiring, against a throwaway source repo -------------------------
 
 sync_stubs() {

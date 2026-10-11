@@ -22,9 +22,13 @@ set -euo pipefail
 # in before mktemp: a TERM landing between the two would otherwise strand the temp file.
 # The caller runs this as the left side of `||`, which turns set -e off in here, so every
 # append checks itself: a failed write must not fall through to the mv and swap a truncated
-# file over the last complete capture.
+# file over the last complete capture. Fields split with `set --` because under fd exhaustion
+# (EMFILE) bash 3.2 ends the whole while loop, rc=0, when a here-string can't get an fd. A
+# builtin's `>>` is worse. When bash can't save stdout it prints an error, the printf still
+# returns 0, and stdout stays pointed at the temp file. The counts after the loop, lines read
+# and lines written, catch both.
 capture_macos_defaults() (
-  list="$1" out="$2" n=0 tmp=""
+  list="$1" out="$2" n=0 want=0 tmp=""
   [ -r "$list" ] || { echo "==> macos-defaults: can't read $list"; exit 1; }
   trap '[ -z "$tmp" ] || rm -f "$tmp"' EXIT
   trap 'exit 130' INT
@@ -33,8 +37,11 @@ capture_macos_defaults() (
   while IFS= read -r line || [ -n "$line" ]; do
     n=$((n + 1))
     case "$line" in '' | '#'*) continue ;; esac
-    d="" k="" t="" extra=""
-    read -r d k t extra <<<"$line" || true
+    set -f
+    # shellcheck disable=SC2086
+    set -- $line
+    set +f
+    d="${1:-}" k="${2:-}" t="${3:-}" extra="${4:-}"
     case "$t" in
       bool | int | float | string) ;;
       *) t="" ;;
@@ -44,14 +51,24 @@ capture_macos_defaults() (
       continue
     fi
     if val="$(defaults read "$d" "$k" 2>/dev/null </dev/null)" && [[ "$val" != *$'\n'* ]]; then
+      want=$((want + 1))
       printf '%s %s %s %s\n' "$d" "$k" "$t" "$val" >>"$tmp" || { echo "==> macos-defaults: can't write $tmp"; exit 1; }
       continue
     fi
     echo "==> macos-defaults: unreadable $d $k, skipped"
     old=""
-    [ -f "$out" ] && old="$(awk -v p="$d $k " 'index($0, p) == 1 { print; exit }' "$out")"
-    [ -z "$old" ] || printf '%s\n' "$old" >>"$tmp" || { echo "==> macos-defaults: can't write $tmp"; exit 1; }
+    if [ -f "$out" ]; then
+      old="$(awk -v p="$d $k " 'index($0, p) == 1 { print; exit }' "$out")" || { echo "==> macos-defaults: can't read $out"; exit 1; }
+    fi
+    if [ -n "$old" ]; then
+      want=$((want + 1))
+      printf '%s\n' "$old" >>"$tmp" || { echo "==> macos-defaults: can't write $tmp"; exit 1; }
+    fi
   done <"$list"
+  total="$(awk 'END { print NR }' "$list")" || total=-1
+  [ "$n" -eq "$total" ] || { echo "==> macos-defaults: stopped at line $n of $total"; exit 1; }
+  have="$(wc -l <"$tmp")" || have=-1
+  [ "$((have + 0))" -eq "$want" ] || { echo "==> macos-defaults: wrote $((have + 0)) of $want lines"; exit 1; }
   if [ -f "$out" ] && cmp -s "$tmp" "$out"; then
     exit 0
   fi

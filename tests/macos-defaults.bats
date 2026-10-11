@@ -174,6 +174,37 @@ STUB
 	[ -z "$(ls "$BATS_TEST_TMPDIR/out" | grep '^captured\.' || true)" ]
 }
 
+@test "fd exhaustion never installs a capture shorter than the allowlist" {
+	mkdir -p "$BATS_TEST_TMPDIR/bin" "$BATS_TEST_TMPDIR/out"
+	# bash 3.2 ends a while loop silently when a here-string redirect can't get an fd, so this
+	# limit once left one line where three had been. Either every key lands or the run fails
+	# with the previous file untouched; a shorter file with rc=0 is the defect.
+	printf '#!/bin/sh\necho 1\n' >"$BATS_TEST_TMPDIR/bin/defaults"
+	chmod +x "$BATS_TEST_TMPDIR/bin/defaults"
+	printf '%s\n' "$PLIST k1 int" "$PLIST k2 int" "$PLIST k3 int" >"$LIST"
+	printf '%s\n' "$PLIST k1 int 7" "$PLIST k2 int 8" "$PLIST k3 int 9" >"$BATS_TEST_TMPDIR/out/captured"
+	cp "$BATS_TEST_TMPDIR/out/captured" "$BATS_TEST_TMPDIR/before"
+	run env PATH="$BATS_TEST_TMPDIR/bin:$PATH" /bin/bash -c 'ulimit -n 11; exec /bin/bash "$0" --capture-macos-defaults "$1" "$2"' "$SCRIPT" "$LIST" "$BATS_TEST_TMPDIR/out/captured"
+	if [ "$status" -eq 0 ]; then
+		[ "$(grep -c . "$BATS_TEST_TMPDIR/out/captured")" -eq 3 ]
+		for k in k1 k2 k3; do
+			grep -Fxq -- "$PLIST $k int $("$BATS_TEST_TMPDIR/bin/defaults" read "$PLIST" $k)" "$BATS_TEST_TMPDIR/out/captured"
+		done
+	else
+		cmp "$BATS_TEST_TMPDIR/before" "$BATS_TEST_TMPDIR/out/captured"
+	fi
+	[ -z "$(ls "$BATS_TEST_TMPDIR/out" | grep '^captured\.' || true)" ]
+}
+
+@test "an empty allowlist installs an empty capture" {
+	mkdir -p "$BATS_TEST_TMPDIR/out"
+	: >"$LIST"
+	printf '%s\n' "$PLIST k1 int 7" >"$BATS_TEST_TMPDIR/out/captured"
+	run "$SCRIPT" --capture-macos-defaults "$LIST" "$BATS_TEST_TMPDIR/out/captured"
+	[ "$status" -eq 0 ]
+	[ ! -s "$BATS_TEST_TMPDIR/out/captured" ]
+}
+
 # --- the sync's own phase wiring, against a throwaway source repo -------------------------
 
 sync_stubs() {

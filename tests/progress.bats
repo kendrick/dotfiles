@@ -11,16 +11,16 @@
 #
 # The first ten are one per constitution clause that names a filter. The next
 # two answer #38, which no clause covers, and say-yield and spinners answer #71.
-# Those four are the only cases here that do not read /dev/tty separately from
-# stdout. That separation is what the other ten are measured through, and it is
-# also what hides both bugs.
+# Those four, plus pty-run and prerequisites below, are the only cases here
+# that do not read /dev/tty separately from stdout. That separation is what the
+# other ten are measured through, and it is also what hides both bugs.
 #
 # pty-run and prerequisites are #71 again: the first proves the harness can put
 # stdin on the pty, the second uses it to run the real prerequisites script.
 #
-# The #33 cases are the four before them, the installer's fetch-phase line. They live here rather
-# than beside the installer's other cases because what they measure is which
-# stream a frame landed on, and that is this file's whole apparatus.
+# The last four are #33, the installer's fetch-phase line. They live here
+# rather than beside the installer's other cases because what they measure is
+# which stream a frame landed on, and that is this file's whole apparatus.
 #
 # The anchor is not decoration. `bats --filter` matches a regex against test
 # NAMES, so a bare token is satisfied by any name containing it—an
@@ -966,6 +966,21 @@ EOF
 		-- /bin/bash "$script" || [ "$?" -eq 199 ]
 
 	grep -aqF 'Install them now? [Y/n]' "$cap"
+
+	# Non-vacuity. The run is killed at the read, so it emits no frame, hide, or
+	# glyph before the prompt for the capture itself to prove the kit was
+	# watching; without that, an unwatched venue would pass the erase check below
+	# trivially. So prove the venue instead: the same flags, the same rendered
+	# kit, a step that lives half a second. A watching kit hides the cursor and
+	# draws frames; an unwatched one prints only the settled line, so the settled
+	# glyph alone proves nothing.
+	local kit="$d/sh-ui.sh"
+	ui_render_kit "$kit"
+	printf '#!/bin/bash\nset -eu\n. "%s"\nstep_begin x\nsleep 0.5\nstep_ok x done\n' "$kit" >"$d/watch.sh"
+	ui_pty --stdout-to-tty --stdin-from-tty --stderr "$d/watch.err" \
+		--tty-capture "$d/watch.tty" --timeout 20 -- /bin/bash "$d/watch.sh"
+	grep -aqF $'\033[?25l' "$d/watch.tty"
+
 	run python3 -c '
 import sys
 data = open(sys.argv[1], "rb").read()

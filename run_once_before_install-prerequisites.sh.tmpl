@@ -145,8 +145,11 @@ else
   step_begin "homebrew"
   say "Installing Homebrew..."
   # install.sh asks for a sudo password and waits for RETURN; both need the
-  # terminal to itself.
-  step_run /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # terminal to itself. The fetch runs inside step_run too: a substitution in
+  # the outer argument list would expand while the ticker is still up, and curl's
+  # -S error on a failed download would land on a live frame. The inner exec keeps
+  # stdin on the terminal for the installer.
+  step_run /bin/bash -c 'exec /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
   eval "$(/opt/homebrew/bin/brew shellenv)"
   step_ok "homebrew" "installed"
 fi

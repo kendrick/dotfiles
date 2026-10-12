@@ -1,17 +1,18 @@
 #!/usr/bin/env bats
 #
-# The display kit's own suite (GitHub #16). Sixteen cases, each named so
+# The display kit's own suite (GitHub #16). Eighteen cases, each named so
 # `--filter "^<token>:"` selects exactly one:
 #
 #   detector  stdout  animates  adoption  failure
 #   sigint    fail-open  bash32  tty-scope  setsid-log
-#   interleave  interleave-scripts
+#   interleave  interleave-scripts  say-yield  spinners
 #   fetch-display  gate-verbs  fetch-replay  fetch-setsid
 #
 # The first ten are one per constitution clause that names a filter. The next
-# two answer #38, which no clause covers, and they are the only cases here that
-# do not read /dev/tty separately from stdout. That separation is what the
-# other ten are measured through, and it is also what hides #38.
+# two answer #38, which no clause covers, and say-yield and spinners answer #71.
+# Those four are the only cases here that do not read /dev/tty separately from
+# stdout. That separation is what the other ten are measured through, and it is
+# also what hides both bugs.
 #
 # The last four are #33, the installer's fetch-phase line. They live here rather
 # than beside the installer's other cases because what they measure is which
@@ -750,6 +751,96 @@ PROBE
 	[ "$(ui_interleave "$p/good.tty" "$g" XTOOLOUTX glyph_rows)" -ge 1 ]
 	[ "$(ui_interleave "$p/good.tty" "$g" XTOOLOUTX marker_rows)" -ge 1 ]
 	[ "$(ui_interleave "$p/good.tty" "$g" XTOOLOUTX violations)" -eq 0 ]
+}
+
+# The same collision with the kit's own status line as the writer. A `say`
+# mid-step is how a script reports progress before slow silent work, and a
+# bare printf there continues the frame's row exactly as a tool's output did
+# above (#71). step_run doesn't fit, because the caller isn't handing the
+# terminal to anything, so the kit takes the live line down itself.
+@test "say-yield: a say inside a live step never shares the frame's row" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" p="$BATS_TEST_TMPDIR/probe" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$p"
+
+	# The sleep gives the ticker time to draw before each say, for the same
+	# reason the interleave probe above sleeps before its tool.
+	cat >"$p/probe.sh" <<PROBE
+#!/bin/bash
+set -eu
+. '$kit'
+step_begin 'probe'
+i=0
+while [ "\$i" -lt 3 ]; do
+	step_tick "\$i" 3 'working'
+	sleep 0.25
+	say 'XSAYX'
+	i=\$((i + 1))
+done
+step_ok 'probe' 'done'
+PROBE
+
+	ui_pty --stdout-to-tty --stderr "$p/say.err" \
+		--tty-capture "$p/say.tty" --glyphs "$g" --timeout 60 \
+		-- /bin/bash "$p/probe.sh" || true
+	[ "$(ui_interleave "$p/say.tty" "$g" XSAYX glyph_rows)" -ge 1 ]
+	[ "$(ui_interleave "$p/say.tty" "$g" XSAYX marker_rows)" -ge 1 ]
+	[ "$(ui_interleave "$p/say.tty" "$g" XSAYX violations)" -eq 0 ]
+}
+
+# Two writers on one live line (#71). spin_until, spin_on_log and
+# spin_until_log_gate draw their own frames, and a caller inside a step_begin
+# window would otherwise have the step's ticker drawing alongside them, the two
+# interleaving mid-escape-sequence.
+#
+# Row counting can't see this, because both writers' frames are \r-led and
+# each lands on a row of its own. The order shows it instead. Once the
+# spinner's label appears, no frame may carry the step's label until the step
+# settles.
+# The slice is over raw bytes because a frame row has no newline, so anything
+# line-based reads the whole run as one line.
+@test "spinners: the step ticker never draws while a spinner owns the live line" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" p="$BATS_TEST_TMPDIR/probe" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$p"
+
+	# The sleep lets the step ticker draw first. A ticker that never drew can't
+	# be caught drawing late, so the first count below has to be non-zero.
+	cat >"$p/probe.sh" <<PROBE
+#!/bin/bash
+set -eu
+. '$kit'
+step_begin 'XSTEPX'
+sleep 0.3
+spin_until 'XSPINX' 1 false || true
+step_ok 'XSTEPX' 'done'
+PROBE
+
+	ui_pty --stdout-to-tty --stderr "$p/spin.err" \
+		--tty-capture "$p/spin.tty" --glyphs "$g" --timeout 60 \
+		-- /bin/bash "$p/probe.sh" || true
+
+	# Prints three counts: step frames before the spinner's first frame,
+	# spinner frames, and step frames between that first spinner frame and the
+	# settled line's glyph.
+	run python3 -c '
+import sys
+data = open(sys.argv[1], "rb").read()
+spin = data.find(b"XSPINX")
+settled = data.find("✓".encode("utf-8"), max(spin, 0))
+if spin < 0 or settled < 0:
+    print(data[:spin].count(b"XSTEPX") if spin >= 0 else 0, 0, -1)
+else:
+    print(data[:spin].count(b"XSTEPX"), data.count(b"XSPINX"), data[spin:settled].count(b"XSTEPX"))
+' "$p/spin.tty"
+	[ "$status" -eq 0 ]
+	echo "before/spin/during: $output"
+	set -- $output
+	[ "$1" -ge 1 ]
+	[ "$2" -ge 1 ]
+	[ "$3" -eq 0 ]
 }
 
 # The four scripts that hold a live line open while a tool writes to stdout,

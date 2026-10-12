@@ -69,11 +69,11 @@ op_ready() { op account list --format=json 2>/dev/null | grep -q '"url"'; }
 if ! op_ready && [ -t 0 ]; then
   # `open -a` on a running app just activates it, so no relaunch and no permission modal.
   open -a /Applications/1Password.app >/dev/null 2>&1 || true
-  printf '\n'
+  say ""
   say "→ 1Password is open. Sign in, then turn on:"
   say "  Settings > Developer > Integrate with 1Password CLI"
   say "  (check behind this window if you don't see it)"
-  printf '\n'
+  say ""
   spin_until "Waiting for the CLI integration" "$WAIT_TIMEOUT" op_ready || true
 fi
 

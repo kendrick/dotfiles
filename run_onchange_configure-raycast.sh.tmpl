@@ -52,7 +52,7 @@ while IFS= read -r ext; do
   [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
   ray_done=$((ray_done + 1))
   step_tick "$ray_done" "$ray_total" "$ext"
-  if ! open "raycast://extensions/install/$ext"; then
+  if ! step_run open "raycast://extensions/install/$ext"; then
     refused+=("$ext")
   fi
   sleep 1
@@ -66,7 +66,7 @@ EXTEOF
 # to print. Consuming the status keeps the summary reachable; saying so keeps it from
 # becoming the next silent failure.
 if ! defaults write com.raycast.macos raycastGlobalHotkey -string "Command-49"; then
-  echo "Could not set Raycast's global hotkey; its preferences are unchanged."
+  say "Could not set Raycast's global hotkey; its preferences are unchanged."
 fi
 
 # Guarded on the count: bash 3.2 turns an empty array into one empty word, and a heading

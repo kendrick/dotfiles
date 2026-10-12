@@ -1,21 +1,26 @@
 #!/usr/bin/env bats
 #
-# The display kit's own suite (GitHub #16). Sixteen cases, each named so
+# The display kit's own suite (GitHub #16). Twenty cases, each named so
 # `--filter "^<token>:"` selects exactly one:
 #
 #   detector  stdout  animates  adoption  failure
 #   sigint    fail-open  bash32  tty-scope  setsid-log
-#   interleave  interleave-scripts
+#   interleave  interleave-scripts  say-yield  spinners
 #   fetch-display  gate-verbs  fetch-replay  fetch-setsid
+#   pty-run  prerequisites
 #
 # The first ten are one per constitution clause that names a filter. The next
-# two answer #38, which no clause covers, and they are the only cases here that
-# do not read /dev/tty separately from stdout. That separation is what the
-# other ten are measured through, and it is also what hides #38.
+# two answer #38, which no clause covers, and say-yield and spinners answer #71.
+# Those four, plus pty-run and prerequisites below, are the only cases here
+# that do not read /dev/tty separately from stdout. That separation is what the
+# other ten are measured through, and it is also what hides both bugs.
 #
-# The last four are #33, the installer's fetch-phase line. They live here rather
-# than beside the installer's other cases because what they measure is which
-# stream a frame landed on, and that is this file's whole apparatus.
+# pty-run and prerequisites are #71 again: the first proves the harness can put
+# stdin on the pty, the second uses it to run the real prerequisites script.
+#
+# The last four are #33, the installer's fetch-phase line. They live here
+# rather than beside the installer's other cases because what they measure is
+# which stream a frame landed on, and that is this file's whole apparatus.
 #
 # The anchor is not decoration. `bats --filter` matches a regex against test
 # NAMES, so a bare token is satisfied by any name containing it—an
@@ -752,6 +757,96 @@ PROBE
 	[ "$(ui_interleave "$p/good.tty" "$g" XTOOLOUTX violations)" -eq 0 ]
 }
 
+# The same collision with the kit's own status line as the writer. A `say`
+# mid-step is how a script reports progress before slow silent work, and a
+# bare printf there continues the frame's row exactly as a tool's output did
+# above (#71). step_run doesn't fit, because the caller isn't handing the
+# terminal to anything, so the kit takes the live line down itself.
+@test "say-yield: a say inside a live step never shares the frame's row" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" p="$BATS_TEST_TMPDIR/probe" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$p"
+
+	# The sleep gives the ticker time to draw before each say, for the same
+	# reason the interleave probe above sleeps before its tool.
+	cat >"$p/probe.sh" <<PROBE
+#!/bin/bash
+set -eu
+. '$kit'
+step_begin 'probe'
+i=0
+while [ "\$i" -lt 3 ]; do
+	step_tick "\$i" 3 'working'
+	sleep 0.25
+	say 'XSAYX'
+	i=\$((i + 1))
+done
+step_ok 'probe' 'done'
+PROBE
+
+	ui_pty --stdout-to-tty --stderr "$p/say.err" \
+		--tty-capture "$p/say.tty" --glyphs "$g" --timeout 60 \
+		-- /bin/bash "$p/probe.sh" || true
+	[ "$(ui_interleave "$p/say.tty" "$g" XSAYX glyph_rows)" -ge 1 ]
+	[ "$(ui_interleave "$p/say.tty" "$g" XSAYX marker_rows)" -ge 1 ]
+	[ "$(ui_interleave "$p/say.tty" "$g" XSAYX violations)" -eq 0 ]
+}
+
+# Two writers on one live line (#71). spin_until, spin_on_log and
+# spin_until_log_gate draw their own frames, and a caller inside a step_begin
+# window would otherwise have the step's ticker drawing alongside them, the two
+# interleaving mid-escape-sequence.
+#
+# Row counting can't see this, because both writers' frames are \r-led and
+# each lands on a row of its own. The order shows it instead. Once the
+# spinner's label appears, no frame may carry the step's label until the step
+# settles.
+# The slice is over raw bytes because a frame row has no newline, so anything
+# line-based reads the whole run as one line.
+@test "spinners: the step ticker never draws while a spinner owns the live line" {
+	local kit="$BATS_TEST_TMPDIR/sh-ui.sh" p="$BATS_TEST_TMPDIR/probe" g
+	ui_render_kit "$kit"
+	g="$(ui_glyphs "$kit")"
+	mkdir -p "$p"
+
+	# The sleep lets the step ticker draw first. A ticker that never drew can't
+	# be caught drawing late, so the first count below has to be non-zero.
+	cat >"$p/probe.sh" <<PROBE
+#!/bin/bash
+set -eu
+. '$kit'
+step_begin 'XSTEPX'
+sleep 0.3
+spin_until 'XSPINX' 1 false || true
+step_ok 'XSTEPX' 'done'
+PROBE
+
+	ui_pty --stdout-to-tty --stderr "$p/spin.err" \
+		--tty-capture "$p/spin.tty" --glyphs "$g" --timeout 60 \
+		-- /bin/bash "$p/probe.sh" || true
+
+	# Prints three counts: step frames before the spinner's first frame,
+	# spinner frames, and step frames between that first spinner frame and the
+	# settled line's glyph.
+	run python3 -c '
+import sys
+data = open(sys.argv[1], "rb").read()
+spin = data.find(b"XSPINX")
+settled = data.find("✓".encode("utf-8"), max(spin, 0))
+if spin < 0 or settled < 0:
+    print(data[:spin].count(b"XSTEPX") if spin >= 0 else 0, 0, -1)
+else:
+    print(data[:spin].count(b"XSTEPX"), data.count(b"XSPINX"), data[spin:settled].count(b"XSTEPX"))
+' "$p/spin.tty"
+	[ "$status" -eq 0 ]
+	echo "before/spin/during: $output"
+	set -- $output
+	[ "$1" -ge 1 ]
+	[ "$2" -ge 1 ]
+	[ "$3" -eq 0 ]
+}
+
 # The four scripts that hold a live line open while a tool writes to stdout,
 # driven for real through the same combined-stream venue.
 #
@@ -818,4 +913,81 @@ EOF
 		echo "row collisions:$bad"
 		return 1
 	}
+}
+
+# pty-run's stdin mode. The default keeps fd 0 on /dev/null so a script that
+# gates a prompt on `[ -t 0 ]` never blocks the suite; this flag is the opt-in
+# for the case that has to reach the prompt (#71).
+@test "pty-run: --stdin-from-tty gives the child a tty on fd 0" {
+	local c="$BATS_TEST_TMPDIR/stdin"
+	mkdir -p "$c"
+
+	ui_pty --stdout-to-tty --stdin-from-tty --stderr "$c/on.err" \
+		--tty-capture "$c/on.tty" --timeout 20 \
+		-- /bin/bash -c '[ -t 0 ] && echo YES || echo NO' || true
+	grep -aqF YES "$c/on.tty"
+
+	ui_pty --stdout-to-tty --stderr "$c/off.err" \
+		--tty-capture "$c/off.tty" --timeout 20 \
+		-- /bin/bash -c '[ -t 0 ] && echo YES || echo NO' || true
+	grep -aqF NO "$c/off.tty"
+	! grep -aqF YES "$c/off.tty"
+}
+
+# The question has no newline, so the step ticker's next frame opens with
+# \r\033[K and wipes it, and the run then waits on a read nobody can see (#71).
+# Nothing answers the read here, so the run ends on pty-run's timeout (199);
+# what matters is that the prompt bytes were drawn and nothing erased them
+# afterward. Stubs make CLT absent and every tool a silent success.
+@test "prerequisites: the CLT question stays on screen until answered" {
+	local d="$BATS_TEST_TMPDIR/prereq" stubs script cap
+	stubs="$d/stubs"
+	script="$d/prereqs.sh"
+	cap="$d/tty"
+	mkdir -p "$stubs"
+
+	env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
+		chezmoi execute-template \
+		--source "$(ui_src)" \
+		--config "$(ui_fixture_config)" \
+		--destination "$BATS_TEST_TMPDIR/dest" \
+		<"$(ui_src)/run_once_before_install-prerequisites.sh.tmpl" >"$script"
+
+	printf '#!/bin/sh\nexit 2\n' >"$stubs/xcode-select"
+	printf '#!/bin/sh\nexit 1\n' >"$stubs/pkgutil"
+	for t in softwareupdate sudo curl open; do
+		printf '#!/bin/sh\nexit 0\n' >"$stubs/$t"
+	done
+	chmod +x "$stubs"/*
+
+	# --timeout 5: the read blocks for the whole bound, so keep it short.
+	PATH="$stubs:/usr/bin:/bin" ui_pty --stdout-to-tty --stdin-from-tty \
+		--stderr "$d/err" --tty-capture "$cap" --timeout 5 \
+		-- /bin/bash "$script" || [ "$?" -eq 199 ]
+
+	grep -aqF 'Install them now? [Y/n]' "$cap"
+
+	# Non-vacuity. The run is killed at the read, so it emits no frame, hide, or
+	# glyph before the prompt for the capture itself to prove the kit was
+	# watching; without that, an unwatched venue would pass the erase check below
+	# trivially. So prove the venue instead: the same flags, the same rendered
+	# kit, a step that lives half a second. A watching kit hides the cursor and
+	# draws frames; an unwatched one prints only the settled line, so the settled
+	# glyph alone proves nothing.
+	local kit="$d/sh-ui.sh"
+	ui_render_kit "$kit"
+	printf '#!/bin/bash\nset -eu\n. "%s"\nstep_begin x\nsleep 0.5\nstep_ok x done\n' "$kit" >"$d/watch.sh"
+	ui_pty --stdout-to-tty --stdin-from-tty --stderr "$d/watch.err" \
+		--tty-capture "$d/watch.tty" --timeout 20 -- /bin/bash "$d/watch.sh"
+	grep -aqF $'\033[?25l' "$d/watch.tty"
+
+	run python3 -c '
+import sys
+data = open(sys.argv[1], "rb").read()
+i = data.index(b"Install them now? [Y/n]")
+print(data[i:].count(b"\r\x1b[K"))
+' "$cap"
+	[ "$status" -eq 0 ]
+	echo "erases after prompt: $output"
+	[ "$output" -eq 0 ]
 }

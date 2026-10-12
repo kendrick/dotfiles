@@ -24,9 +24,33 @@ _UI_TICK_INTERVAL=0.1
 
 SPINNER_FRAMES=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
 
-say() { printf '  %s\n' "$1"; }
-ok() { printf '  ✓  %s\n' "$1"; }
-warn() { printf '  !  %s\n' "$1"; }
+# A line printed while the ticker runs would continue the frame's row, because
+# a frame never ends in a newline (#71). So a status line takes the live line
+# down, prints, and puts it back: a mid-step `say` is usually followed by slow
+# silent work that still needs a moving spinner. That restart is also why a
+# prompt must never follow a `say` directly. It goes ahead of step_begin or
+# through step_run, which hands the terminal over and doesn't take it back.
+#
+# _ui_stop_ticker and friends are defined further down; bash resolves function
+# names at call time, so the order is fine.
+_ui_yield() {
+  [ -n "${_UI_TICK_PID:-}" ] || return 0
+  _ui_stop_ticker
+  _ui_erase
+  _UI_YIELDED=1
+  return 0
+}
+
+_ui_resume() {
+  [ "${_UI_YIELDED:-0}" = 1 ] || return 0
+  _UI_YIELDED=0
+  _ui_start_ticker "${_UI_TICK_TEXT:-}"
+  return 0
+}
+
+say() { _ui_yield; printf '  %s\n' "$1"; _ui_resume; }
+ok() { _ui_yield; printf '  ✓  %s\n' "$1"; _ui_resume; }
+warn() { _ui_yield; printf '  !  %s\n' "$1"; _ui_resume; }
 
 # Callers set their own EXIT trap (they have their own temp files to clear), so the
 # cursor restore lives here rather than in a trap of its own.
@@ -64,6 +88,9 @@ progress_bar() {
 # every couple of seconds. Polling it at frame rate would fork the predicate ten times a
 # second for the length of an Xcode download.
 spin_until() {
+  # Only one process may write the live line. A step ticker still running
+  # here would interleave with these frames mid-escape-sequence.
+  _ui_stop_ticker
   local label=$1 timeout=$2
   shift 2
   local start=$SECONDS n
@@ -97,6 +124,7 @@ spin_until() {
 # one. Its output format has been reworded across releases, so treat any NN% in the
 # log as the truth and fall back to a bare spinner when nothing parses.
 spin_on_log() {
+  _ui_stop_ticker
   local pid=$1 label=$2 log=$3
   local start=$SECONDS pct phase
   if ! ui_watching; then
@@ -149,6 +177,7 @@ spin_on_log() {
 # own per-frame read, and for the same reason: the log is the only thing that
 # knows what phase the tool is in.
 spin_until_log_gate() {
+  _ui_stop_ticker
   local pid=$1 label=$2 log=$3 gate_re=$4
   local start=$SECONDS
   ui_watching || return 0
@@ -327,6 +356,7 @@ _ui_start_ticker() {
   ui_watching || return 0
   [ "${_UI_NO_LIVE:-0}" = 1 ] && return 0
   local text="$1"
+  _UI_TICK_TEXT="$text"
   (
     local i="${_UI_FRAME:-0}"
     while :; do

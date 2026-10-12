@@ -11,7 +11,7 @@ what comes back off the master is the /dev/tty stream and nothing else.
 Modes, and the measurement behind each:
 
   (default)   pty with a controlling terminal. fd 0 comes from /dev/null, not
-              from the pty: run_once_before_install-prerequisites.sh.tmpl:111
+              from the pty: run_once_before_install-prerequisites.sh.tmpl:116
               reads a reply gated on `[ -t 0 ]`, and pty.fork() hands the child
               the pty, so the run sits at "Install them now? [Y/n]" forever.
   --setsid    no controlling terminal at all, so /dev/tty fails to open. This is
@@ -28,9 +28,16 @@ Modes, and the measurement behind each:
               spinner drawn to /dev/tty is otherwise indistinguishable from
               one drawn to stdout. Issue #38 only shows up once that
               separation is gone, so this mode gives it up on purpose.
+  --stdin-from-tty
+              fd 0 stays on the pty slave instead of /dev/null, so a child
+              gated on `[ -t 0 ]` takes its interactive branch and a `read`
+              blocks on the terminal. The default keeps /dev/null because the
+              prompt at run_once_before_install-prerequisites.sh.tmpl:116
+              would otherwise wait forever. Nothing here answers, so pair it
+              with --timeout and treat exit 199 as the expected outcome.
 
 Every run is bounded. This tree has two ways to hang for an hour: an unanswered
-prompt at install-prerequisites:111, and a spin_until at :99 waiting on Command
+prompt at install-prerequisites:116, and a spin_until at :103 waiting on Command
 Line Tools that no harness can install. A run that hits the bound exits 199,
 which is loud and never mistakable for a command's own status.
 """
@@ -92,6 +99,12 @@ def main():
         help="leave the child's fd 1 on the pty slave instead of --stdout, so stdout "
         "and /dev/tty collapse onto one device as they do on a real terminal",
     )
+    ap.add_argument(
+        "--stdin-from-tty",
+        action="store_true",
+        help="leave fd 0 on the pty slave so the child can read a reply; pair with a "
+        "timeout, since nothing answers",
+    )
     ap.add_argument("--cols", type=int, default=80)
     ap.add_argument("--rows", type=int, default=24)
     ap.add_argument("--timeout", type=float, default=120.0)
@@ -125,6 +138,9 @@ def main():
         # run_setsid never opens a pty, so there is no slave for fd 1 to
         # land on. The combination has nothing to mean.
         sys.stderr.write("pty-run: --stdout-to-tty has no pty slave under --setsid\n")
+        return 2
+    if args.stdin_from_tty and args.setsid:
+        sys.stderr.write("pty-run: --stdin-from-tty has no pty slave under --setsid\n")
         return 2
 
     argv = args.cmd[1:] if args.cmd and args.cmd[0] == "--" else args.cmd
@@ -160,7 +176,10 @@ def child_exec(args, argv):
     it to survive past exec.
     """
     devnull = os.open(os.devnull, os.O_RDONLY)
-    os.dup2(devnull, 0)
+    if args.stdin_from_tty:
+        os.dup2(CTTY_KEEPALIVE_FD, 0)
+    else:
+        os.dup2(devnull, 0)
     out = -1
     if args.stdout_to_tty:
         os.dup2(CTTY_KEEPALIVE_FD, 1)

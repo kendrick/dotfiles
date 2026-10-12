@@ -61,7 +61,7 @@ install_clt_headless() {
   rm -f "$log"
 
   if [ -z "$label" ]; then
-    step_warn "xcode clt" "not in the update catalog"
+    say "Not in the update catalog; trying Apple's installer."
     return 1
   fi
   say "Installer: $label"
@@ -69,7 +69,7 @@ install_clt_headless() {
   # Prime sudo in the foreground. Backgrounding the install is what lets us draw the
   # progress bar, and a background job can't own the terminal to ask for a password.
   say "macOS needs your password to install them."
-  sudo -v || return 1
+  step_run sudo -v || return 1
 
   log=$(mktemp)
   # shellcheck disable=SC2024  # the log is our own mktemp file; the shell should own
@@ -78,7 +78,7 @@ install_clt_headless() {
   # Assign through || so errexit can't kill us before we've read the status.
   status=0
   spin_on_log $! "Installing" "$log" || status=$?
-  [ "$status" -eq 0 ] || sed 's/^/     /' "$log"
+  [ "$status" -eq 0 ] || step_run sed 's/^/     /' "$log"
   rm -f "$log"
 
   # softwareupdate has been known to exit 0 without installing anything, so the exit
@@ -96,21 +96,22 @@ install_clt_gui() {
   # looks like a hang, which is how we got here in the first place.
   open -a "/System/Library/CoreServices/Install Command Line Developer Tools.app" >/dev/null 2>&1 || true
 
-  printf '\n'
+  say ""
   say "→ Apple's installer is open. Click Install to continue."
   say "  (check behind this window if you don't see it)"
-  printf '\n'
+  say ""
   spin_until "Waiting for the install to finish" 3600 have_clt
 }
 
 if have_clt; then
   step_ok "xcode clt" "already installed"
 else
-  step_begin "xcode clt"
   say "Xcode Command Line Tools are missing. Homebrew and git need them."
 
   # Only ask when someone's there to answer. The auto-sync LaunchAgent must never
   # block on a read, and a run_once script re-runs whenever its contents change.
+  # Asked before step_begin: the ticker's next frame would erase a prompt that
+  # has no newline, and the run then waits on a question nobody can see (#71).
   if [ -t 0 ]; then
     printf '  Install them now? [Y/n] '
     read -r reply || reply=""
@@ -123,6 +124,7 @@ else
     esac
   fi
 
+  step_begin "xcode clt"
   start=$SECONDS
   if install_clt_headless; then
     step_ok "xcode clt" "installed"
@@ -142,7 +144,12 @@ if command -v brew &>/dev/null; then
 else
   step_begin "homebrew"
   say "Installing Homebrew..."
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # install.sh asks for a sudo password and waits for RETURN; both need the
+  # terminal to itself. The fetch runs inside step_run too: a substitution in
+  # the outer argument list would expand while the ticker is still up, and curl's
+  # -S error on a failed download would land on a live frame. The inner exec keeps
+  # stdin on the terminal for the installer.
+  step_run /bin/bash -c 'exec /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
   eval "$(/opt/homebrew/bin/brew shellenv)"
   step_ok "homebrew" "installed"
 fi

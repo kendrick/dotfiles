@@ -89,7 +89,7 @@ while IFS= read -r title; do
       ;;
     esac
 
-    echo "  not in vault, skipped: $title"
+    say "not in vault, skipped: $title"
     skipped=$((skipped + 1))
     continue
   fi
@@ -98,7 +98,7 @@ while IFS= read -r title; do
   rm -rf "$extract"
   mkdir -p "$extract"
   if ! unzip -qo "$archive" -d "$extract" 2>/dev/null; then
-    echo "  could not unzip, skipped: $title"
+    say "could not unzip, skipped: $title"
     skipped=$((skipped + 1))
     continue
   fi

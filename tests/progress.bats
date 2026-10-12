@@ -1,12 +1,13 @@
 #!/usr/bin/env bats
 #
-# The display kit's own suite (GitHub #16). Eighteen cases, each named so
+# The display kit's own suite (GitHub #16). Twenty cases, each named so
 # `--filter "^<token>:"` selects exactly one:
 #
 #   detector  stdout  animates  adoption  failure
 #   sigint    fail-open  bash32  tty-scope  setsid-log
 #   interleave  interleave-scripts  say-yield  spinners
 #   fetch-display  gate-verbs  fetch-replay  fetch-setsid
+#   pty-run  prerequisites
 #
 # The first ten are one per constitution clause that names a filter. The next
 # two answer #38, which no clause covers, and say-yield and spinners answer #71.
@@ -14,7 +15,10 @@
 # stdout. That separation is what the other ten are measured through, and it is
 # also what hides both bugs.
 #
-# The last four are #33, the installer's fetch-phase line. They live here rather
+# pty-run and prerequisites are #71 again: the first proves the harness can put
+# stdin on the pty, the second uses it to run the real prerequisites script.
+#
+# The #33 cases are the four before them, the installer's fetch-phase line. They live here rather
 # than beside the installer's other cases because what they measure is which
 # stream a frame landed on, and that is this file's whole apparatus.
 #
@@ -909,4 +913,66 @@ EOF
 		echo "row collisions:$bad"
 		return 1
 	}
+}
+
+# pty-run's stdin mode. The default keeps fd 0 on /dev/null so a script that
+# gates a prompt on `[ -t 0 ]` never blocks the suite; this flag is the opt-in
+# for the case that has to reach the prompt (#71).
+@test "pty-run: --stdin-from-tty gives the child a tty on fd 0" {
+	local c="$BATS_TEST_TMPDIR/stdin"
+	mkdir -p "$c"
+
+	ui_pty --stdout-to-tty --stdin-from-tty --stderr "$c/on.err" \
+		--tty-capture "$c/on.tty" --timeout 20 \
+		-- /bin/bash -c '[ -t 0 ] && echo YES || echo NO' || true
+	grep -aqF YES "$c/on.tty"
+
+	ui_pty --stdout-to-tty --stderr "$c/off.err" \
+		--tty-capture "$c/off.tty" --timeout 20 \
+		-- /bin/bash -c '[ -t 0 ] && echo YES || echo NO' || true
+	grep -aqF NO "$c/off.tty"
+	! grep -aqF YES "$c/off.tty"
+}
+
+# The question has no newline, so the step ticker's next frame opens with
+# \r\033[K and wipes it, and the run then waits on a read nobody can see (#71).
+# Nothing answers the read here, so the run ends on pty-run's timeout (199);
+# what matters is that the prompt bytes were drawn and nothing erased them
+# afterward. Stubs make CLT absent and every tool a silent success.
+@test "prerequisites: the CLT question stays on screen until answered" {
+	local d="$BATS_TEST_TMPDIR/prereq" stubs script cap
+	stubs="$d/stubs"
+	script="$d/prereqs.sh"
+	cap="$d/tty"
+	mkdir -p "$stubs"
+
+	env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
+		chezmoi execute-template \
+		--source "$(ui_src)" \
+		--config "$(ui_fixture_config)" \
+		--destination "$BATS_TEST_TMPDIR/dest" \
+		<"$(ui_src)/run_once_before_install-prerequisites.sh.tmpl" >"$script"
+
+	printf '#!/bin/sh\nexit 2\n' >"$stubs/xcode-select"
+	printf '#!/bin/sh\nexit 1\n' >"$stubs/pkgutil"
+	for t in softwareupdate sudo curl open; do
+		printf '#!/bin/sh\nexit 0\n' >"$stubs/$t"
+	done
+	chmod +x "$stubs"/*
+
+	# --timeout 5: the read blocks for the whole bound, so keep it short.
+	PATH="$stubs:/usr/bin:/bin" ui_pty --stdout-to-tty --stdin-from-tty \
+		--stderr "$d/err" --tty-capture "$cap" --timeout 5 \
+		-- /bin/bash "$script" || [ "$?" -eq 199 ]
+
+	grep -aqF 'Install them now? [Y/n]' "$cap"
+	run python3 -c '
+import sys
+data = open(sys.argv[1], "rb").read()
+i = data.index(b"Install them now? [Y/n]")
+print(data[i:].count(b"\r\x1b[K"))
+' "$cap"
+	[ "$status" -eq 0 ]
+	echo "erases after prompt: $output"
+	[ "$output" -eq 0 ]
 }

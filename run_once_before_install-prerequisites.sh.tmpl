@@ -142,16 +142,31 @@ fi
 if command -v brew &>/dev/null; then
   step_ok "homebrew" "already installed"
 else
+  # Fixed on purpose: install.sh ignores an inherited HOMEBREW_PREFIX and always lands in
+  # /opt/homebrew on Apple silicon, so probing the caller's value could fail a good install
+  # and leave the script eligible to retry. The run_ scripts that use
+  # ${HOMEBREW_PREFIX:-/opt/homebrew} run after shellenv has set the real prefix; this one
+  # runs before Homebrew exists.
+  brew_bin=/opt/homebrew/bin/brew
   step_begin "homebrew"
   say "Installing Homebrew..."
   # install.sh asks for a sudo password and waits for RETURN; both need the
   # terminal to itself. The fetch runs inside step_run too: a substitution in
   # the outer argument list would expand while the ticker is still up, and curl's
-  # -S error on a failed download would land on a live frame. The inner exec keeps
-  # stdin on the terminal for the installer.
-  step_run /bin/bash -c 'exec /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-  eval "$(/opt/homebrew/bin/brew shellenv)"
-  step_ok "homebrew" "installed"
+  # -S error on a failed download would land on a live frame. It is also checked
+  # there, because a failed curl in a bare substitution is an empty program that
+  # exits 0, and run_once then never retries (#59). The inner exec keeps stdin
+  # on the terminal for the installer. The -x test covers an installer that
+  # exits 0 without installing, the same distrust as softwareupdate above.
+  if step_run /bin/bash -c 's=$(curl -fsSL --retry 2 https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh) && [ -n "$s" ] && exec /bin/bash -c "$s"' &&
+    [ -x "$brew_bin" ]; then
+    eval "$("$brew_bin" shellenv)"
+    step_ok "homebrew" "installed"
+  else
+    step_fail "homebrew" "did not install"
+    say "Fix what the output above names (often the network), then re-run 'chezmoi apply'."
+    exit 1
+  fi
 fi
 
 say "Prerequisites ready."

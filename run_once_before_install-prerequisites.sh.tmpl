@@ -139,10 +139,12 @@ fi
 
 # --- Homebrew ---------------------------------------------------------------------
 
-HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-/opt/homebrew}"
 if command -v brew &>/dev/null; then
   step_ok "homebrew" "already installed"
 else
+  # Same default the other run_ scripts use. It exists so the post-install probe can be
+  # pointed at a test prefix; install.sh picks /opt/homebrew on Apple silicon on its own.
+  HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-/opt/homebrew}"
   step_begin "homebrew"
   say "Installing Homebrew..."
   # install.sh asks for a sudo password and waits for RETURN; both need the

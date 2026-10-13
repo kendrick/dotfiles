@@ -72,13 +72,16 @@ INSTALLER
 	printf 'serve' >"$CURL_MODE"
 }
 
+curl_calls() {
+	wc -l <"$CURL_LOG" | tr -d ' '
+}
+
 run_prereqs() {
 	run env DOTFILES_NO_PROGRESS=1 PATH="$STUBS:/usr/bin:/bin" \
 		/bin/bash "$D/prereqs.sh" </dev/null
 }
 
 @test "prerequisites: a failed download exits non-zero and never evals shellenv" {
-	printf 'fail' >"$CURL_MODE"
 	run_prereqs
 	[ "$status" -ne 0 ]
 	assert_contains "did not install"
@@ -95,6 +98,7 @@ run_prereqs() {
 	assert_contains "did not install"
 	assert_contains "re-run 'chezmoi apply'"
 	assert_not_contains "Prerequisites ready"
+	assert_not_contains "✓  homebrew"
 	[ ! -e "$BREW_LOG" ]
 }
 
@@ -105,6 +109,7 @@ run_prereqs() {
 	assert_contains "did not install"
 	assert_contains "re-run 'chezmoi apply'"
 	assert_not_contains "Prerequisites ready"
+	assert_not_contains "✓  homebrew"
 	[ ! -e "$BREW_LOG" ]
 }
 
@@ -113,6 +118,11 @@ run_prereqs() {
 	run_prereqs
 	[ "$status" -eq 0 ]
 	assert_contains "✓  homebrew"
+	# The CLT line also says "already installed", so isolate the Homebrew line first.
+	local settled
+	settled="$(grep -F '✓  homebrew' <<<"$output")"
+	assert_contains "installed" "$settled"
+	assert_not_contains "already" "$settled"
 	assert_not_contains "did not install"
 	assert_contains "Prerequisites ready"
 	assert_contains "shellenv" "$(cat "$BREW_LOG")"
@@ -139,15 +149,15 @@ run_prereqs() {
 	[ "$status" -ne 0 ]
 	run chezmoi_apply
 	[ "$status" -ne 0 ]
-	[ "$(wc -l <"$CURL_LOG" | tr -d ' ')" -eq 2 ]
+	[ "$(curl_calls)" -eq 2 ]
 
 	installer_lands_brew
 	run chezmoi_apply
 	[ "$status" -eq 0 ]
-	[ "$(wc -l <"$CURL_LOG" | tr -d ' ')" -eq 3 ]
+	[ "$(curl_calls)" -eq 3 ]
 
 	# Recorded now: a fourth apply must not run it again.
 	run chezmoi_apply
 	[ "$status" -eq 0 ]
-	[ "$(wc -l <"$CURL_LOG" | tr -d ' ')" -eq 3 ]
+	[ "$(curl_calls)" -eq 3 ]
 }

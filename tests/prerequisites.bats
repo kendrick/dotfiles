@@ -17,7 +17,7 @@ setup() {
 	CHEZMOI="$(command -v chezmoi)"
 	CURL_LOG="$D/curl.log"
 	BREW_LOG="$D/brew.log"
-	HOMEBREW_PREFIX="$D/prefix"
+	FAKE_PREFIX="$D/prefix"
 	mkdir -p "$STUBS" "$D/clt/usr/bin"
 
 	# have_clt passes on these, so no case depends on the developer's real CLT.
@@ -41,7 +41,7 @@ CURL
 	printf 'fail' >"$D/curl.mode"
 	CURL_MODE="$D/curl.mode"
 	CURL_BODY="$D/installer.sh"
-	export CURL_LOG CURL_MODE CURL_BODY BREW_LOG HOMEBREW_PREFIX
+	export CURL_LOG CURL_MODE CURL_BODY BREW_LOG FAKE_PREFIX
 
 	env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
 		chezmoi execute-template \
@@ -49,6 +49,18 @@ CURL
 		--config "$(ui_fixture_config)" \
 		--destination "$D/dest" \
 		<"$(ui_src)/run_once_before_install-prerequisites.sh.tmpl" >"$D/prereqs.sh"
+	retarget_brew_prefix "$D/prereqs.sh"
+}
+
+# The script probes a fixed brew_bin=/opt/homebrew/bin/brew, which is where install.sh really
+# lands and must not be overridable from the environment. Tests point that one assignment
+# at a throwaway prefix by rewriting the file instead. Fail here unless exactly one line
+# was rewritten, or every case would probe the developer's real Homebrew.
+retarget_brew_prefix() {
+	sed "s|^\( *\)brew_bin=/opt/homebrew/bin/brew\$|\1brew_bin=$FAKE_PREFIX/bin/brew|" "$1" >"$1.retargeted"
+	mv "$1.retargeted" "$1"
+	[ "$(grep -c "^ *brew_bin=$FAKE_PREFIX/bin/brew\$" "$1")" -eq 1 ]
+	[ "$(grep -c "^ *brew_bin=/opt/homebrew" "$1")" -eq 0 ]
 }
 
 # What the fake Homebrew installer does: nothing but exit, or land a brew stub that logs argv
@@ -60,14 +72,14 @@ installer_exits() {
 
 installer_lands_brew() {
 	cat >"$CURL_BODY" <<'INSTALLER'
-mkdir -p "$HOMEBREW_PREFIX/bin"
-cat >"$HOMEBREW_PREFIX/bin/brew" <<'BREW'
+mkdir -p "$FAKE_PREFIX/bin"
+cat >"$FAKE_PREFIX/bin/brew" <<'BREW'
 #!/bin/sh
 echo "$*" >>"$BREW_LOG"
 [ "$1" = shellenv ] && echo 'export FIXTURE_SHELLENV=1'
 exit 0
 BREW
-chmod +x "$HOMEBREW_PREFIX/bin/brew"
+chmod +x "$FAKE_PREFIX/bin/brew"
 INSTALLER
 	printf 'serve' >"$CURL_MODE"
 }
@@ -77,7 +89,7 @@ curl_calls() {
 }
 
 run_prereqs() {
-	run env DOTFILES_NO_PROGRESS=1 PATH="$STUBS:/usr/bin:/bin" \
+	run env DOTFILES_NO_PROGRESS=1 "$@" PATH="$STUBS:/usr/bin:/bin" \
 		/bin/bash "$D/prereqs.sh" </dev/null
 }
 
@@ -128,11 +140,22 @@ run_prereqs() {
 	assert_contains "shellenv" "$(cat "$BREW_LOG")"
 }
 
+@test "prerequisites: an inherited HOMEBREW_PREFIX doesn't change where the install is probed" {
+	installer_lands_brew
+	run_prereqs HOMEBREW_PREFIX="$D/bogus"
+	[ "$status" -eq 0 ]
+	assert_contains "✓  homebrew"
+	assert_not_contains "did not install"
+	assert_contains "Prerequisites ready"
+	assert_contains "shellenv" "$(cat "$BREW_LOG")"
+}
+
 @test "prerequisites: chezmoi retries the script after a failure and stops once it succeeds" {
 	local v="$D/venue" state="$D/state.boltdb"
 	mkdir -p "$v/src/.chezmoitemplates" "$v/dest" "$v/home"
 	cp "$(ui_src)/.chezmoitemplates/sh-ui.sh" "$v/src/.chezmoitemplates/sh-ui.sh"
 	cp "$(ui_src)/run_once_before_install-prerequisites.sh.tmpl" "$v/src/"
+	retarget_brew_prefix "$v/src/run_once_before_install-prerequisites.sh.tmpl"
 	cp "$(ui_fixture_config)" "$v/chezmoi.toml"
 
 	chezmoi_apply() {

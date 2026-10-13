@@ -142,9 +142,12 @@ fi
 if command -v brew &>/dev/null; then
   step_ok "homebrew" "already installed"
 else
-  # Same default the other run_ scripts use. It exists so the post-install probe can be
-  # pointed at a test prefix; install.sh picks /opt/homebrew on Apple silicon on its own.
-  HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-/opt/homebrew}"
+  # Fixed on purpose: install.sh ignores an inherited HOMEBREW_PREFIX and always lands in
+  # /opt/homebrew on Apple silicon, so probing the caller's value could fail a good install
+  # and leave the script eligible to retry. The run_ scripts that use
+  # ${HOMEBREW_PREFIX:-/opt/homebrew} run after shellenv has set the real prefix; this one
+  # runs before Homebrew exists.
+  brew_bin=/opt/homebrew/bin/brew
   step_begin "homebrew"
   say "Installing Homebrew..."
   # install.sh asks for a sudo password and waits for RETURN; both need the
@@ -156,8 +159,8 @@ else
   # on the terminal for the installer. The -x test covers an installer that
   # exits 0 without installing, the same distrust as softwareupdate above.
   if step_run /bin/bash -c 's=$(curl -fsSL --retry 2 https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh) && [ -n "$s" ] && exec /bin/bash -c "$s"' &&
-    [ -x "$HOMEBREW_PREFIX/bin/brew" ]; then
-    eval "$("$HOMEBREW_PREFIX/bin/brew" shellenv)"
+    [ -x "$brew_bin" ]; then
+    eval "$("$brew_bin" shellenv)"
     step_ok "homebrew" "installed"
   else
     step_fail "homebrew" "did not install"

@@ -125,20 +125,22 @@ function claude() {
 }
 
 # `code --install-extension` / `--uninstall-extension` changes the installed
-# extension set. Regenerate the tracked list when either flag is used.
+# extension set. vscode-extensions-capture records the intent and merges the
+# tracked list; a failed command records nothing, so a refused uninstall can't
+# blacklist an extension that is still installed.
 function code() {
 	command code "$@"
 	local rc=$?
-	case "$*" in
-		*"--install-extension"*|*"--uninstall-extension"*)
-			local list="$(chezmoi source-path)/dot_config/vscode-extensions.txt"
-			{
-				echo "# VS Code extensions to install"
-				echo "# Edit this list and run \`chezmoi apply\` to sync."
-				command code --list-extensions | sort -f
-			} >"$list"
-			;;
-	esac
+	if [ $rc -eq 0 ]; then
+		local prev="" arg
+		for arg in "$@"; do
+			case "$prev" in
+				--uninstall-extension) vscode-extensions-capture --removed "$arg" >/dev/null 2>&1 ;;
+				--install-extension) vscode-extensions-capture --restored "$arg" >/dev/null 2>&1 ;;
+			esac
+			prev="$arg"
+		done
+	fi
 	return $rc
 }
 

@@ -1,0 +1,9 @@
+# VS Code extensions removed on purpose. Capture never adds these back.
+# Remove a line (or run `code --install-extension <id>`) to allow it again.
+adamerose.markdown-wysiwyg
+bierner.markdown-preview-github-styles
+ms-azuretools.vscode-docker
+ms-vscode-remote.remote-wsl
+ms-vsliveshare.vsliveshare
+webhint.vscode-webhint
+xyc.vscode-mdx-preview

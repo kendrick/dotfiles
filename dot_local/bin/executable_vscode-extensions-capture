@@ -1,0 +1,124 @@
+#!/bin/bash
+# vscode-extensions-capture — merge this machine's VS Code extensions into the tracked list.
+#
+# Capture used to overwrite dot_config/vscode-extensions.txt with whatever `code
+# --list-extensions` printed locally, so the last machine to sync won: an extension
+# removed on one machine came back from another that still had it, and one this machine
+# never installed was dropped for everybody (kendrick/dotfiles#75). This is now the only
+# code that writes either list, and both dotfiles-sync and the code() wrapper call it.
+#
+#   vscode-extensions-capture                  merge and write
+#   vscode-extensions-capture --removed <id>   record <id> as removed, then merge
+#   vscode-extensions-capture --restored <id>  take <id> out of the removed list, then merge
+#
+# Prints `updated` on stdout when it changed the list, so callers need not diff the file.
+
+set -euo pipefail
+
+usage() {
+	echo "usage: vscode-extensions-capture [--removed <id> | --restored <id>]"
+}
+
+action=""
+target=""
+case "${1:-}" in
+-h | --help)
+	usage
+	exit 0
+	;;
+"") ;;
+--removed | --restored)
+	if [ $# -ne 2 ] || [ -z "$2" ]; then
+		usage >&2
+		exit 2
+	fi
+	action="$1"
+	target="$2"
+	;;
+*)
+	usage >&2
+	exit 2
+	;;
+esac
+
+if ! command -v code &>/dev/null; then
+	echo "    code CLI not found, skipping"
+	exit 0
+fi
+
+SRC="$(chezmoi source-path)"
+LIST="$SRC/dot_config/vscode-extensions.txt"
+REMOVED="$SRC/dot_config/vscode-extensions-removed.txt"
+
+LIST_HEADER='# VS Code extensions to install
+# Edit this list and run `chezmoi apply` to sync.'
+REMOVED_HEADER='# VS Code extensions removed on purpose. Capture never adds these back.
+# Remove a line (or run `code --install-extension <id>`) to allow it again.'
+
+# Ids only: comments and blank lines are dropped, and a missing file reads as empty.
+ids_of() {
+	[ -f "$1" ] || return 0
+	grep -vE '^[[:space:]]*(#|$)' "$1" || true
+}
+
+# The marketplace treats ids case-insensitively, so sorting and de-duplicating must too.
+# sort -f groups case variants; the awk keeps the first spelling of each.
+normalize() {
+	sort -f | awk '!seen[tolower($0)]++'
+}
+
+# Replaces $1 with header $2 plus ids on stdin, but only when the bytes differ, so a
+# no-op sync leaves the mtime alone. Prints `changed` when it wrote.
+write_if_changed() {
+	local file="$1" header="$2" tmp
+	tmp="$(mktemp "$file.XXXXXX")"
+	{
+		printf '%s\n' "$header"
+		cat
+	} >"$tmp"
+	if [ -f "$file" ] && cmp -s "$tmp" "$file"; then
+		rm -f "$tmp"
+		return 0
+	fi
+	chmod 644 "$tmp"
+	mv "$tmp" "$file"
+	echo changed
+}
+
+removed_ids="$(ids_of "$REMOVED")"
+
+case "$action" in
+--removed)
+	if ! printf '%s\n' "$removed_ids" | grep -qixF -- "$target"; then
+		removed_ids="$(printf '%s\n%s\n' "$removed_ids" "$target" | sed '/^$/d')"
+	fi
+	printf '%s\n' "$removed_ids" | sed '/^$/d' | normalize | write_if_changed "$REMOVED" "$REMOVED_HEADER" >/dev/null
+	;;
+--restored)
+	removed_ids="$(printf '%s\n' "$removed_ids" | grep -vixF -- "$target" || true)"
+	if [ -f "$REMOVED" ]; then
+		printf '%s\n' "$removed_ids" | sed '/^$/d' | normalize | write_if_changed "$REMOVED" "$REMOVED_HEADER" >/dev/null
+	fi
+	;;
+esac
+
+installed="$(code --list-extensions)"
+
+# Removed wins: an id on both sides is dropped, so one machine that still has an extension
+# installed cannot put back what another removed on purpose.
+merged="$(
+	{
+		ids_of "$LIST"
+		printf '%s\n' "$installed"
+	} | sed '/^$/d' | normalize | {
+		if [ -n "$removed_ids" ]; then
+			grep -vixFf <(printf '%s\n' "$removed_ids") || true
+		else
+			cat
+		fi
+	}
+)"
+
+if [ -n "$(printf '%s\n' "$merged" | sed '/^$/d' | write_if_changed "$LIST" "$LIST_HEADER")" ]; then
+	echo updated
+fi

@@ -1,5 +1,5 @@
 #!/bin/bash
-# vscode-extensions-capture — merge this machine's VS Code extensions into the tracked list.
+# vscode-extensions-capture—merge this machine's VS Code extensions into the tracked list.
 #
 # Capture used to overwrite dot_config/vscode-extensions.txt with whatever `code
 # --list-extensions` printed locally, so the last machine to sync won: an extension
@@ -42,7 +42,7 @@ case "${1:-}" in
 esac
 
 if ! command -v code &>/dev/null; then
-	echo "    code CLI not found, skipping"
+	echo "code CLI not found, skipping"
 	exit 0
 fi
 
@@ -55,34 +55,42 @@ LIST_HEADER='# VS Code extensions to install
 REMOVED_HEADER='# VS Code extensions removed on purpose. Capture never adds these back.
 # Remove a line (or run `code --install-extension <id>`) to allow it again.'
 
-# Ids only: comments and blank lines are dropped, and a missing file reads as empty.
 ids_of() {
 	[ -f "$1" ] || return 0
 	grep -vE '^[[:space:]]*(#|$)' "$1" || true
 }
 
 # The marketplace treats ids case-insensitively, so sorting and de-duplicating must too.
-# sort -f groups case variants; the awk keeps the first spelling of each.
 normalize() {
-	sort -f | awk '!seen[tolower($0)]++'
+	sed '/^$/d' | sort -f | awk '!seen[tolower($0)]++'
 }
 
-# Replaces $1 with header $2 plus ids on stdin, but only when the bytes differ, so a
-# no-op sync leaves the mtime alone. Prints `changed` when it wrote.
+# Skips identical bytes so a no-op sync leaves the mtime alone. The temp file lives beside
+# the target (same filesystem, so mv is atomic) and so inside the chezmoi source tree: a
+# stray one would be committed by the next auto-sync, so every failure path removes it.
+# Cleanup is explicit rather than an EXIT trap, and the returns are explicit rather than
+# errexit: bash 3.2 (macOS) runs neither a trap nor errexit inside the $(...) pipeline
+# this is always called from.
 write_if_changed() {
 	local file="$1" header="$2" tmp
-	tmp="$(mktemp "$file.XXXXXX")"
-	{
-		printf '%s\n' "$header"
-		cat
-	} >"$tmp"
+	tmp="$(mktemp "$file.XXXXXX")" || return 1
+	if ! { printf '%s\n' "$header" && cat; } >"$tmp"; then
+		rm -f "$tmp"
+		return 1
+	fi
 	if [ -f "$file" ] && cmp -s "$tmp" "$file"; then
 		rm -f "$tmp"
 		return 0
 	fi
-	chmod 644 "$tmp"
-	mv "$tmp" "$file"
+	if ! { chmod 644 "$tmp" && mv "$tmp" "$file"; }; then
+		rm -f "$tmp"
+		return 1
+	fi
 	echo changed
+}
+
+save_removed() {
+	printf '%s\n' "$removed_ids" | normalize | write_if_changed "$REMOVED" "$REMOVED_HEADER" >/dev/null
 }
 
 removed_ids="$(ids_of "$REMOVED")"
@@ -90,14 +98,14 @@ removed_ids="$(ids_of "$REMOVED")"
 case "$action" in
 --removed)
 	if ! printf '%s\n' "$removed_ids" | grep -qixF -- "$target"; then
-		removed_ids="$(printf '%s\n%s\n' "$removed_ids" "$target" | sed '/^$/d')"
+		removed_ids="$(printf '%s\n%s\n' "$removed_ids" "$target")"
 	fi
-	printf '%s\n' "$removed_ids" | sed '/^$/d' | normalize | write_if_changed "$REMOVED" "$REMOVED_HEADER" >/dev/null
+	save_removed
 	;;
 --restored)
 	removed_ids="$(printf '%s\n' "$removed_ids" | grep -vixF -- "$target" || true)"
 	if [ -f "$REMOVED" ]; then
-		printf '%s\n' "$removed_ids" | sed '/^$/d' | normalize | write_if_changed "$REMOVED" "$REMOVED_HEADER" >/dev/null
+		save_removed
 	fi
 	;;
 esac
@@ -110,7 +118,7 @@ merged="$(
 	{
 		ids_of "$LIST"
 		printf '%s\n' "$installed"
-	} | sed '/^$/d' | normalize | {
+	} | normalize | {
 		if [ -n "$removed_ids" ]; then
 			grep -vixFf <(printf '%s\n' "$removed_ids") || true
 		else
@@ -119,6 +127,7 @@ merged="$(
 	}
 )"
 
-if [ -n "$(printf '%s\n' "$merged" | sed '/^$/d' | write_if_changed "$LIST" "$LIST_HEADER")" ]; then
+changed="$(printf '%s\n' "$merged" | normalize | write_if_changed "$LIST" "$LIST_HEADER")"
+if [ -n "$changed" ]; then
 	echo updated
 fi

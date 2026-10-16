@@ -18,6 +18,8 @@ LIST_HEADER='# VS Code extensions to install
 # Edit this list and run `chezmoi apply` to sync.'
 
 setup() {
+	unset XDG_CONFIG_HOME XDG_CACHE_HOME
+	unset LIST_RC
 	export HOME="$BATS_TEST_TMPDIR/home"
 	export STUBS="$BATS_TEST_TMPDIR/stubs"
 	export CALL_LOG="$BATS_TEST_TMPDIR/code-calls.log"
@@ -40,13 +42,14 @@ STUB
 }
 
 # Answers --list-extensions from $INSTALLED and logs every call, so a case can prove what
-# the helper asked of VS Code. A nonzero rc models a refused uninstall.
+# the helper asked of VS Code. A nonzero rc models a refused uninstall; LIST_RC models a
+# broken `--list-extensions`.
 stub_code() {
 	local rc="${1:-0}"
 	cat >"$STUBS/code" <<STUB
 #!/usr/bin/env bash
 echo "\$*" >>"$CALL_LOG"
-if [ "\$1" = "--list-extensions" ]; then cat "$INSTALLED"; exit 0; fi
+if [ "\$1" = "--list-extensions" ]; then cat "$INSTALLED"; exit \${LIST_RC:-0}; fi
 exit $rc
 STUB
 	chmod +x "$STUBS/code"
@@ -214,7 +217,29 @@ capture() {
 	rm "$STUBS/code"
 	PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER"
 	[ "$status" -eq 0 ]
-	assert_contains "code CLI not found, skipping"
+	[ "$output" = "code CLI not found, skipping" ]
+}
+
+@test "capture: a failing --list-extensions exits nonzero and leaves both files alone" {
+	seed_list a
+	seed_removed b
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	LIST_RC=1 capture
+	[ "$status" -ne 0 ]
+	cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cmp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+}
+
+@test "capture: a write that dies after mktemp leaves no temp file in the source tree" {
+	seed_list a
+	installed a b
+	printf '#!/usr/bin/env bash\nexit 1\n' >"$STUBS/mv"
+	chmod +x "$STUBS/mv"
+	capture
+	[ "$status" -ne 0 ]
+	run find "$CHEZMOI_SRC/dot_config" -name '*.txt.*'
+	[ -z "$output" ]
 }
 
 @test "capture: an unknown flag exits 2" {
@@ -283,6 +308,48 @@ wrapper() {
 	[ "$(ids "$REMOVED")" = "$(printf 'b\nc')" ]
 }
 
+@test "wrapper: a version-pinned id is recorded bare" {
+	seed_list a b
+	seed_removed
+	installed a b
+	wrapper --uninstall-extension b@1.2.3
+	[ "$status" -eq 0 ]
+	[ "$(ids "$REMOVED")" = "b" ]
+	seed_removed b
+	installed a
+	wrapper --install-extension b@1.2.3
+	[ "$status" -eq 0 ]
+	[ -z "$(ids "$REMOVED")" ]
+}
+
+@test "wrapper: a .vsix path records nothing" {
+	seed_list a
+	seed_removed b
+	installed a
+	cp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	wrapper --install-extension ./x.vsix
+	[ "$status" -eq 0 ]
+	cmp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+}
+
+@test "wrapper: a missing helper is named on stderr and code's status is kept" {
+	seed_list a
+	seed_removed
+	rm "$STUBS/vscode-extensions-capture"
+	wrapper --uninstall-extension b
+	[ "$status" -eq 0 ]
+	assert_contains "vscode-extensions-capture not found"
+}
+
+@test "wrapper: a failing helper is named on stderr and code's status is kept" {
+	seed_list a b
+	seed_removed
+	installed a b
+	LIST_RC=1 wrapper --uninstall-extension b
+	[ "$status" -eq 0 ]
+	assert_contains "vscode-extensions-capture failed"
+}
+
 # ---- static checks ----
 
 @test "sync and wrapper no longer list extensions themselves" {
@@ -290,16 +357,14 @@ wrapper() {
 	[ "$(grep -c 'list-extensions' "$SRC/dot_config/zsh/functions.zsh")" -eq 0 ]
 }
 
-@test "the seeded removed file holds exactly the seven ids and none is in the list" {
-	expected='adamerose.markdown-wysiwyg
-bierner.markdown-preview-github-styles
-ms-azuretools.vscode-docker
-ms-vscode-remote.remote-wsl
-ms-vsliveshare.vsliveshare
-webhint.vscode-webhint
-xyc.vscode-mdx-preview'
-	[ "$(ids "$SRC/dot_config/vscode-extensions-removed.txt")" = "$expected" ]
-	run grep -qxFf <(printf '%s\n' "$expected") "$SRC/dot_config/vscode-extensions.txt"
+# The exact seven ids are a one-time acceptance check done outside the suite: pinning
+# them here would turn red the day someone runs `code --install-extension` on one.
+@test "the removed file keeps its header, sorted unique ids, and none is in the list" {
+	removed="$SRC/dot_config/vscode-extensions-removed.txt"
+	[ "$(sed -n 1p "$removed")" = "# VS Code extensions removed on purpose. Capture never adds these back." ]
+	[ "$(sed -n 2p "$removed")" = '# Remove a line (or run `code --install-extension <id>`) to allow it again.' ]
+	[ "$(ids "$removed")" = "$(ids "$removed" | sort -f | awk '!seen[tolower($0)]++')" ]
+	run grep -qixFf <(ids "$removed") "$SRC/dot_config/vscode-extensions.txt"
 	[ "$status" -eq 1 ]
 }
 

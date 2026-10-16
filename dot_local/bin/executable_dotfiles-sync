@@ -190,8 +190,12 @@ if command -v code &>/dev/null; then
   # Merge, don't overwrite: vscode-extensions-capture owns the list and the removed-list (#75).
   if ! command -v vscode-extensions-capture &>/dev/null; then
     echo "    vscode-extensions-capture not found, skipping"
-  elif [ -n "$(vscode-extensions-capture)" ]; then
-    echo "    updated dot_config/vscode-extensions.txt"
+  elif captured="$(vscode-extensions-capture)"; then
+    if grep -qx updated <<<"$captured"; then
+      echo "    updated dot_config/vscode-extensions.txt"
+    fi
+  else
+    echo "    ! extension capture failed, continuing"
   fi
 else
   echo "    code CLI not found, skipping"

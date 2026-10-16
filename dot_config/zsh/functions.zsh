@@ -128,6 +128,23 @@ function claude() {
 # extension set. vscode-extensions-capture records the intent and merges the
 # tracked list; a failed command records nothing, so a refused uninstall can't
 # blacklist an extension that is still installed.
+# Stderr passes through and failures print one line naming the helper, so a broken
+# capture is visible; the wrapper still returns code's own status.
+function _code_record_extension() {
+	local flag="$1" id="$2"
+	case "$id" in
+		*.vsix) return 0 ;;  # a package path carries no id to record
+	esac
+	id="${id%@*}"  # foo.bar@1.2.3 pins a version; the list and removed file hold bare ids
+	if ! command -v vscode-extensions-capture >/dev/null 2>&1; then
+		echo "code: vscode-extensions-capture not found, extension list not updated" >&2
+		return 0
+	fi
+	vscode-extensions-capture "$flag" "$id" >/dev/null ||
+		echo "code: vscode-extensions-capture failed, extension list not updated" >&2
+	return 0
+}
+
 function code() {
 	command code "$@"
 	local rc=$?
@@ -135,8 +152,8 @@ function code() {
 		local prev="" arg
 		for arg in "$@"; do
 			case "$prev" in
-				--uninstall-extension) vscode-extensions-capture --removed "$arg" >/dev/null 2>&1 ;;
-				--install-extension) vscode-extensions-capture --restored "$arg" >/dev/null 2>&1 ;;
+				--uninstall-extension) _code_record_extension --removed "$arg" ;;
+				--install-extension) _code_record_extension --restored "$arg" ;;
 			esac
 			prev="$arg"
 		done

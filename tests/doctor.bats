@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
 #
 # dotfiles-doctor reports, and fixes only when asked to with --fix, and then only by
-# installing. So the thing worth testing is whether it
-# reports the gaps it exists to catch, and stays quiet when there aren't any — a doctor
-# that cries wolf gets ignored, and one that misses the case it was written for is worse
+# installing. So the thing worth testing is whether it reports the gaps it exists to
+# catch, and stays quiet when there aren't any — a doctor that cries wolf gets ignored,
+# and one that misses the case it was written for is worse
 # than not having it.
 #
 # The Config dependencies section is the one under test here. It's the answer to Fantasque
@@ -710,9 +710,10 @@ write_typed_packages() {
 		| map(split(":") | {type: .[0], name: .[1], bundles: ["fonts"]})' >"$FIXTURE/packages.json"
 }
 
-brew_formulae() { brew list --formula; }
-brew_casks() { brew list --cask; }
-
+# Every state check below goes through assert_contains/assert_not_contains with an explicit
+# haystack, because tests/mutation-check.sh only inverts those calls; a bare grep or
+# `if ...; then return 1` would pass its "all sites" count while gating nothing it can see.
+# Fixture names are chosen so no needle is a substring of another list's entry.
 run_fix_answering() {
 	local answer="$1"
 	run bash -c 'printf "%s\n" "$1" | bash "$2" --fix' _ "$answer" "$SCRIPT"
@@ -734,37 +735,40 @@ run_fix_answering() {
 	stub_brew_state
 	write_typed_packages "brew:fixture-formula"
 	local before_f before_c
-	before_f="$(brew_formulae)"
-	before_c="$(brew_casks)"
+	before_f="$(brew list --formula)"
+	before_c="$(brew list --cask)"
 	run bash "$SCRIPT" </dev/null
 	[ "$status" -eq 0 ]
 	assert_contains "fixture-formula"
-	[ "$(brew_formulae)" = "$before_f" ]
-	[ "$(brew_casks)" = "$before_c" ]
-	if grep -q '^install' "$BREW_LOG"; then return 1; fi
+	[ "$(brew list --formula)" = "$before_f" ]
+	[ "$(brew list --cask)" = "$before_c" ]
+	assert_not_contains "fixture-formula" "$(brew list --formula)"
+	assert_not_contains "install" "$(cat "$BREW_LOG")"
 }
 
 @test "doctor --fix with a yes installs the missing formula" {
 	stub_brew_state
 	write_typed_packages "brew:fixture-formula"
-	if brew_formulae | grep -qxF fixture-formula; then return 1; fi
+	assert_not_contains "fixture-formula" "$(brew list --formula)"
 	run_fix_answering y
 	[ "$status" -eq 0 ]
-	brew_formulae | grep -qxF fixture-formula
+	assert_contains "fixture-formula" "$(brew list --formula)"
 }
 
 @test "doctor --fix declined, by an n or by no stdin, installs nothing and fails" {
 	stub_brew_state
 	write_typed_packages "brew:fixture-formula"
 	local before
-	before="$(brew_formulae)"
+	before="$(brew list --formula)"
 	run_fix_answering n
 	[ "$status" -ne 0 ]
-	[ "$(brew_formulae)" = "$before" ]
+	[ "$(brew list --formula)" = "$before" ]
+	assert_not_contains "fixture-formula" "$(brew list --formula)"
 	run bash -c 'bash "$1" --fix </dev/null' _ "$SCRIPT"
 	[ "$status" -ne 0 ]
-	[ "$(brew_formulae)" = "$before" ]
-	if grep -q '^install' "$BREW_LOG"; then return 1; fi
+	[ "$(brew list --formula)" = "$before" ]
+	assert_not_contains "fixture-formula" "$(brew list --formula)"
+	assert_not_contains "install" "$(cat "$BREW_LOG")"
 }
 
 @test "doctor --fix with nothing missing runs no install and exits 0" {
@@ -774,7 +778,7 @@ run_fix_answering() {
 	echo fixture-cask >"$BREW_STATE/cask"
 	run bash -c 'bash "$1" --fix </dev/null' _ "$SCRIPT"
 	[ "$status" -eq 0 ]
-	if grep -q '^install' "$BREW_LOG"; then return 1; fi
+	assert_not_contains "install" "$(cat "$BREW_LOG")"
 }
 
 @test "doctor --fix installs a missing cask and formula, with --cask only on the cask" {
@@ -782,40 +786,72 @@ run_fix_answering() {
 	write_typed_packages "brew:fixture-formula" "cask:fixture-cask"
 	run_fix_answering y
 	[ "$status" -eq 0 ]
-	brew_formulae | grep -qxF fixture-formula
-	brew_casks | grep -qxF fixture-cask
-	# Each name landed in its own list, not the other's.
-	if brew_formulae | grep -qxF fixture-cask; then return 1; fi
-	if brew_casks | grep -qxF fixture-formula; then return 1; fi
-	grep -qxF 'install fixture-formula' "$BREW_LOG"
-	grep -qxF 'install --cask fixture-cask' "$BREW_LOG"
+	assert_contains "fixture-formula" "$(brew list --formula)"
+	assert_contains "fixture-cask" "$(brew list --cask)"
+	assert_not_contains "fixture-cask" "$(brew list --formula)"
+	assert_not_contains "fixture-formula" "$(brew list --cask)"
+	assert_contains "install fixture-formula" "$(cat "$BREW_LOG")"
+	assert_contains "install --cask fixture-cask" "$(cat "$BREW_LOG")"
+	assert_not_contains "--cask fixture-formula" "$(cat "$BREW_LOG")"
 }
 
-@test "doctor --fix exits non-zero when an install fails, and still tries the cask" {
+@test "doctor --fix exits non-zero when an install fails, names it, and still tries the cask" {
 	stub_brew_state
 	write_typed_packages "brew:fixture-formula" "cask:fixture-cask"
 	BREW_REFUSE="fixture-formula"
 	run_fix_answering y
 	[ "$status" -ne 0 ]
-	if brew_formulae | grep -qxF fixture-formula; then return 1; fi
-	brew_casks | grep -qxF fixture-cask
+	assert_not_contains "fixture-formula" "$(brew list --formula)"
+	assert_contains "fixture-cask" "$(brew list --cask)"
+	assert_contains "still not installed: fixture-formula" "$output"
+	assert_not_contains "still not installed: fixture-formula fixture-cask" "$output"
 }
 
-@test "doctor --fix passes a tap-qualified formula qualified, after trusting its tap" {
+@test "doctor --fix lists, trusts, then installs a tap-qualified formula, passed qualified" {
 	stub_brew_state
 	write_typed_packages "brew:acme/tap/widget"
 	run_fix_answering y
 	[ "$status" -eq 0 ]
-	brew_formulae | grep -qxF widget
-	grep -qxF 'install acme/tap/widget' "$BREW_LOG"
-	local trust_line install_line
-	trust_line="$(grep -nxF 'trust --tap acme/tap' "$BREW_LOG" | head -1 | cut -d: -f1)"
-	install_line="$(grep -nxF 'install acme/tap/widget' "$BREW_LOG" | head -1 | cut -d: -f1)"
-	[ -n "$trust_line" ]
-	[ "$trust_line" -lt "$install_line" ]
+	assert_contains "widget" "$(brew list --formula)"
+	# The trust call is shown before the prompt, so the yes covers it.
+	assert_contains "brew trust --tap acme/tap" "$output"
+	# Two adjacent log lines: trust directly precedes the install it unblocks.
+	assert_contains "trust --tap acme/tap"$'\n'"install acme/tap/widget" "$(cat "$BREW_LOG")"
+}
+
+@test "doctor --fix without brew exits 1 and installs nothing" {
+	stub_brew_state
+	write_typed_packages "brew:fixture-formula"
+	local only_jq="$BATS_TEST_TMPDIR/only-jq"
+	mkdir -p "$only_jq"
+	ln -sf "$REAL_JQ" "$only_jq/jq"
+	rm -f "$STUBS/brew"
+	PATH="$STUBS:$only_jq:/usr/bin:/bin"
+	run bash -c 'echo y | bash "$1" --fix' _ "$SCRIPT"
+	[ "$status" -eq 1 ]
+	assert_contains "--fix needs both brew and jq"
+	assert_not_contains "install" "$(cat "$BREW_LOG")"
+	assert_not_contains "fixture-formula" "$(cat "$BREW_STATE/formula")"
+}
+
+@test "doctor --fix without jq exits 1 and installs nothing" {
+	stub_brew_state
+	write_typed_packages "brew:fixture-formula"
+	# jq lives in /usr/bin on macOS, so a narrowed PATH can't hide it; link everything
+	# else the script needs from the system dirs and leave jq out.
+	local nojq="$BATS_TEST_TMPDIR/no-jq" f
+	mkdir -p "$nojq"
+	for f in /usr/bin/* /bin/*; do
+		[ "${f##*/}" = jq ] || ln -sf "$f" "$nojq/${f##*/}"
+	done
+	PATH="$STUBS:$nojq"
+	run bash -c 'echo y | bash "$1" --fix' _ "$SCRIPT"
+	[ "$status" -eq 1 ]
+	assert_contains "--fix needs both brew and jq"
+	assert_not_contains "install" "$(cat "$BREW_LOG")"
+	assert_not_contains "fixture-formula" "$(cat "$BREW_STATE/formula")"
 }
 
 @test "doctor never emits an uninstall" {
-	run grep -c 'uninstall' "$SCRIPT"
-	[ "$output" = "0" ]
+	assert_not_contains "uninstall" "$(cat "$SCRIPT")"
 }

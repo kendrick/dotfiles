@@ -3,8 +3,8 @@
 # Read-only unless you pass --fix: by default it changes nothing, it just shows you
 # what's out of sync so you can decide what to do. --fix only installs, and only the
 # tracked Homebrew packages that are missing, after showing the commands and asking.
-# Worth running after `chezmoi update`, because update only ADDS
-# — it never removes an extension or package you dropped on another machine.
+# Worth running after `chezmoi update`, because update only ADDS—it never removes an
+# extension or package you dropped on another machine.
 set -euo pipefail
 
 usage() {
@@ -383,7 +383,24 @@ if [[ "$fix" -eq 1 ]]; then
     exit 0
   fi
 
+  # Taps named by qualified formulae (user/repo/formula), deduped. Homebrew 6 refuses
+  # untrusted taps; same trust step as run_onchange_install-packages.sh.tmpl.
+  tap_list=""
+  if [[ ${#missing_brew[@]} -gt 0 ]]; then
+    for formula in "${missing_brew[@]}"; do
+      [[ "$formula" == */*/* ]] || continue
+      case " $tap_list " in
+      *" ${formula%/*} "*) ;;
+      *) tap_list="$tap_list ${formula%/*}" ;;
+      esac
+    done
+  fi
+
+  # The trust calls are listed too, so the yes covers every command that will run.
   echo "-- will run:"
+  for tap in $tap_list; do
+    echo "    brew trust --tap $tap"
+  done
   [[ ${#missing_brew[@]} -eq 0 ]] || echo "    brew install ${missing_brew[*]}"
   [[ ${#missing_cask[@]} -eq 0 ]] || echo "    brew install --cask ${missing_cask[*]}"
   # EOF (no stdin) falls through as a decline and exits 1, so an unattended caller can't
@@ -400,15 +417,9 @@ if [[ "$fix" -eq 1 ]]; then
     ;;
   esac
 
-  # Homebrew 6 refuses untrusted taps; same trust step as run_onchange_install-packages.sh.tmpl.
-  if [[ ${#missing_brew[@]} -gt 0 ]]; then
-    for formula in "${missing_brew[@]}"; do
-      if [[ "$formula" == */*/* ]]; then
-        tap="${formula%/*}"
-        brew trust --tap "$tap" 2>/dev/null || true
-      fi
-    done
-  fi
+  for tap in $tap_list; do
+    brew trust --tap "$tap" 2>/dev/null || true
+  done
 
   # Status captured per command so set -e can't skip the cask install or the summary
   # when the formula install fails.
@@ -420,7 +431,22 @@ if [[ "$fix" -eq 1 ]]; then
     brew install --cask "${missing_cask[@]}" || fix_failed=1
   fi
   if [[ "$fix_failed" -eq 1 ]]; then
-    echo "-- some installs failed; see brew's output above" >&2
+    # A failed brew install can still have added some of its names, so ask brew what is
+    # absent now rather than listing every package the failed command was given.
+    installed_brew="$(brew list --formula)"
+    installed_cask="$(brew list --cask 2>/dev/null)"
+    left=""
+    if [[ ${#missing_brew[@]} -gt 0 ]]; then
+      for formula in "${missing_brew[@]}"; do
+        grep -qxF "${formula##*/}" <<<"$installed_brew" || left="$left $formula"
+      done
+    fi
+    if [[ ${#missing_cask[@]} -gt 0 ]]; then
+      for cask in "${missing_cask[@]}"; do
+        grep -qxF "$cask" <<<"$installed_cask" || left="$left $cask"
+      done
+    fi
+    echo "-- some installs failed; still not installed:$left" >&2
     exit 1
   fi
   echo "-- installed"

@@ -125,20 +125,39 @@ function claude() {
 }
 
 # `code --install-extension` / `--uninstall-extension` changes the installed
-# extension set. Regenerate the tracked list when either flag is used.
+# extension set. vscode-extensions-capture records the intent and merges the
+# tracked list; a failed command records nothing, so a refused uninstall can't
+# blacklist an extension that is still installed.
+# Stderr passes through and failures print one line naming the helper, so a broken
+# capture is visible; the wrapper still returns code's own status.
+function _code_record_extension() {
+	local flag="$1" id="$2"
+	case "$id" in
+		*.vsix) return 0 ;;  # a package path carries no id to record
+	esac
+	id="${id%@*}"  # foo.bar@1.2.3 pins a version; the list and removed file hold bare ids
+	if ! command -v vscode-extensions-capture >/dev/null 2>&1; then
+		echo "code: vscode-extensions-capture not found, extension list not updated" >&2
+		return 0
+	fi
+	vscode-extensions-capture "$flag" "$id" >/dev/null ||
+		echo "code: vscode-extensions-capture failed, extension list not updated" >&2
+	return 0
+}
+
 function code() {
 	command code "$@"
 	local rc=$?
-	case "$*" in
-		*"--install-extension"*|*"--uninstall-extension"*)
-			local list="$(chezmoi source-path)/dot_config/vscode-extensions.txt"
-			{
-				echo "# VS Code extensions to install"
-				echo "# Edit this list and run \`chezmoi apply\` to sync."
-				command code --list-extensions | sort -f
-			} >"$list"
-			;;
-	esac
+	if [ $rc -eq 0 ]; then
+		local prev="" arg
+		for arg in "$@"; do
+			case "$prev" in
+				--uninstall-extension) _code_record_extension --removed "$arg" ;;
+				--install-extension) _code_record_extension --restored "$arg" ;;
+			esac
+			prev="$arg"
+		done
+	fi
 	return $rc
 }
 

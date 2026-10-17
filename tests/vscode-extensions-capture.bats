@@ -25,7 +25,12 @@ setup() {
 	export CALL_LOG="$BATS_TEST_TMPDIR/code-calls.log"
 	export INSTALLED="$BATS_TEST_TMPDIR/installed.txt"
 	export CHEZMOI_SRC="$BATS_TEST_TMPDIR/source"
-	mkdir -p "$HOME" "$STUBS" "$CHEZMOI_SRC/dot_config"
+	# The helper locks under $TMPDIR, so each case gets its own lock rather than racing the
+	# real one or a sibling case.
+	export LOCK_TMP="$BATS_TEST_TMPDIR/tmp"
+	LOCK="$LOCK_TMP/vscode-extensions-capture.$(id -u).lock"
+	HOLDER=""
+	mkdir -p "$HOME" "$STUBS" "$CHEZMOI_SRC/dot_config" "$LOCK_TMP"
 	: >"$CALL_LOG"
 	: >"$INSTALLED"
 	LIST="$CHEZMOI_SRC/dot_config/vscode-extensions.txt"
@@ -39,6 +44,23 @@ STUB
 	chmod +x "$STUBS/chezmoi"
 	stub_code 0
 	ln -s "$HELPER" "$STUBS/vscode-extensions-capture"
+}
+
+# A failing case can leave a chmod 000 fixture bats can't delete, or a lock holder alive.
+teardown() {
+	chmod -R u+rw "$CHEZMOI_SRC" 2>/dev/null || true
+	if [ -n "$HOLDER" ]; then
+		# Reaping it here keeps bash's "Terminated" notice out of the TAP stream.
+		{ kill "$HOLDER" && wait "$HOLDER"; } 2>/dev/null || true
+	fi
+}
+
+# hold_lock: take the helper's lock on behalf of a live background process. fd 3 is closed
+# so bats doesn't wait on the sleep before reporting.
+hold_lock() {
+	sleep 60 3>&- &
+	HOLDER=$!
+	ln -s "$HOLDER" "$LOCK"
 }
 
 # Answers --list-extensions from $INSTALLED and logs every call, so a case can prove what
@@ -82,7 +104,7 @@ ids() {
 }
 
 capture() {
-	PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER" "$@"
+	TMPDIR="$LOCK_TMP" PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER" "$@"
 }
 
 # ---- the merge rule ----
@@ -215,7 +237,7 @@ capture() {
 @test "capture: absent code CLI skips clean" {
 	seed_list a
 	rm "$STUBS/code"
-	PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER"
+	TMPDIR="$LOCK_TMP" PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER"
 	[ "$status" -eq 0 ]
 	[ "$output" = "code CLI not found, skipping" ]
 }
@@ -242,6 +264,155 @@ capture() {
 	[ -z "$output" ]
 }
 
+@test "capture: an unreadable list exits nonzero, names it, and writes neither file" {
+	seed_list a
+	seed_removed b
+	installed a c
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	chmod 000 "$LIST"
+	capture --removed d
+	chmod 644 "$LIST"
+	[ "$status" -ne 0 ]
+	[ "$output" = "vscode-extensions-capture: cannot read $LIST" ]
+	cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cmp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+}
+
+@test "capture: an unreadable removed file exits nonzero, names it, and writes neither file" {
+	seed_list a
+	seed_removed b
+	installed a b c
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	chmod 000 "$REMOVED"
+	capture
+	chmod 644 "$REMOVED"
+	[ "$status" -ne 0 ]
+	[ "$output" = "vscode-extensions-capture: cannot read $REMOVED" ]
+	cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cmp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+}
+
+@test "capture: SIGTERM between mktemp and mv leaves no temp file, no lock, and the list unchanged" {
+	seed_list a
+	seed_removed
+	installed a b
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	# The helper's only cmp runs after mktemp and before mv, as a direct child of its main shell.
+	printf '#!/bin/bash\nkill -TERM $PPID\nsleep 1\nexit 1\n' >"$STUBS/cmp"
+	chmod +x "$STUBS/cmp"
+	capture
+	[ "$status" -eq 143 ]
+	run find "$CHEZMOI_SRC/dot_config" -name '*.txt.*'
+	[ -z "$output" ]
+	[ ! -e "$LOCK" ]
+	/usr/bin/cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+}
+
+# ---- the lock ----
+
+@test "capture: a held lock holds --removed back until it is released" {
+	seed_list a
+	seed_removed
+	installed a
+	hold_lock
+	(
+		TMPDIR="$LOCK_TMP" PATH="$STUBS:/usr/bin:/bin" bash "$HELPER" --removed x >"$BATS_TEST_TMPDIR/out" 2>&1
+		echo $? >"$BATS_TEST_TMPDIR/rc"
+	) 3>&- &
+	waiter=$!
+	sleep 2
+	[ ! -e "$BATS_TEST_TMPDIR/rc" ]
+	[ -z "$(ids "$REMOVED")" ]
+	rm -rf "$LOCK"
+	wait "$waiter"
+	[ "$(cat "$BATS_TEST_TMPDIR/rc")" = "0" ]
+	[ "$(ids "$REMOVED")" = "x" ]
+	[ ! -e "$LOCK" ]
+}
+
+@test "capture: a stale lock whose holder is dead does not wedge capture" {
+	seed_list a
+	seed_removed
+	installed a
+	sleep 0 &
+	dead=$!
+	wait "$dead"
+	ln -s "$dead" "$LOCK"
+	capture --removed x
+	[ "$status" -eq 0 ]
+	[ "$(ids "$REMOVED")" = "x" ]
+	[ ! -e "$LOCK" ]
+}
+
+@test "capture: a lock held past the deadline exits nonzero and writes neither file" {
+	seed_list a
+	seed_removed
+	installed a b
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	hold_lock
+	capture --removed x
+	[ "$status" -ne 0 ]
+	[ "$output" = "vscode-extensions-capture: $LOCK still held by pid $HOLDER after 10s" ]
+	cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cmp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	[ "$(readlink "$LOCK")" = "$HOLDER" ]
+}
+
+# SIGKILL skips the EXIT trap, so this is the one lock the helper can leave behind: a link
+# naming a dead pid. It has no state that names nobody.
+@test "capture: a helper SIGKILLed while holding the lock doesn't wedge the next run" {
+	seed_list a
+	seed_removed
+	installed a b
+	printf '#!/bin/bash\nkill -KILL $PPID\nsleep 1\nexit 1\n' >"$STUBS/cmp"
+	chmod +x "$STUBS/cmp"
+	capture
+	[ "$status" -eq 137 ]
+	[ -L "$LOCK" ]
+	rm "$STUBS/cmp"
+	capture --removed x
+	[ "$status" -eq 0 ]
+	[ "$(ids "$REMOVED")" = "x" ]
+	[ ! -e "$LOCK" ]
+}
+
+# Replays the stale-break race without two racers. The waiter's first readlink sees a dead
+# pid, then the stub hands the lock to a live holder before the waiter can break it.
+@test "capture: a lock that changes hands after the waiter read a dead pid isn't broken" {
+	seed_list a
+	seed_removed
+	installed a b
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	sleep 0 &
+	dead=$!
+	wait "$dead"
+	ln -s "$dead" "$LOCK"
+	sleep 60 3>&- &
+	HOLDER=$!
+	cat >"$STUBS/readlink" <<STUB
+#!/bin/bash
+out="\$(/usr/bin/readlink "\$@")"
+if [ ! -e "$BATS_TEST_TMPDIR/swapped" ]; then
+	: >"$BATS_TEST_TMPDIR/swapped"
+	rm -f "$LOCK"
+	ln -s "$HOLDER" "$LOCK"
+fi
+printf '%s\n' "\$out"
+STUB
+	chmod +x "$STUBS/readlink"
+	capture --removed x
+	[ -e "$BATS_TEST_TMPDIR/swapped" ]
+	[ "$status" -ne 0 ]
+	[ "$output" = "vscode-extensions-capture: $LOCK still held by pid $HOLDER after 10s" ]
+	[ "$(/usr/bin/readlink "$LOCK")" = "$HOLDER" ]
+	cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cmp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+}
+
 @test "capture: an unknown flag exits 2" {
 	capture --bogus
 	[ "$status" -eq 2 ]
@@ -255,7 +426,7 @@ capture() {
 # ---- the code() wrapper ----
 
 wrapper() {
-	PATH="$STUBS:/usr/bin:/bin" run zsh -c "source '$SRC/dot_config/zsh/functions.zsh'; code $*"
+	TMPDIR="$LOCK_TMP" PATH="$STUBS:/usr/bin:/bin" run zsh -c "source '$SRC/dot_config/zsh/functions.zsh'; code $*"
 }
 
 @test "wrapper: --uninstall-extension records the id as removed" {

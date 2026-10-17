@@ -55,9 +55,85 @@ LIST_HEADER='# VS Code extensions to install
 REMOVED_HEADER='# VS Code extensions removed on purpose. Capture never adds these back.
 # Remove a line (or run `code --install-extension <id>`) to allow it again.'
 
+# The lock lives outside the source tree because the next auto-sync runs `git add -A` there
+# and would commit it. It's per-user so two accounts on one Mac never contend.
+lock_root="${TMPDIR:-/tmp}"
+LOCK="${lock_root%/}/vscode-extensions-capture.$(id -u).lock"
+BREAK="$LOCK.break"
+LOCK_WAIT=10
+
+tmp=""
+wrote=""
+
+# The temp file sits beside its target (same filesystem, so mv is atomic) and so inside the
+# source tree, where a stray one gets committed by the next auto-sync. Every write runs in
+# this shell, never in a $(...) or pipeline subshell, so this trap sees $tmp. INT and TERM
+# exit through it too, which is the case an explicit rm on each failure path can't cover.
+# The lock goes only if it names $$, so a run that never got it can't delete a live holder's.
+cleanup() {
+	if [ -n "$tmp" ]; then
+		rm -f "$tmp"
+	fi
+	if [ "$(readlink "$LOCK" 2>/dev/null)" = "$$" ]; then
+		rm -f "$LOCK"
+	fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+die() {
+	echo "vscode-extensions-capture: $*" >&2
+	exit 1
+}
+
+# Two waiters can read the same dead pid. If both removed the lock, the slower one would
+# delete the faster one's fresh lock and both would run. lockf(1) takes a kernel lock, so one
+# waiter breaks at a time. The kernel drops that lock if its waiter dies, so the breaker can't
+# go stale. Under it, the lock goes only if it still names the same dead pid. Nothing but a
+# break removes another process's lock, so it can't change between that read and the rm.
+break_stale() {
+	lockf -k -t 2 "$BREAK" /bin/sh -c \
+		'[ "$(readlink "$1")" = "$2" ] && ! kill -0 "$2" 2>/dev/null && rm -f "$1"; exit 0' \
+		sh "$LOCK" "$1" 2>/dev/null || true
+}
+
+# Two overlapping uninstalls would each read the same removed set, and the last writer would
+# drop the other's tombstone. The lock is a symlink whose target is the holder's pid, because
+# symlink(2) creates it and records the pid in one atomic step. A mkdir lock plus a pid file
+# had a window that left a lock naming nobody, which no waiter could ever call stale.
+acquire_lock() {
+	local deadline=$((SECONDS + LOCK_WAIT)) holder
+	[ -d "$lock_root" ] || die "lock dir $lock_root does not exist"
+	while :; do
+		# ln -s onto a real directory makes a link inside it and reports success, and -n stops
+		# it following a lock link that happens to resolve to one.
+		if [ -d "$LOCK" ] && [ ! -L "$LOCK" ]; then
+			die "$LOCK is a directory, not a lock this helper made"
+		fi
+		if ln -sn "$$" "$LOCK" 2>/dev/null; then
+			return 0
+		fi
+		holder="$(readlink "$LOCK" 2>/dev/null || true)"
+		# A holder killed before its EXIT trap ran (SIGKILL, a crash) must not wedge
+		# capture until a reboot clears $TMPDIR.
+		if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then
+			break_stale "$holder"
+		fi
+		if [ "$SECONDS" -ge "$deadline" ]; then
+			die "$LOCK still held by pid ${holder:-unknown} after ${LOCK_WAIT}s"
+		fi
+		sleep 0.1
+	done
+}
+
+# grep exits 1 for a file holding only comments, which is an empty list. Anything above 1 is
+# a failed read, and merging from it would delete tracked ids or tombstones.
 ids_of() {
 	[ -f "$1" ] || return 0
-	grep -vE '^[[:space:]]*(#|$)' "$1" || true
+	local rc=0
+	grep -vE '^[[:space:]]*(#|$)' "$1" 2>/dev/null || rc=$?
+	[ "$rc" -le 1 ]
 }
 
 # The marketplace treats ids case-insensitively, so sorting and de-duplicating must too.
@@ -65,58 +141,57 @@ normalize() {
 	sed '/^$/d' | sort -f | awk '!seen[tolower($0)]++'
 }
 
-# Skips identical bytes so a no-op sync leaves the mtime alone. The temp file lives beside
-# the target (same filesystem, so mv is atomic) and so inside the chezmoi source tree: a
-# stray one would be committed by the next auto-sync, so every failure path removes it.
-# Cleanup is explicit rather than an EXIT trap, and the returns are explicit rather than
-# errexit: bash 3.2 (macOS) runs neither a trap nor errexit inside the $(...) pipeline
-# this is always called from.
+# Skips identical bytes so a no-op sync leaves the mtime alone. Returns are explicit because
+# callers test the status, which switches errexit off inside the function.
 write_if_changed() {
-	local file="$1" header="$2" tmp
+	local file="$1" header="$2" body="$3"
+	wrote=""
 	tmp="$(mktemp "$file.XXXXXX")" || return 1
-	if ! { printf '%s\n' "$header" && cat; } >"$tmp"; then
-		rm -f "$tmp"
-		return 1
-	fi
+	{
+		printf '%s\n' "$header" && { [ -z "$body" ] || printf '%s\n' "$body"; }
+	} >"$tmp" || return 1
 	if [ -f "$file" ] && cmp -s "$tmp" "$file"; then
 		rm -f "$tmp"
+		tmp=""
 		return 0
 	fi
-	if ! { chmod 644 "$tmp" && mv "$tmp" "$file"; }; then
-		rm -f "$tmp"
-		return 1
-	fi
-	echo changed
+	chmod 644 "$tmp" || return 1
+	mv "$tmp" "$file" || return 1
+	tmp=""
+	wrote=1
 }
 
-save_removed() {
-	printf '%s\n' "$removed_ids" | normalize | write_if_changed "$REMOVED" "$REMOVED_HEADER" >/dev/null
-}
+# Runs before the lock because it's the slow call and reads neither file.
+installed="$(code --list-extensions)" || die "code --list-extensions failed"
 
-removed_ids="$(ids_of "$REMOVED")"
+acquire_lock
 
+# Every read happens before any write, so a failed read leaves both files as they were.
+list_ids="$(ids_of "$LIST")" || die "cannot read $LIST"
+removed_ids="$(ids_of "$REMOVED")" || die "cannot read $REMOVED"
+
+save_removed=""
 case "$action" in
 --removed)
 	if ! printf '%s\n' "$removed_ids" | grep -qixF -- "$target"; then
 		removed_ids="$(printf '%s\n%s\n' "$removed_ids" "$target")"
 	fi
-	save_removed
+	save_removed=1
 	;;
 --restored)
 	removed_ids="$(printf '%s\n' "$removed_ids" | grep -vixF -- "$target" || true)"
 	if [ -f "$REMOVED" ]; then
-		save_removed
+		save_removed=1
 	fi
 	;;
 esac
-
-installed="$(code --list-extensions)"
+removed_ids="$(printf '%s\n' "$removed_ids" | normalize)"
 
 # Removed wins: an id on both sides is dropped, so one machine that still has an extension
 # installed cannot put back what another removed on purpose.
 merged="$(
 	{
-		ids_of "$LIST"
+		printf '%s\n' "$list_ids"
 		printf '%s\n' "$installed"
 	} | normalize | {
 		if [ -n "$removed_ids" ]; then
@@ -127,7 +202,10 @@ merged="$(
 	}
 )"
 
-changed="$(printf '%s\n' "$merged" | normalize | write_if_changed "$LIST" "$LIST_HEADER")"
-if [ -n "$changed" ]; then
+if [ -n "$save_removed" ]; then
+	write_if_changed "$REMOVED" "$REMOVED_HEADER" "$removed_ids" || die "cannot write $REMOVED"
+fi
+write_if_changed "$LIST" "$LIST_HEADER" "$merged" || die "cannot write $LIST"
+if [ -n "$wrote" ]; then
 	echo updated
 fi

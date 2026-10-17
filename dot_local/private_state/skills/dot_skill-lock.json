@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "549fdd0e02f98eec785d7557223c9a12a6a9c3f0",
+      "skillFolderHash": "d2b5d6c5bba2f0690d94c94b63e861cba11cda86",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-10-10T18:03:00.131Z"
+      "updatedAt": "2026-10-12T23:01:40.067Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -600,9 +600,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "8ea76af062529d7631b5dc3878e98b3f84031efe",
+      "skillFolderHash": "a69f8176f262ab3e2c932663e5cf8b20c25e89ea",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-10-10T18:03:54.157Z"
+      "updatedAt": "2026-10-13T04:38:49.508Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
@@ -712,7 +712,7 @@
       "skillPath": "divvy-up/SKILL.md",
       "skillFolderHash": "b6dfd9e2e7ed9788c58dd5342317a68991ac075d",
       "installedAt": "2026-09-02T02:46:12.250Z",
-      "updatedAt": "2026-10-10T18:38:13.950Z"
+      "updatedAt": "2026-10-13T04:41:29.690Z"
     },
     "jira-refine": {
       "source": "kendrick/skills",
@@ -737,9 +737,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "9b551fc3d9d4d3987f18e719287d816d55ae9766",
+      "skillFolderHash": "3658511036bd08f9dcad9a453491f9c9b53de710",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-10-10T18:38:22.748Z"
+      "updatedAt": "2026-10-13T04:41:27.459Z"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",
@@ -757,7 +757,7 @@
       "skillPath": "work-wave/SKILL.md",
       "skillFolderHash": "40c2afd9652e12e84feb8565d146c41fce64ddd5",
       "installedAt": "2026-09-24T21:07:13.811Z",
-      "updatedAt": "2026-10-10T18:38:25.283Z"
+      "updatedAt": "2026-10-13T04:41:31.903Z"
     }
   },
   "dismissed": {

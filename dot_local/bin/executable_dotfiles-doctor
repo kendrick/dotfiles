@@ -396,8 +396,27 @@ if [[ "$fix" -eq 1 ]]; then
     done
   fi
 
-  # The trust calls are listed too, so the yes covers every command that will run.
+  # The registry stores casks by short name with no cask-to-tap mapping, so a cask from a
+  # third-party tap (deskflow) only resolves once its tap is present. Tap first.
+  enabled_taps="$(chezmoi execute-template '{{ .pkg.taps | toJson }}' | jq -r --argjson b "$bundles" '
+    .[] | select(.bundles | any(IN($b[]))) | .name')"
+  tapped="$(brew tap 2>/dev/null || true)"
+  new_taps=""
+  while IFS= read -r tap; do
+    [[ -n "$tap" ]] || continue
+    grep -qxF "$tap" <<<"$tapped" && continue
+    new_taps="$new_taps $tap"
+    case " $tap_list " in
+    *" $tap "*) ;;
+    *) tap_list="$tap_list $tap" ;;
+    esac
+  done <<<"$enabled_taps"
+
+  # The tap and trust calls are listed too, so the yes covers every command that will run.
   echo "-- will run:"
+  for tap in $new_taps; do
+    echo "    brew tap $tap"
+  done
   for tap in $tap_list; do
     echo "    brew trust --tap $tap"
   done
@@ -417,13 +436,17 @@ if [[ "$fix" -eq 1 ]]; then
     ;;
   esac
 
+  # Status captured per command so set -e can't skip the installs or the summary when a
+  # tap or an earlier install fails. A failed tap sets the failure exit but doesn't stop
+  # the installs, since most packages don't depend on it.
+  fix_failed=0
+  for tap in $new_taps; do
+    brew tap "$tap" || { fix_failed=1; echo "-- brew tap $tap failed" >&2; }
+  done
   for tap in $tap_list; do
     brew trust --tap "$tap" 2>/dev/null || true
   done
 
-  # Status captured per command so set -e can't skip the cask install or the summary
-  # when the formula install fails.
-  fix_failed=0
   if [[ ${#missing_brew[@]} -gt 0 ]]; then
     brew install "${missing_brew[@]}" || fix_failed=1
   fi

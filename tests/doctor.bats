@@ -2,7 +2,7 @@
 #
 # dotfiles-doctor reports, and fixes only when asked to with --fix, and then only by
 # installing. So the thing worth testing is whether it reports the gaps it exists to
-# catch, and stays quiet when there aren't any — a doctor that cries wolf gets ignored,
+# catch, and stays quiet when there aren't any—a doctor that cries wolf gets ignored,
 # and one that misses the case it was written for is worse
 # than not having it.
 #
@@ -47,6 +47,7 @@ source-path) echo "$FIXTURE" ;;
 status) : ;;
 execute-template)
   case "$2" in
+  *taps*) cat "$FIXTURE/taps.json" ;;
   *bundles*) cat "$FIXTURE/bundles.json" ;;
   *packages*) cat "$FIXTURE/packages.json" ;;
   *os-held*) cat "$FIXTURE/os-held.json" ;;
@@ -72,6 +73,7 @@ STUB
 	write_bundles fonts
 	echo '[]' >"$FIXTURE/packages.json"
 	echo '[]' >"$FIXTURE/os-held.json"
+	echo '[]' >"$FIXTURE/taps.json"
 
 	chmod +x "$STUBS/chezmoi" "$STUBS/code" "$STUBS/brew"
 	export PATH="$STUBS:$PATH"
@@ -673,6 +675,7 @@ stub_brew_state() {
 	mkdir -p "$BREW_STATE"
 	: >"$BREW_STATE/formula"
 	: >"$BREW_STATE/cask"
+	: >"$BREW_STATE/tap"
 	: >"$BREW_LOG"
 	cat >"$STUBS/brew" <<'STUB'
 #!/usr/bin/env bash
@@ -684,6 +687,14 @@ list)
   esac
   ;;
 leaves) cat "$BREW_STATE/formula" ;;
+tap)
+  if [ $# -eq 1 ]; then cat "$BREW_STATE/tap"; exit 0; fi
+  echo "$*" >>"$BREW_LOG"
+  case " $BREW_REFUSE " in
+  *" $2 "*) exit 1 ;;
+  esac
+  echo "$2" >>"$BREW_STATE/tap"
+  ;;
 trust) echo "$*" >>"$BREW_LOG" ;;
 install)
   echo "$*" >>"$BREW_LOG"
@@ -819,6 +830,77 @@ run_fix_answering() {
 	assert_contains "brew trust --tap acme/tap" "$output"
 	# Two adjacent log lines: trust directly precedes the install it unblocks.
 	assert_contains "trust --tap acme/tap"$'\n'"install acme/tap/widget" "$(cat "$BREW_LOG")"
+}
+
+# Registry taps: [{name, bundles}], filtered by the same enabled bundles as packages.
+write_taps() {
+	printf '%s\n' "$@" | jq -Rs 'split("\n") | map(select(length > 0))
+		| map(split(":") | {name: .[0], bundles: [.[1]]})' >"$FIXTURE/taps.json"
+}
+
+@test "doctor --fix taps an absent enabled tap before installing the cask that needs it" {
+	stub_brew_state
+	write_typed_packages "cask:fixture-cask"
+	write_taps "acme/fixture-tap:fonts"
+	assert_not_contains "acme/fixture-tap" "$(brew tap)"
+	run_fix_answering y
+	[ "$status" -eq 0 ]
+	assert_contains "acme/fixture-tap" "$(brew tap)"
+	assert_contains "fixture-cask" "$(brew list --cask)"
+	assert_contains "tap acme/fixture-tap"$'\n'"install --cask fixture-cask" "$(cat "$BREW_LOG")"
+	assert_contains "brew tap acme/fixture-tap" "$output"
+}
+
+@test "doctor --fix declined leaves the tap state unchanged" {
+	stub_brew_state
+	write_typed_packages "cask:fixture-cask"
+	write_taps "acme/fixture-tap:fonts"
+	run_fix_answering n
+	[ "$status" -ne 0 ]
+	assert_not_contains "acme/fixture-tap" "$(brew tap)"
+	assert_not_contains "tap" "$(cat "$BREW_LOG")"
+}
+
+@test "doctor --fix does not tap an enabled tap that is already tapped" {
+	stub_brew_state
+	write_typed_packages "cask:fixture-cask"
+	write_taps "acme/fixture-tap:fonts"
+	echo "acme/fixture-tap" >"$BREW_STATE/tap"
+	run_fix_answering y
+	[ "$status" -eq 0 ]
+	assert_contains "fixture-cask" "$(brew list --cask)"
+	assert_not_contains "tap acme/fixture-tap" "$(cat "$BREW_LOG")"
+}
+
+@test "doctor --fix skips a tap from a disabled bundle" {
+	stub_brew_state
+	write_typed_packages "cask:fixture-cask"
+	write_taps "acme/other-tap:dev"
+	run_fix_answering y
+	[ "$status" -eq 0 ]
+	assert_not_contains "acme/other-tap" "$(brew tap)"
+}
+
+@test "doctor --fix with nothing missing taps nothing even if an enabled tap is absent" {
+	stub_brew_state
+	write_typed_packages "cask:fixture-cask"
+	write_taps "acme/fixture-tap:fonts"
+	echo fixture-cask >"$BREW_STATE/cask"
+	run bash -c 'bash "$1" --fix </dev/null' _ "$SCRIPT"
+	[ "$status" -eq 0 ]
+	assert_not_contains "acme/fixture-tap" "$(brew tap)"
+	assert_not_contains "tap" "$(cat "$BREW_LOG")"
+}
+
+@test "doctor --fix with a failed tap exits non-zero but still runs the installs" {
+	stub_brew_state
+	write_typed_packages "brew:fixture-formula"
+	write_taps "acme/fixture-tap:fonts"
+	BREW_REFUSE="acme/fixture-tap"
+	run_fix_answering y
+	[ "$status" -ne 0 ]
+	assert_not_contains "acme/fixture-tap" "$(brew tap)"
+	assert_contains "fixture-formula" "$(brew list --formula)"
 }
 
 @test "doctor --fix without brew exits 1 and installs nothing" {

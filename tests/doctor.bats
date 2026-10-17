@@ -733,16 +733,18 @@ run_fix_answering() {
 
 @test "doctor without --fix installs nothing" {
 	stub_brew_state
-	write_typed_packages "brew:fixture-formula"
+	write_typed_packages "brew:fixture-formula" "cask:fixture-cask"
 	local before_f before_c
 	before_f="$(brew list --formula)"
 	before_c="$(brew list --cask)"
 	run bash "$SCRIPT" </dev/null
 	[ "$status" -eq 0 ]
 	assert_contains "fixture-formula"
+	assert_contains "fixture-cask"
 	[ "$(brew list --formula)" = "$before_f" ]
 	[ "$(brew list --cask)" = "$before_c" ]
 	assert_not_contains "fixture-formula" "$(brew list --formula)"
+	assert_not_contains "fixture-cask" "$(brew list --cask)"
 	assert_not_contains "install" "$(cat "$BREW_LOG")"
 }
 

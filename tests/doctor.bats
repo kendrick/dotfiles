@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 #
-# dotfiles-doctor reports; it never fixes. So the thing worth testing is whether it
+# dotfiles-doctor reports, and fixes only when asked to with --fix, and then only by
+# installing. So the thing worth testing is whether it
 # reports the gaps it exists to catch, and stays quiet when there aren't any — a doctor
 # that cries wolf gets ignored, and one that misses the case it was written for is worse
 # than not having it.
@@ -654,4 +655,167 @@ STUB
 	run deps_section
 	[ "$status" -eq 0 ]
 	assert_contains "none"
+}
+
+# ---- --fix (#67) ----
+#
+# run_onchange_install-packages.sh.tmpl exits 0 by design, so a package that failed on its
+# one apply, or got removed by hand, is never retried. --fix is the retry. Every install
+# assertion reads the stub's `brew list`, never doctor's printed log: the log says what
+# doctor attempted, and the question is what brew now holds.
+
+# A brew that remembers. State lives in two files so `brew list` reflects what `install`
+# did. $BREW_LOG gets each mutating call's argv; a name in $BREW_REFUSE fails to install.
+stub_brew_state() {
+	export BREW_STATE="$BATS_TEST_TMPDIR/brew-state"
+	export BREW_LOG="$BATS_TEST_TMPDIR/brew.log"
+	export BREW_REFUSE=""
+	mkdir -p "$BREW_STATE"
+	: >"$BREW_STATE/formula"
+	: >"$BREW_STATE/cask"
+	: >"$BREW_LOG"
+	cat >"$STUBS/brew" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+list)
+  case "$2" in
+  --formula) cat "$BREW_STATE/formula" ;;
+  --cask) cat "$BREW_STATE/cask" ;;
+  esac
+  ;;
+leaves) cat "$BREW_STATE/formula" ;;
+trust) echo "$*" >>"$BREW_LOG" ;;
+install)
+  echo "$*" >>"$BREW_LOG"
+  shift
+  kind=formula
+  if [ "$1" = "--cask" ]; then kind=cask; shift; fi
+  rc=0
+  for name in "$@"; do
+    case " $BREW_REFUSE " in
+    *" $name "* | *" ${name##*/} "*) rc=1 ;;
+    *) echo "${name##*/}" >>"$BREW_STATE/$kind" ;;
+    esac
+  done
+  exit "$rc"
+  ;;
+esac
+STUB
+	chmod +x "$STUBS/brew"
+}
+
+write_typed_packages() {
+	# args: type:name pairs, all in the enabled fonts bundle
+	printf '%s\n' "$@" | jq -Rs 'split("\n") | map(select(length > 0))
+		| map(split(":") | {type: .[0], name: .[1], bundles: ["fonts"]})' >"$FIXTURE/packages.json"
+}
+
+brew_formulae() { brew list --formula; }
+brew_casks() { brew list --cask; }
+
+run_fix_answering() {
+	local answer="$1"
+	run bash -c 'printf "%s\n" "$1" | bash "$2" --fix' _ "$answer" "$SCRIPT"
+}
+
+@test "doctor --help documents --fix and exits 0" {
+	run bash "$SCRIPT" --help
+	[ "$status" -eq 0 ]
+	assert_contains "--fix"
+}
+
+@test "doctor refuses an unknown flag with usage on stderr and exit 2" {
+	run bash -c 'bash "$1" --bogus 2>&1 >/dev/null' _ "$SCRIPT"
+	[ "$status" -eq 2 ]
+	assert_contains "usage:"
+}
+
+@test "doctor without --fix installs nothing" {
+	stub_brew_state
+	write_typed_packages "brew:fixture-formula"
+	local before_f before_c
+	before_f="$(brew_formulae)"
+	before_c="$(brew_casks)"
+	run bash "$SCRIPT" </dev/null
+	[ "$status" -eq 0 ]
+	assert_contains "fixture-formula"
+	[ "$(brew_formulae)" = "$before_f" ]
+	[ "$(brew_casks)" = "$before_c" ]
+	if grep -q '^install' "$BREW_LOG"; then return 1; fi
+}
+
+@test "doctor --fix with a yes installs the missing formula" {
+	stub_brew_state
+	write_typed_packages "brew:fixture-formula"
+	if brew_formulae | grep -qxF fixture-formula; then return 1; fi
+	run_fix_answering y
+	[ "$status" -eq 0 ]
+	brew_formulae | grep -qxF fixture-formula
+}
+
+@test "doctor --fix declined, by an n or by no stdin, installs nothing and fails" {
+	stub_brew_state
+	write_typed_packages "brew:fixture-formula"
+	local before
+	before="$(brew_formulae)"
+	run_fix_answering n
+	[ "$status" -ne 0 ]
+	[ "$(brew_formulae)" = "$before" ]
+	run bash -c 'bash "$1" --fix </dev/null' _ "$SCRIPT"
+	[ "$status" -ne 0 ]
+	[ "$(brew_formulae)" = "$before" ]
+	if grep -q '^install' "$BREW_LOG"; then return 1; fi
+}
+
+@test "doctor --fix with nothing missing runs no install and exits 0" {
+	stub_brew_state
+	write_typed_packages "brew:fixture-formula" "cask:fixture-cask"
+	echo fixture-formula >"$BREW_STATE/formula"
+	echo fixture-cask >"$BREW_STATE/cask"
+	run bash -c 'bash "$1" --fix </dev/null' _ "$SCRIPT"
+	[ "$status" -eq 0 ]
+	if grep -q '^install' "$BREW_LOG"; then return 1; fi
+}
+
+@test "doctor --fix installs a missing cask and formula, with --cask only on the cask" {
+	stub_brew_state
+	write_typed_packages "brew:fixture-formula" "cask:fixture-cask"
+	run_fix_answering y
+	[ "$status" -eq 0 ]
+	brew_formulae | grep -qxF fixture-formula
+	brew_casks | grep -qxF fixture-cask
+	# Each name landed in its own list, not the other's.
+	if brew_formulae | grep -qxF fixture-cask; then return 1; fi
+	if brew_casks | grep -qxF fixture-formula; then return 1; fi
+	grep -qxF 'install fixture-formula' "$BREW_LOG"
+	grep -qxF 'install --cask fixture-cask' "$BREW_LOG"
+}
+
+@test "doctor --fix exits non-zero when an install fails, and still tries the cask" {
+	stub_brew_state
+	write_typed_packages "brew:fixture-formula" "cask:fixture-cask"
+	BREW_REFUSE="fixture-formula"
+	run_fix_answering y
+	[ "$status" -ne 0 ]
+	if brew_formulae | grep -qxF fixture-formula; then return 1; fi
+	brew_casks | grep -qxF fixture-cask
+}
+
+@test "doctor --fix passes a tap-qualified formula qualified, after trusting its tap" {
+	stub_brew_state
+	write_typed_packages "brew:acme/tap/widget"
+	run_fix_answering y
+	[ "$status" -eq 0 ]
+	brew_formulae | grep -qxF widget
+	grep -qxF 'install acme/tap/widget' "$BREW_LOG"
+	local trust_line install_line
+	trust_line="$(grep -nxF 'trust --tap acme/tap' "$BREW_LOG" | head -1 | cut -d: -f1)"
+	install_line="$(grep -nxF 'install acme/tap/widget' "$BREW_LOG" | head -1 | cut -d: -f1)"
+	[ -n "$trust_line" ]
+	[ "$trust_line" -lt "$install_line" ]
+}
+
+@test "doctor never emits an uninstall" {
+	run grep -c 'uninstall' "$SCRIPT"
+	[ "$output" = "0" ]
 }

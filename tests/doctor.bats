@@ -828,8 +828,9 @@ run_fix_answering() {
 	assert_contains "widget" "$(brew list --formula)"
 	# The trust call is shown before the prompt, so the yes covers it.
 	assert_contains "brew trust --tap acme/tap" "$output"
-	# Two adjacent log lines: trust directly precedes the install it unblocks.
-	assert_contains "trust --tap acme/tap"$'\n'"install acme/tap/widget" "$(cat "$BREW_LOG")"
+	# assert_contains is grep -F, so a two-line needle matches either line alone and proves no
+	# order. Cut the log at the first install and ask whether the trust call made it in.
+	assert_contains "trust --tap acme/tap" "$(sed '/^install/q' "$BREW_LOG")"
 }
 
 # Registry taps: [{name, bundles}], filtered by the same enabled bundles as packages.
@@ -847,7 +848,10 @@ write_taps() {
 	[ "$status" -eq 0 ]
 	assert_contains "acme/fixture-tap" "$(brew tap)"
 	assert_contains "fixture-cask" "$(brew list --cask)"
-	assert_contains "tap acme/fixture-tap"$'\n'"install --cask fixture-cask" "$(cat "$BREW_LOG")"
+	# assert_contains is grep -F, so a multi-line needle matches ANY of its lines, and a bare
+	# "tap X" also sits inside "trust --tap X". Cut the log at the first install, then at the
+	# first trust, drop the trust line itself, and ask whether a tap line is left.
+	assert_contains "tap acme/fixture-tap" "$(sed '/^install/q' "$BREW_LOG" | sed '/^trust/q' | grep -v '^trust')"
 	assert_contains "brew tap acme/fixture-tap" "$output"
 }
 

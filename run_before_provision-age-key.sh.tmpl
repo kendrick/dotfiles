@@ -36,7 +36,8 @@ fi
 step_begin "age key"
 
 # brew lands on a non-login shell's PATH only once we add it (prerequisites installed it).
-[ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+brew_bin=/opt/homebrew/bin/brew
+[ -x "$brew_bin" ] && eval "$("$brew_bin" shellenv)"
 
 # Both casks, not just the CLI. `op` authenticates through the desktop app, so the CLI on
 # its own is a binary whose only trick is telling you to go install the app. The Brewfile
@@ -78,7 +79,19 @@ if ! op_ready && [ -t 0 ]; then
 fi
 
 mkdir -p "$(dirname "$KEY_PATH")"
-if key=$(op read "$OP_REF" 2>/dev/null) && [ -n "$key" ]; then
+# With no account set up, `op` prompts on the tty, and its follow-up prompt goes to stderr,
+# which this line discards, so the run would wait on a question nobody can see (#74). When
+# the probe still fails, detach stdin so `op` can't prompt; a read that works without the
+# desktop integration still gets its chance. Re-probe rather than reuse the earlier result:
+# the wait may have ended with the integration switched on.
+read_key() {
+  if op_ready; then
+    op read "$OP_REF" 2>/dev/null
+  else
+    op read "$OP_REF" </dev/null 2>/dev/null
+  fi
+}
+if key=$(read_key) && [ -n "$key" ]; then
   printf '%s\n' "$key" >"$KEY_PATH"
   chmod 600 "$KEY_PATH"
   step_ok "age key" "fetched from 1Password"

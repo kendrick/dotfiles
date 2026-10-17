@@ -1,9 +1,41 @@
 #!/bin/bash
 # dotfiles-doctor — report config drift between this machine and the dotfiles repo.
-# Read-only: it changes nothing, it just shows you what's out of sync so you can
-# decide what to do. Worth running after `chezmoi update`, because update only ADDS
-# — it never removes an extension or package you dropped on another machine.
+# Read-only unless you pass --fix: by default it changes nothing, it just shows you
+# what's out of sync so you can decide what to do. --fix only installs, and only the
+# tracked Homebrew packages that are missing, after showing the commands and asking.
+# Worth running after `chezmoi update`, because update only ADDS—it never removes an
+# extension or package you dropped on another machine.
 set -euo pipefail
+
+usage() {
+  echo "usage: dotfiles-doctor [--fix] [--help]"
+  echo "  dotfiles-doctor        report drift between this machine and the dotfiles repo"
+  echo "  dotfiles-doctor --fix  also offer to install the tracked Homebrew formulae and casks"
+  echo "                         that are missing (shows the commands, asks first, never removes)"
+}
+
+fix=0
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  --fix) fix=1 ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+  esac
+  shift
+done
+
+# Filled by the missing-package loops below, so --fix acts on exactly what the report
+# printed rather than recomputing it. fix_ready stays 0 when the Homebrew section was
+# skipped, because an empty array then means "never looked", not "nothing missing".
+missing_brew=()
+missing_cask=()
+fix_ready=0
 
 SRC="$(chezmoi source-path)"
 
@@ -12,7 +44,7 @@ if command -v code &>/dev/null; then
   list="$SRC/dot_config/vscode-extensions.txt"
   installed="$(code --list-extensions | sort)"
   listed="$(grep -vE '^[[:space:]]*#|^[[:space:]]*$' "$list" | sort)"
-  echo "-- here but not in your dotfiles (uninstall, or capture with dotfiles-sync):"
+  echo "-- here but not in your dotfiles (remove it, or capture with dotfiles-sync):"
   comm -23 <(echo "$installed") <(echo "$listed") | sed 's/^/    /'
   # run_onchange keys the extension installer on this file's hash: chezmoi re-runs it when
   # the list changes, never because something on the list is still missing. A rejected id
@@ -32,9 +64,10 @@ echo "== Homebrew =="
 # uses, so there's no second reader to drift from the first.
 #
 # A package installed from a bundle this machine hasn't enabled stays silent on purpose.
-# You already decided about that one, and apply never uninstalls, so saying it out loud
+# You already decided about that one, and apply never removes anything, so saying it out loud
 # would be a complaint with no way to end it. dotfiles-apps is where that gets acted on.
 if command -v brew &>/dev/null && command -v jq &>/dev/null; then
+  fix_ready=1
   bundles="$(chezmoi execute-template '{{ template "bundles" . }}')"
   pkgs="$(chezmoi execute-template '{{ .pkg.packages | toJson }}')"
 
@@ -86,7 +119,7 @@ if command -v brew &>/dev/null && command -v jq &>/dev/null; then
     tracked_cask_installable="$(grep -vxFf <(echo "$held_cask") <<<"$tracked_cask" || true)"
   fi
 
-  echo "-- here but not tracked at all (add it to .chezmoidata.toml, or uninstall):"
+  echo "-- here but not tracked at all (add it to .chezmoidata.toml, or remove it):"
   while IFS= read -r formula; do
     grep -qxF "$formula" <<<"$tracked_brew_any" || echo "    brew  $formula"
   done < <(brew leaves)
@@ -106,11 +139,17 @@ if command -v brew &>/dev/null && command -v jq &>/dev/null; then
   installed_cask="$(brew list --cask 2>/dev/null)"
   while IFS= read -r formula; do
     [[ -n "$formula" ]] || continue
-    grep -qxF "${formula##*/}" <<<"$installed_brew" || echo "    brew  $formula"
+    if ! grep -qxF "${formula##*/}" <<<"$installed_brew"; then
+      echo "    brew  $formula"
+      missing_brew+=("$formula")
+    fi
   done <<<"$tracked_brew_installable"
   while IFS= read -r cask; do
     [[ -n "$cask" ]] || continue
-    grep -qxF "$cask" <<<"$installed_cask" || echo "    cask  $cask"
+    if ! grep -qxF "$cask" <<<"$installed_cask"; then
+      echo "    cask  $cask"
+      missing_cask+=("$cask")
+    fi
   done <<<"$tracked_cask_installable"
 
   # Printed as its own bucket rather than folded into the one above: a held entry isn't a
@@ -164,7 +203,7 @@ echo
 echo "== App Store =="
 # The registry's third package type. This section read none of it until #24, so a tracked
 # App Store app that went missing went missing quietly — and that gap hides better than the
-# Homebrew one, because an uninstalled formula announces itself the next time you reach for
+# Homebrew one, because a missing formula announces itself the next time you reach for
 # it while a missing menu-bar utility just isn't there.
 #
 # One direction only, unlike Homebrew above. `mas list` returns everything the App Store
@@ -178,7 +217,7 @@ echo "== App Store =="
 # already has a space in it, so name matching would add a quoting bug to a correctness one.
 #
 # Its own guard rather than riding the brew block's: mas installs through Homebrew but the
-# check doesn't depend on it, and this tool is read-only and must not die on a machine
+# check doesn't depend on it, and this tool reports by default and must not die on a machine
 # that lacks either. Its own `chezmoi execute-template` pair for the same reason, so a
 # machine without brew still gets this section.
 #
@@ -328,4 +367,110 @@ if [[ "$undeclared" -eq 1 ]]; then
   echo "    ^ no '# teardown:' line. Add one (secret/data/none) so teardown can see it."
 else
   echo "    none — every run_ script declares what it leaves behind"
+fi
+
+if [[ "$fix" -eq 1 ]]; then
+  echo
+  echo "== Fix =="
+  # Without brew and jq the Homebrew section never ran, so empty arrays would read as a
+  # clean machine. Failing here keeps "nothing missing" from being a lie.
+  if [[ "$fix_ready" -eq 0 ]]; then
+    echo "    --fix needs both brew and jq; neither the report nor the fix could check Homebrew" >&2
+    exit 1
+  fi
+  if [[ ${#missing_brew[@]} -eq 0 && ${#missing_cask[@]} -eq 0 ]]; then
+    echo "-- nothing to install"
+    exit 0
+  fi
+
+  # Taps named by qualified formulae (user/repo/formula), deduped. Homebrew 6 refuses
+  # untrusted taps; same trust step as run_onchange_install-packages.sh.tmpl.
+  tap_list=""
+  if [[ ${#missing_brew[@]} -gt 0 ]]; then
+    for formula in "${missing_brew[@]}"; do
+      [[ "$formula" == */*/* ]] || continue
+      case " $tap_list " in
+      *" ${formula%/*} "*) ;;
+      *) tap_list="$tap_list ${formula%/*}" ;;
+      esac
+    done
+  fi
+
+  # The registry stores casks by short name with no cask-to-tap mapping, so a cask from a
+  # third-party tap (deskflow) only resolves once its tap is present. Tap first.
+  enabled_taps="$(chezmoi execute-template '{{ .pkg.taps | toJson }}' | jq -r --argjson b "$bundles" '
+    .[] | select(.bundles | any(IN($b[]))) | .name')"
+  tapped="$(brew tap 2>/dev/null || true)"
+  new_taps=""
+  while IFS= read -r tap; do
+    [[ -n "$tap" ]] || continue
+    grep -qxF "$tap" <<<"$tapped" && continue
+    new_taps="$new_taps $tap"
+    case " $tap_list " in
+    *" $tap "*) ;;
+    *) tap_list="$tap_list $tap" ;;
+    esac
+  done <<<"$enabled_taps"
+
+  # The tap and trust calls are listed too, so the yes covers every command that will run.
+  echo "-- will run:"
+  for tap in $new_taps; do
+    echo "    brew tap $tap"
+  done
+  for tap in $tap_list; do
+    echo "    brew trust --tap $tap"
+  done
+  [[ ${#missing_brew[@]} -eq 0 ]] || echo "    brew install ${missing_brew[*]}"
+  [[ ${#missing_cask[@]} -eq 0 ]] || echo "    brew install --cask ${missing_cask[*]}"
+  # EOF (no stdin) falls through as a decline and exits 1, so an unattended caller can't
+  # mistake a declined fix for a clean machine.
+  answer=""
+  # printf, not read -p: bash only shows the -p prompt when stdin is a terminal.
+  printf "Install these? [y/N] "
+  read -r answer || true
+  case "$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')" in
+  y | yes) ;;
+  *)
+    echo "-- nothing installed"
+    exit 1
+    ;;
+  esac
+
+  # Status captured per command so set -e can't skip the installs or the summary when a
+  # tap or an earlier install fails. A failed tap sets the failure exit but doesn't stop
+  # the installs, since most packages don't depend on it.
+  fix_failed=0
+  for tap in $new_taps; do
+    brew tap "$tap" || { fix_failed=1; echo "-- brew tap $tap failed" >&2; }
+  done
+  for tap in $tap_list; do
+    brew trust --tap "$tap" 2>/dev/null || true
+  done
+
+  if [[ ${#missing_brew[@]} -gt 0 ]]; then
+    brew install "${missing_brew[@]}" || fix_failed=1
+  fi
+  if [[ ${#missing_cask[@]} -gt 0 ]]; then
+    brew install --cask "${missing_cask[@]}" || fix_failed=1
+  fi
+  if [[ "$fix_failed" -eq 1 ]]; then
+    # A failed brew install can still have added some of its names, so ask brew what is
+    # absent now rather than listing every package the failed command was given.
+    installed_brew="$(brew list --formula)"
+    installed_cask="$(brew list --cask 2>/dev/null)"
+    left=""
+    if [[ ${#missing_brew[@]} -gt 0 ]]; then
+      for formula in "${missing_brew[@]}"; do
+        grep -qxF "${formula##*/}" <<<"$installed_brew" || left="$left $formula"
+      done
+    fi
+    if [[ ${#missing_cask[@]} -gt 0 ]]; then
+      for cask in "${missing_cask[@]}"; do
+        grep -qxF "$cask" <<<"$installed_cask" || left="$left $cask"
+      done
+    fi
+    echo "-- some installs failed; still not installed:$left" >&2
+    exit 1
+  fi
+  echo "-- installed"
 fi

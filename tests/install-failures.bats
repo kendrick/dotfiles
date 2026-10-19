@@ -360,6 +360,61 @@ STUB
 }
 
 # ---- install-vscode-extensions ----
+# Every count here is read from the list files, so a list edit can't leave a
+# case asserting a stale number. A profile is the default list plus its own.
+
+vscode_ids() {
+	grep -vE '^\s*#|^\s*$' "$1"
+}
+
+vscode_profiles() {
+	local f b
+	for f in "$SRC"/dot_config/vscode-profiles/*.txt; do
+		b="${f##*/}"
+		case "$b" in *-removed.txt) continue ;; esac
+		echo "${b%.txt}"
+	done
+}
+
+vscode_storage() {
+	echo "$HOME/Library/Application Support/Code/User/globalStorage/storage.json"
+}
+
+vscode_write_storage() {
+	mkdir -p "$(dirname "$(vscode_storage)")"
+	printf '%s\n' "$1" >"$(vscode_storage)"
+}
+
+vscode_marker() {
+	echo "$HOME/.local/state/dotfiles/vscode-profiles-pending"
+}
+
+# The installer asks pgrep whether VS Code is open, and on the machine running
+# this suite it may well be. Every case stubs it, closed unless PGREP_RC=0.
+stub_pgrep() {
+	cat >"$STUBS/pgrep" <<'STUB'
+#!/usr/bin/env bash
+exit "${PGREP_RC:-1}"
+STUB
+	chmod +x "$STUBS/pgrep"
+}
+
+# Logs every call whole, so a case can tell a default install from a profile
+# one. FAIL_ID refuses one id, and only inside FAIL_PROFILE when that's set.
+stub_code_logging() {
+	export CALL_LOG="$BATS_TEST_TMPDIR/vscode-calls.log"
+	: >"$CALL_LOG"
+	cat >"$STUBS/code" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >>"$CALL_LOG"
+if [ -n "${FAIL_ID:-}" ] && [ "$2" = "$FAIL_ID" ] && [ "${5:-}" = "${FAIL_PROFILE:-}" ]; then
+  exit 1
+fi
+exit 0
+STUB
+	chmod +x "$STUBS/code"
+	stub_pgrep
+}
 
 @test "install-vscode-extensions: absent tool skips clean" {
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
@@ -371,6 +426,7 @@ STUB
 @test "install-vscode-extensions: present tool failing names the item" {
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
 	ext="$(first_extension)"
+	stub_pgrep
 	cat >"$STUBS/code" <<STUB
 #!/usr/bin/env bash
 if [ "\$2" = "$ext" ]; then
@@ -387,9 +443,15 @@ STUB
 
 @test "install-vscode-extensions: one failure does not stop the rest" {
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
-	expected="$(grep -vcE '^\s*#|^\s*$' "$SRC/dot_config/vscode-extensions.txt")"
+	default="$(grep -vcE '^\s*#|^\s*$' "$SRC/dot_config/vscode-extensions.txt")"
+	expected="$default"
+	for p in $(vscode_profiles); do
+		own="$(grep -vcE '^\s*#|^\s*$' "$SRC/dot_config/vscode-profiles/$p.txt")"
+		expected=$((expected + default + own))
+	done
 	export CALL_LOG="$BATS_TEST_TMPDIR/vscode-calls.log"
 	: >"$CALL_LOG"
+	stub_pgrep
 	cat >"$STUBS/code" <<'STUB'
 #!/usr/bin/env bash
 if [ "$1" = "--install-extension" ]; then
@@ -405,12 +467,248 @@ STUB
 
 @test "install-vscode-extensions: all items succeed prints no failure summary" {
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	stub_pgrep
 	printf '#!/usr/bin/env bash\nexit 0\n' >"$STUBS/code"
 	chmod +x "$STUBS/code"
 	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
 	assert_contains "  ✓  vscode ext"
 	assert_not_contains "could not install"
+}
+
+@test "install-vscode-extensions: a registered profile gets the default list and its own, each with --profile" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	p="$(vscode_profiles | head -1)"
+	vscode_write_storage "{\"userDataProfiles\":[{\"location\":\"x1\",\"name\":\"$p\"}]}"
+	stub_code_logging
+	# Running, so every other profile is pending and only $p installs.
+	PGREP_RC=0 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	for id in $(vscode_ids "$SRC/dot_config/vscode-extensions.txt") $(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt"); do
+		grep -qxF -- "--install-extension $id --force --profile $p" "$CALL_LOG"
+	done
+	n_default="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | grep -c '')"
+	n_own="$(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt" | grep -c '')"
+	[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq $((n_default + n_own)) ]
+	[ "$(grep -vc -- '--profile' "$CALL_LOG")" -eq "$n_default" ]
+}
+
+@test "install-vscode-extensions: with VS Code closed, an unregistered profile is registered and installed" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	vscode_write_storage '{"userDataProfiles":[]}'
+	stub_code_logging
+	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	n_default="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | grep -c '')"
+	for p in $(vscode_profiles); do
+		[ "$(jq -r --arg n "$p" '.userDataProfiles[] | select(.name == $n) | .location' "$(vscode_storage)")" = "chezmoi-$p" ]
+		[ "$(jq -r --arg n "$p" '.userDataProfiles[] | select(.name == $n) | .useDefaultFlags.settings' "$(vscode_storage)")" = "true" ]
+		[ -d "$HOME/Library/Application Support/Code/User/profiles/chezmoi-$p" ]
+		n_own="$(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt" | grep -c '')"
+		[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq $((n_default + n_own)) ]
+	done
+	# The atomic write goes through a temp file beside storage.json.
+	[ "$(ls -A "$(dirname "$(vscode_storage)")")" = "storage.json" ]
+}
+
+@test "install-vscode-extensions: registration keeps every other entry and key in storage.json" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	p="$(vscode_profiles | head -1)"
+	vscode_write_storage "{\"theme\":\"vs-dark\",\"windowsState\":{\"lastActiveWindow\":{\"folder\":\"file:///x\"}},\"userDataProfiles\":[{\"location\":\"1a2b3c\",\"name\":\"hand-made\"},{\"location\":\"elsewhere\",\"name\":\"$p\"}]}"
+	before="$BATS_TEST_TMPDIR/storage-before.json"
+	cp "$(vscode_storage)" "$before"
+	stub_code_logging
+	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	[ "$(jq -S 'del(.userDataProfiles)' "$before")" = "$(jq -S 'del(.userDataProfiles)' "$(vscode_storage)")" ]
+	[ "$(jq -S '.userDataProfiles[0:2]' "$before")" = "$(jq -S '.userDataProfiles[0:2]' "$(vscode_storage)")" ]
+	# Already registered under its name, so it isn't added a second time.
+	[ "$(jq --arg n "$p" '[.userDataProfiles[] | select(.name == $n)] | length' "$(vscode_storage)")" -eq 1 ]
+	total="$(vscode_profiles | grep -c '')"
+	[ "$(jq '.userDataProfiles | length' "$(vscode_storage)")" -eq $((total + 1)) ]
+}
+
+@test "install-vscode-extensions: with VS Code running, an unregistered profile waits and the apply still succeeds" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	vscode_write_storage '{"theme":"vs-dark"}'
+	before="$BATS_TEST_TMPDIR/storage-before.json"
+	cp "$(vscode_storage)" "$before"
+	stub_code_logging
+	PGREP_RC=0 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	! grep -q -- '--profile' "$CALL_LOG" || false
+	cmp -s "$before" "$(vscode_storage)"
+	[ "$(cat "$(vscode_marker)")" = "$(vscode_profiles | tr '\n' ' ' | sed 's/ $//')" ]
+	assert_contains "Quit VS Code, then run 'chezmoi apply' again to create:"
+}
+
+@test "install-vscode-extensions: an absent storage.json is created holding every profile" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	stub_code_logging
+	[ ! -e "$(vscode_storage)" ]
+	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	[ "$(jq -r '[.userDataProfiles[].name] | sort | join(" ")' "$(vscode_storage)")" = "$(vscode_profiles | sort | tr '\n' ' ' | sed 's/ $//')" ]
+}
+
+# The issue's acceptance case: a marketplace refusal inside one profile.
+@test "install-vscode-extensions: a refusal inside a profile is named with the profile and the rest still install" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	p="$(vscode_profiles | head -1)"
+	bad="$(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt" | head -1)"
+	vscode_write_storage "{\"userDataProfiles\":[{\"location\":\"x1\",\"name\":\"$p\"}]}"
+	stub_code_logging
+	FAIL_ID="$bad" FAIL_PROFILE="$p" PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "  $bad ($p)"
+	assert_contains "1 of "
+	for id in $(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt"); do
+		grep -qxF -- "--install-extension $id --force --profile $p" "$CALL_LOG"
+	done
+}
+
+@test "install-vscode-extensions: no pending profiles deletes the marker" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	mkdir -p "$(dirname "$(vscode_marker)")"
+	vscode_profiles | tr '\n' ' ' >"$(vscode_marker)"
+	stub_code_logging
+	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	[ ! -e "$(vscode_marker)" ]
+}
+
+# Rendered under a scratch $HOME, since the pending line reads the marker
+# under .chezmoi.homeDir. The stubbed pgrep has to be first on the PATH
+# chezmoi itself runs, because the template calls it at render time.
+vscode_render_home() {
+	local out="$1"
+	HOME="$BATS_TEST_TMPDIR/rhome" PATH="$STUBS:$PATH" \
+		chezmoi execute-template --source "$SRC" \
+		<"$SRC/run_onchange_install-vscode-extensions.sh.tmpl" >"$out"
+}
+
+@test "install-vscode-extensions: the render hashes every profile list and adds the pending line only with a marker" {
+	stub_pgrep
+	mkdir -p "$BATS_TEST_TMPDIR/rhome"
+	plain="$BATS_TEST_TMPDIR/plain.sh"
+	vscode_render_home "$plain"
+	for p in $(vscode_profiles); do
+		sum="$(shasum -a 256 "$SRC/dot_config/vscode-profiles/$p.txt" | cut -d' ' -f1)"
+		grep -qxF "# VS Code profile $p.txt hash: $sum" "$plain"
+	done
+	! grep -q '^# pending profiles' "$plain" || false
+
+	marker="$BATS_TEST_TMPDIR/rhome/.local/state/dotfiles/vscode-profiles-pending"
+	mkdir -p "$(dirname "$marker")"
+	echo "web" >"$marker"
+	open="$BATS_TEST_TMPDIR/open.sh"
+	closed="$BATS_TEST_TMPDIR/closed.sh"
+	PGREP_RC=0 vscode_render_home "$open"
+	PGREP_RC=1 vscode_render_home "$closed"
+	grep -qxF '# pending profiles: web (VS Code running at render: yes)' "$open"
+	grep -qxF '# pending profiles: web (VS Code running at render: no)' "$closed"
+	# In chezmoi's units: run_onchange_ reruns only when these bytes differ.
+	! cmp -s "$open" "$closed" || false
+}
+
+# A minimal source tree real `chezmoi apply` can run: the installer, the UI
+# partial it includes, and every list it reads. Copied, so a case can change
+# the template or the lists without touching the tree under test.
+vscode_venue() {
+	local v="$1"
+	mkdir -p "$v/src/.chezmoitemplates" "$v/src/dot_config" "$v/dest" "$v/home"
+	cp "$SRC/.chezmoitemplates/sh-ui.sh" "$v/src/.chezmoitemplates/"
+	cp "$SRC/run_onchange_install-vscode-extensions.sh.tmpl" "$v/src/"
+	cp "$SRC"/dot_config/vscode-extensions*.txt "$v/src/dot_config/"
+	cp -R "$SRC/dot_config/vscode-profiles" "$v/src/dot_config/"
+	: >"$v/chezmoi.toml"
+}
+
+@test "install-vscode-extensions: a profile list name outside [a-z0-9-] fails the render" {
+	v="$BATS_TEST_TMPDIR/venue"
+	vscode_venue "$v"
+	printf '# x\n# y\nsome.ext\n' >"$v/src/dot_config/vscode-profiles/Bad_Name.txt"
+	HOME="$v/home" run chezmoi execute-template --source "$v/src" \
+		<"$v/src/run_onchange_install-vscode-extensions.sh.tmpl"
+	[ "$status" -ne 0 ]
+	assert_contains "Bad_Name.txt"
+}
+
+# The stubs come first on the PATH chezmoi runs under, which is the PATH the
+# template's render-time pgrep and the script's own calls both see. chezmoi is
+# called by its absolute path because that PATH no longer finds it.
+vscode_apply() {
+	local v="$1"
+	(
+		unset XDG_CONFIG_HOME XDG_CACHE_HOME XDG_STATE_HOME NVM_DIR HOMEBREW_PREFIX
+		export HOME="$v/home" PATH="$STUBS:/usr/bin:/bin"
+		"$CHEZMOI" apply --source "$v/src" --destination "$v/dest" \
+			--config "$v/chezmoi.toml" --persistent-state "$v/state.boltdb"
+	) >>"$v/apply.out" 2>&1
+}
+
+vscode_calls() {
+	grep -c '' "$CALL_LOG"
+}
+
+# Measured on chezmoi 2.73: run_onchange_ compares against the last run's
+# bytes, so the first apply that renders the pending line reruns once even
+# with VS Code still open, because the run before it had no marker to render
+# from. Every later apply with VS Code open renders the same line and doesn't.
+@test "install-vscode-extensions: real chezmoi apply reruns a pending profile only once VS Code quits" {
+	CHEZMOI="$(command -v chezmoi)"
+	v="$BATS_TEST_TMPDIR/venue"
+	vscode_venue "$v"
+	stub_code_logging
+	export HOME="$v/home"
+	n_default="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | grep -c '')"
+
+	PGREP_RC=0 vscode_apply "$v"
+	[ "$(vscode_calls)" -eq "$n_default" ]
+	! grep -q -- '--profile' "$CALL_LOG" || false
+	[ -e "$(vscode_marker)" ]
+	[ ! -e "$(vscode_storage)" ]
+
+	PGREP_RC=0 vscode_apply "$v"
+	after_first_pending_render="$(vscode_calls)"
+	[ "$after_first_pending_render" -eq $((2 * n_default)) ]
+	! grep -q -- '--profile' "$CALL_LOG" || false
+
+	PGREP_RC=0 vscode_apply "$v"
+	[ "$(vscode_calls)" -eq "$after_first_pending_render" ]
+
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(vscode_calls)" -gt "$after_first_pending_render" ]
+	for p in $(vscode_profiles); do
+		[ "$(jq -r --arg n "$p" '.userDataProfiles[] | select(.name == $n) | .location' "$(vscode_storage)")" = "chezmoi-$p" ]
+		n_own="$(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt" | grep -c '')"
+		[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq $((n_default + n_own)) ]
+	done
+	[ ! -e "$(vscode_marker)" ]
+}
+
+# Falsifier for the case above: with the pending block gone, nothing in the
+# script changes when VS Code quits, so the profiles are never created.
+@test "install-vscode-extensions: without the pending block, quitting VS Code never reruns the installer" {
+	CHEZMOI="$(command -v chezmoi)"
+	v="$BATS_TEST_TMPDIR/venue"
+	vscode_venue "$v"
+	tmpl="$v/src/run_onchange_install-vscode-extensions.sh.tmpl"
+	grep -q 'vscode-profiles-pending' "$tmpl"
+	awk 'index($0, "$pending := ") { skip = 1 } skip && $0 == "{{- end }}" { skip = 0; next } !skip' "$tmpl" >"$tmpl.new"
+	mv "$tmpl.new" "$tmpl"
+	! grep -q 'pending profiles:' "$tmpl" || false
+	stub_code_logging
+	export HOME="$v/home"
+
+	PGREP_RC=0 vscode_apply "$v"
+	first="$(vscode_calls)"
+	[ -e "$(vscode_marker)" ]
+
+	PGREP_RC=0 vscode_apply "$v"
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(vscode_calls)" -eq "$first" ]
+	[ ! -e "$(vscode_storage)" ]
 }
 
 # ---- configure-raycast ----

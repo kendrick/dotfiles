@@ -35,6 +35,9 @@ setup() {
 	: >"$INSTALLED"
 	LIST="$CHEZMOI_SRC/dot_config/vscode-extensions.txt"
 	REMOVED="$CHEZMOI_SRC/dot_config/vscode-extensions-removed.txt"
+	PROFILES="$CHEZMOI_SRC/dot_config/vscode-profiles"
+	STORAGE="$HOME/Library/Application Support/Code/User/globalStorage/storage.json"
+	unset PROFILE_LIST_RC INSTALLED_web INSTALLED_docs
 
 	cat >"$STUBS/chezmoi" <<STUB
 #!/usr/bin/env bash
@@ -65,12 +68,18 @@ hold_lock() {
 
 # Answers --list-extensions from $INSTALLED and logs every call, so a case can prove what
 # the helper asked of VS Code. A nonzero rc models a refused uninstall; LIST_RC models a
-# broken `--list-extensions`.
+# broken `--list-extensions`. `--list-extensions --profile <p>` answers from the file
+# $INSTALLED_<p> names, and PROFILE_LIST_RC breaks it the way LIST_RC breaks the default.
 stub_code() {
 	local rc="${1:-0}"
 	cat >"$STUBS/code" <<STUB
 #!/usr/bin/env bash
 echo "\$*" >>"$CALL_LOG"
+if [ "\$1" = "--list-extensions" ] && [ "\${2:-}" = "--profile" ]; then
+	v="INSTALLED_\$3"
+	[ -z "\${!v:-}" ] || cat "\${!v}"
+	exit \${PROFILE_LIST_RC:-0}
+fi
 if [ "\$1" = "--list-extensions" ]; then cat "$INSTALLED"; exit \${LIST_RC:-0}; fi
 exit $rc
 STUB
@@ -541,4 +550,361 @@ wrapper() {
 
 @test ".chezmoiignore keeps the removed file source-only" {
 	grep -qxF '.config/vscode-extensions-removed.txt' "$SRC/.chezmoiignore"
+}
+
+# ---- profiles (#45) ----
+
+# seed_profile <name> <ids...>: a profile's list, under its real header.
+seed_profile() {
+	local name="$1"
+	shift
+	mkdir -p "$PROFILES"
+	{
+		echo "# VS Code extensions for the $name profile, on top of vscode-extensions.txt"
+		echo '# Edit this list and run `chezmoi apply` to sync.'
+		[ $# -eq 0 ] || printf '%s\n' "$@"
+	} >"$PROFILES/$name.txt"
+}
+
+# register <names...>: storage.json entries carrying the name and location the installer writes.
+register() {
+	mkdir -p "${STORAGE%/*}"
+	printf '%s\n' "$@" | /usr/bin/jq -R . | /usr/bin/jq -s \
+		'{userDataProfiles: map({location: ("chezmoi-" + .), name: .})}' >"$STORAGE"
+}
+
+# installed_in <profile> <ids...>: what `code --list-extensions --profile <profile>` prints.
+installed_in() {
+	local name="$1"
+	shift
+	printf '%s\n' "$@" >"$BATS_TEST_TMPDIR/installed-$name.txt"
+	export "INSTALLED_$name=$BATS_TEST_TMPDIR/installed-$name.txt"
+}
+
+@test "profile: an id installed only in web is added to web.txt" {
+	seed_list a
+	seed_removed
+	seed_profile web w
+	register web
+	installed a
+	installed_in web a w x
+	capture
+	[ "$status" -eq 0 ]
+	[ "$(ids "$PROFILES/web.txt")" = "$(printf 'w\nx')" ]
+	[ "$(ids "$LIST")" = "a" ]
+	assert_contains "updated"
+}
+
+@test "profile: an id in web.txt that this machine never installed stays" {
+	seed_list a
+	seed_removed
+	seed_profile web w y
+	register web
+	installed a
+	installed_in web a w
+	capture
+	[ "$status" -eq 0 ]
+	[ "$(ids "$PROFILES/web.txt")" = "$(printf 'w\ny')" ]
+}
+
+@test "profile: an id in the default list and installed in web stays out of web.txt" {
+	seed_list a d
+	seed_removed
+	seed_profile web w d
+	register web
+	installed a d
+	installed_in web a d w
+	capture
+	[ "$status" -eq 0 ]
+	[ "$(ids "$PROFILES/web.txt")" = "w" ]
+}
+
+# This case and the next pin the profile tombstone rule as a pair. Dropping the default
+# tombstone filter on the installed half fails this one, and applying it to the tracked
+# list fails the next.
+@test "profile: a default-tombstoned id installed in web is not added to web.txt" {
+	seed_list a
+	seed_removed t
+	seed_profile web w
+	register web
+	installed a
+	installed_in web a t w
+	capture
+	[ "$status" -eq 0 ]
+	[ "$(ids "$PROFILES/web.txt")" = "w" ]
+}
+
+@test "profile: a default-tombstoned id already in web.txt stays" {
+	seed_list a
+	seed_removed t
+	seed_profile web t w
+	register web
+	installed a
+	installed_in web a t w
+	capture
+	[ "$status" -eq 0 ]
+	[ "$(ids "$PROFILES/web.txt")" = "$(printf 't\nw')" ]
+}
+
+@test "profile: an id in web-removed.txt is kept out of web.txt and nothing lists web-removed" {
+	seed_list a
+	seed_removed
+	seed_profile web w x
+	printf '# header\nx\n' >"$PROFILES/web-removed.txt"
+	register web web-removed
+	installed a
+	installed_in web a w x
+	capture
+	[ "$status" -eq 0 ]
+	[ "$(ids "$PROFILES/web.txt")" = "w" ]
+	run grep -c -- '--profile web-removed' "$CALL_LOG"
+	[ "$output" = "0" ]
+}
+
+@test "profile: --removed x --profile web tombstones x in web-removed.txt and leaves the default lists alone" {
+	seed_list a
+	seed_removed
+	seed_profile web w x
+	register web
+	installed a
+	installed_in web a w x
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	capture --removed x --profile web
+	[ "$status" -eq 0 ]
+	[ "$(sed -n 1p "$PROFILES/web-removed.txt")" = "# Extensions removed from the web VS Code profile on purpose. Capture never adds these back." ]
+	[ "$(ids "$PROFILES/web-removed.txt")" = "x" ]
+	[ "$(ids "$PROFILES/web.txt")" = "w" ]
+	cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cmp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+}
+
+@test "profile: --profile may come before the action" {
+	seed_list a
+	seed_removed
+	seed_profile web w x
+	register web
+	installed a
+	installed_in web a w x
+	capture --profile web --removed x
+	[ "$status" -eq 0 ]
+	[ "$(ids "$PROFILES/web-removed.txt")" = "x" ]
+	[ "$(ids "$PROFILES/web.txt")" = "w" ]
+}
+
+@test "profile: --restored x --profile web puts x in web.txt while x is default-tombstoned" {
+	seed_list a
+	seed_removed x
+	seed_profile web w
+	printf '%s\n' '# header' x >"$PROFILES/web-removed.txt"
+	register web
+	installed a
+	installed_in web a w x
+	capture --restored x --profile web
+	[ "$status" -eq 0 ]
+	[ "$(ids "$PROFILES/web.txt")" = "$(printf 'w\nx')" ]
+	[ -z "$(ids "$PROFILES/web-removed.txt")" ]
+	[ "$(ids "$REMOVED")" = "x" ]
+	[ "$(ids "$LIST")" = "a" ]
+}
+
+@test "profile: --profile Default means the default lists" {
+	seed_list a
+	seed_removed
+	installed a
+	capture --removed b --profile Default
+	[ "$status" -eq 0 ]
+	[ "$(ids "$REMOVED")" = "b" ]
+	[ ! -e "$PROFILES/Default-removed.txt" ]
+}
+
+@test "profile: an unregistered tracked profile's files are byte-identical and never listed" {
+	seed_list a
+	seed_removed
+	seed_profile web w
+	# Unsorted and holding a default id, so any merge at all would rewrite it.
+	seed_profile docs z a
+	register web
+	installed a
+	installed_in web a w
+	installed_in docs a q
+	cp "$PROFILES/docs.txt" "$BATS_TEST_TMPDIR/docs.before"
+	capture
+	[ "$status" -eq 0 ]
+	cmp "$PROFILES/docs.txt" "$BATS_TEST_TMPDIR/docs.before"
+	[ ! -e "$PROFILES/docs-removed.txt" ]
+	run grep -c -- '--profile docs' "$CALL_LOG"
+	[ "$output" = "0" ]
+}
+
+@test "profile: an absent storage.json skips every profile and still merges the default" {
+	seed_list a
+	seed_removed
+	seed_profile web w
+	installed a b
+	installed_in web a w x
+	cp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
+	capture
+	[ "$status" -eq 0 ]
+	[ "$(ids "$LIST")" = "$(printf 'a\nb')" ]
+	cmp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
+}
+
+@test "profile: an untracked --profile foo writes nothing and exits 0" {
+	seed_list a
+	seed_removed
+	seed_profile web w
+	register web foo
+	installed a b
+	installed_in web a w x
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	cp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
+	capture --removed x --profile foo
+	[ "$status" -eq 0 ]
+	assert_contains "profile foo is not tracked, nothing recorded"
+	cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cmp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	cmp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
+	[ "$(ls "$PROFILES")" = "web.txt" ]
+}
+
+@test "profile: a failing --list-extensions --profile web exits nonzero and writes no file" {
+	seed_list a
+	seed_removed
+	seed_profile web w
+	register web
+	# Both lists would change on a successful run, so an unchanged file proves no write.
+	installed a b
+	installed_in web a w x
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	cp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
+	PROFILE_LIST_RC=1 capture --removed c
+	[ "$status" -ne 0 ]
+	assert_contains "code --list-extensions --profile web failed"
+	cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cmp "$REMOVED" "$BATS_TEST_TMPDIR/removed.before"
+	cmp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
+}
+
+@test "profile: --profile without a name exits 2" {
+	capture --removed x --profile
+	[ "$status" -eq 2 ]
+}
+
+# ---- the code() wrapper and --profile ----
+
+# Swaps the helper for one that logs its argv, so a case can read exactly what the wrapper
+# forwarded.
+stub_helper() {
+	rm -f "$STUBS/vscode-extensions-capture"
+	cat >"$STUBS/vscode-extensions-capture" <<STUB
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"$BATS_TEST_TMPDIR/helper-calls.log"
+STUB
+	chmod +x "$STUBS/vscode-extensions-capture"
+	: >"$BATS_TEST_TMPDIR/helper-calls.log"
+}
+
+@test "wrapper: --uninstall-extension x --profile web forwards --removed x and --profile web" {
+	seed_profile web w
+	stub_helper
+	wrapper --uninstall-extension x --profile web
+	[ "$status" -eq 0 ]
+	[ "$(cat "$BATS_TEST_TMPDIR/helper-calls.log")" = "--removed x --profile web" ]
+}
+
+@test "wrapper: --profile=web before the flag is forwarded too" {
+	seed_profile web w
+	stub_helper
+	wrapper --profile=web --install-extension x@1.0.0
+	[ "$status" -eq 0 ]
+	[ "$(cat "$BATS_TEST_TMPDIR/helper-calls.log")" = "--restored x --profile web" ]
+}
+
+@test "wrapper: --install-extension x with no profile passes no --profile" {
+	stub_helper
+	wrapper --install-extension x
+	[ "$status" -eq 0 ]
+	[ "$(cat "$BATS_TEST_TMPDIR/helper-calls.log")" = "--restored x" ]
+}
+
+@test "wrapper: --profile Default passes no --profile" {
+	stub_helper
+	wrapper --install-extension x --profile Default
+	[ "$status" -eq 0 ]
+	[ "$(cat "$BATS_TEST_TMPDIR/helper-calls.log")" = "--restored x" ]
+}
+
+@test "wrapper: an untracked profile records nothing and says so on stderr" {
+	seed_profile web w
+	stub_helper
+	wrapper --uninstall-extension x --profile Web
+	[ "$status" -eq 0 ]
+	assert_contains "code: profile Web is not tracked in dotfiles, list not updated"
+	[ ! -s "$BATS_TEST_TMPDIR/helper-calls.log" ]
+}
+
+@test "wrapper: an uninstall from web lands in web-removed.txt through the real helper" {
+	seed_list a
+	seed_removed
+	seed_profile web w x
+	register web
+	installed a
+	installed_in web a w
+	wrapper --uninstall-extension x --profile web
+	[ "$status" -eq 0 ]
+	[ "$(ids "$PROFILES/web-removed.txt")" = "x" ]
+	[ "$(ids "$PROFILES/web.txt")" = "w" ]
+	[ -z "$(ids "$REMOVED")" ]
+}
+
+# ---- a grep error is not "no matches" (#80) ----
+
+# Verbatim from #80. The stub exits 2 only for the fixed-string filters, so ids_of still
+# reads both files normally.
+stub_grep_status2() {
+	cat >"$STUBS/grep" <<'STUB'
+#!/bin/bash
+case " $* " in *" -vixF "*|*" -vixFf "*) echo "grep: simulated read error" >&2; exit 2 ;; esac
+exec /usr/bin/grep "$@"
+STUB
+	chmod +x "$STUBS/grep"
+}
+
+@test "capture --restored: a grep error keeps the other tombstones" {
+	seed_list a
+	seed_removed b c
+	installed a
+	stub_grep_status2
+	capture --restored b
+	[ "$status" -ne 0 ]
+	[ "$(ids "$REMOVED")" = "$(printf 'b\nc')" ]
+}
+
+@test "capture: a grep error in the merge writes nothing" {
+	seed_list a
+	seed_removed b
+	installed a c
+	stub_grep_status2
+	before="$(cat "$LIST")"
+	capture
+	[ "$status" -ne 0 ]
+	[ "$(cat "$LIST")" = "$before" ]
+}
+
+@test "profile: a grep error in a profile merge writes no file" {
+	seed_list a
+	seed_profile web w
+	register web
+	installed a
+	installed_in web a w x
+	cp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
+	stub_grep_status2
+	capture
+	[ "$status" -ne 0 ]
+	cmp "$LIST" "$BATS_TEST_TMPDIR/list.before"
+	cmp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
 }

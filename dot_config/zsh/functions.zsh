@@ -130,8 +130,11 @@ function claude() {
 # blacklist an extension that is still installed.
 # Stderr passes through and failures print one line naming the helper, so a broken
 # capture is visible; the wrapper still returns code's own status.
+# The wrapper forwards `--profile <name>`, so an uninstall from one profile tombstones
+# the id in that profile's removed file (#45).
 function _code_record_extension() {
-	local flag="$1" id="$2"
+	local flag="$1" id="$2" profile="${3:-}"
+	local -a profile_args=()
 	case "$id" in
 		*.vsix) return 0 ;;  # a package path carries no id to record
 	esac
@@ -140,7 +143,20 @@ function _code_record_extension() {
 		echo "code: vscode-extensions-capture not found, extension list not updated" >&2
 		return 0
 	fi
-	vscode-extensions-capture "$flag" "$id" >/dev/null ||
+	if [ -n "$profile" ] && [ "$profile" != "Default" ]; then
+		# This repeats the helper's shape test. Names become paths, and VS Code profile
+		# names are case-sensitive, so `Web` must not match web.txt on case-insensitive APFS.
+		case "$profile" in
+			*-removed | *[!a-z0-9-]*) profile_args=() ;;
+			*) [ -f "$(chezmoi source-path)/dot_config/vscode-profiles/$profile.txt" ] &&
+				profile_args=(--profile "$profile") ;;
+		esac
+		if [ ${#profile_args[@]} -eq 0 ]; then
+			echo "code: profile $profile is not tracked in dotfiles, list not updated" >&2
+			return 0
+		fi
+	fi
+	vscode-extensions-capture "$flag" "$id" "${profile_args[@]}" >/dev/null ||
 		echo "code: vscode-extensions-capture failed, extension list not updated" >&2
 	return 0
 }
@@ -149,11 +165,19 @@ function code() {
 	command code "$@"
 	local rc=$?
 	if [ $rc -eq 0 ]; then
-		local prev="" arg
+		local prev="" arg profile=""
+		for arg in "$@"; do
+			case "$arg" in
+				--profile=*) profile="${arg#--profile=}" ;;
+			esac
+			[ "$prev" = "--profile" ] && profile="$arg"
+			prev="$arg"
+		done
+		prev=""
 		for arg in "$@"; do
 			case "$prev" in
-				--uninstall-extension) _code_record_extension --removed "$arg" ;;
-				--install-extension) _code_record_extension --restored "$arg" ;;
+				--uninstall-extension) _code_record_extension --removed "$arg" "$profile" ;;
+				--install-extension) _code_record_extension --restored "$arg" "$profile" ;;
 			esac
 			prev="$arg"
 		done

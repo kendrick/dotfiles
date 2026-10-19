@@ -107,6 +107,79 @@ age_stamp() {
 	[ ! -f "$STAMP" ]
 }
 
+# ---- profiles ----
+
+# Writes the roster VS Code keeps in storage.json. Arguments are name:location pairs.
+write_storage() {
+	local dir="$HOME/Library/Application Support/Code/User/globalStorage" entries="" pair
+	mkdir -p "$dir"
+	for pair in "$@"; do
+		entries="${entries:+$entries,}{\"name\":\"${pair%%:*}\",\"location\":\"${pair#*:}\"}"
+	done
+	printf '{"telemetry.machineId":"x","userDataProfiles":[%s]}\n' "$entries" >"$dir/storage.json"
+}
+
+# Fails the stub only when it is called with --profile <name>.
+stub_code_failing_profile() {
+	cat >"$STUBS/code" <<STUB
+#!/usr/bin/env bash
+echo "\$*" >>"$CALL_LOG"
+[ "\$*" = "--update-extensions --profile $1" ] && exit 1
+exit 0
+STUB
+	chmod +x "$STUBS/code"
+}
+
+@test "vscode-extensions-update: updates every registered profile and skips builtin ones" {
+	stub_code 0
+	write_storage web:chezmoi-web docs:chezmoi-docs agents:builtin/agents
+	PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER"
+	[ "$status" -eq 0 ]
+	[ "$(wc -l <"$CALL_LOG" | tr -d ' ')" -eq 3 ]
+	grep -qxF -- "--update-extensions" "$CALL_LOG"
+	grep -qxF -- "--update-extensions --profile web" "$CALL_LOG"
+	grep -qxF -- "--update-extensions --profile docs" "$CALL_LOG"
+	! grep -q agents "$CALL_LOG"
+	[ -f "$STAMP" ]
+}
+
+@test "vscode-extensions-update: one failing profile leaves the stamp and still updates the rest" {
+	stub_code_failing_profile web
+	write_storage web:chezmoi-web docs:chezmoi-docs
+	age_stamp
+	local before
+	before="$(stat -f %m "$STAMP")"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER"
+	[ "$status" -ne 0 ]
+	assert_contains "code --update-extensions failed for web"
+	grep -qxF -- "--update-extensions --profile docs" "$CALL_LOG"
+	[ "$(stat -f %m "$STAMP")" = "$before" ]
+}
+
+@test "vscode-extensions-update: a failing default is named and the profiles still run" {
+	cat >"$STUBS/code" <<STUB
+#!/usr/bin/env bash
+echo "\$*" >>"$CALL_LOG"
+[ "\$*" = "--update-extensions" ] && exit 1
+exit 0
+STUB
+	chmod +x "$STUBS/code"
+	write_storage web:chezmoi-web
+	PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER"
+	[ "$status" -ne 0 ]
+	assert_contains "code --update-extensions failed for default"
+	grep -qxF -- "--update-extensions --profile web" "$CALL_LOG"
+	[ ! -f "$STAMP" ]
+}
+
+@test "vscode-extensions-update: an absent storage.json updates only the default and stamps" {
+	stub_code 0
+	PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER"
+	[ "$status" -eq 0 ]
+	[ "$(wc -l <"$CALL_LOG" | tr -d ' ')" -eq 1 ]
+	[ -f "$STAMP" ]
+}
+
 # ---- the run_after caller ----
 
 @test "run_after_update-vscode-extensions: absent helper exits clean" {

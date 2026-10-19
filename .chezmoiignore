@@ -28,6 +28,8 @@ tests
 # written straight into source by the sync's capture phase (#66), so neither has a target.
 .config/vscode-extensions.txt
 .config/vscode-extensions-removed.txt
+.config/vscode-profiles
+.config/vscode-profiles/**
 .config/npm-globals.txt
 .config/pnpm-globals.txt
 .config/raycast-extensions.txt

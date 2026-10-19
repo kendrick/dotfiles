@@ -1,0 +1,6 @@
+# VS Code extensions for the docs profile, on top of vscode-extensions.txt
+# Edit this list and run `chezmoi apply` to sync.
+bierner.markdown-mermaid
+robole.markdown-snippets
+shd101wyy.markdown-preview-enhanced
+yzhang.markdown-all-in-one

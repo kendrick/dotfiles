@@ -60,7 +60,7 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 | Shell (zsh)  | Powerlevel10k prompt, Znap plugin manager, aliases/functions/exports                               | `~/.config/zsh/`, sourced by `~/.zshrc`         |
 | Git          | delta pager, the aliases I actually use, `g*` shell shortcuts (`gco`, `gd`, `gs`)                  | `~/.config/git/`, `~/.gitconfig`                |
 | Terminal     | Ghostty and Herdr. Theme and font both come from a switcher (see `theme` and `font` below)         | `~/.config/ghostty/config`, `~/.config/herdr/`  |
-| Editor       | VS Code settings, keybindings, snippets; extensions from a tracked text list                       | `~/Library/Application Support/Code/User/`      |
+| Editor       | VS Code settings, keybindings, snippets; extensions in profiles, each from a tracked list          | `~/Library/Application Support/Code/User/`      |
 | Apps         | Formulae, casks, and Mac App Store apps, each filed into bundles a machine opts into               | `.chezmoidata.toml`                             |
 | Node         | nvm (via Homebrew), default floored at 24, pnpm through corepack, two globals lists                | `~/.config/npm-globals.txt`, `pnpm-globals.txt` |
 | Scripts      | custom bins on `$PATH`                                                                             | `~/.local/bin/`                                 |
@@ -72,6 +72,25 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 <summary>Scripts in <code>~/.local/bin</code></summary>
 
 `awssso`, `cless`, `cscreen`, `dotfiles-apps`, `dotfiles-doctor`, `dotfiles-sync`, `dotfiles-teardown`, `dotfiles-undo`, `draw`, `e`, `font`, `imageoptim`, `imgmin`, `jd-git-init`, `overdrive`, `theme`
+
+</details>
+
+<details>
+<summary>How VS Code profiles are managed</summary>
+
+One flat extension list made every window load every extension, and the extension host took 20–38 seconds to settle (#45). The default profile now carries only what every window needs, and three more profiles hold the heavy groups:
+
+- `web`: Tailwind, Stylelint, CSS variables, color previews, PostCSS, MDX, auto-rename-tag, and ESLint and Prettier as a fallback for repos still configured for them.
+- `embedded`: PlatformIO and the C/C++ tools.
+- `docs`: the Markdown tools.
+
+The default profile formats and lints with oxc (`oxc.oxc-vscode`) instead of ESLint and Prettier.
+
+`dot_config/vscode-extensions.txt` is the default list and `dot_config/vscode-profiles/<name>.txt` holds only what that profile adds. Every profile also gets the default list, so a profile window has the themes and the rest of the shared set. Open a folder in one with `code --profile web <folder>`, and VS Code remembers the association after that.
+
+The CLI can't create a profile, only install into one that exists. `chezmoi apply` registers each missing profile in VS Code's `storage.json`, then installs the default list and the profile's own list into it. VS Code overwrites that file while it runs and drops a profile added behind its back, so the apply only registers profiles while VS Code is closed. If it's open, the apply skips that profile, notes it in `~/.local/state/dotfiles/vscode-profiles-pending`, and tells you to quit VS Code and run `chezmoi apply` again. The next apply reruns the installer even though no list changed, and the first one with VS Code closed creates the profile. One more rerun follows after that, when the pending line goes away.
+
+`dotfiles-sync` and the `code` wrapper keep every list current. `code --install-extension x --profile web` adds `x` to `web.txt`, and `code --uninstall-extension x --profile web` tombstones it in `web-removed.txt`. The weekly `code --update-extensions` phase updates the default profile and every profile in `storage.json`, including ones made by hand. Installs stay add-only. An uninstall keeps the id out of the lists, but other machines keep it installed until you remove it there too.
 
 </details>
 
@@ -223,7 +242,8 @@ chezmoi runs scripts based on naming conventions:
 ├── zsh/                        # aliases, exports, functions, plugins, ...
 ├── npm-globals.txt, pnpm-globals.txt
 ├── raycast-extensions.txt
-└── vscode-extensions.txt
+├── vscode-extensions.txt
+└── vscode-profiles/            # web, embedded, docs
 
 ~/.local/bin/                   # custom scripts
 ~/.agents/skills/               # agent skills, installed by the skills CLI

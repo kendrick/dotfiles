@@ -759,6 +759,34 @@ installed_in() {
 	[ -z "$(ids "$REMOVED")" ]
 }
 
+# /usr/bin carries jq, so absence needs a PATH without it. Linking every other tool from
+# /usr/bin and /bin keeps whatever the helper and the stubs call, without listing them.
+@test "profile: without jq, profiles are skipped with a note and the default still merges" {
+	seed_list a
+	seed_removed
+	seed_profile web w
+	register web
+	installed a b
+	installed_in web a w x
+	cp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
+	tools="$BATS_TEST_TMPDIR/nojq"
+	mkdir -p "$tools"
+	for t in /bin/* /usr/bin/*; do
+		case "${t##*/}" in jq) continue ;; esac
+		[ -e "$tools/${t##*/}" ] || ln -s "$t" "$tools/${t##*/}"
+	done
+	[ ! -e "$tools/jq" ]
+	TMPDIR="$LOCK_TMP" PATH="$STUBS:$tools" run bash "$HELPER"
+	[ "$status" -eq 0 ]
+	assert_contains "vscode-extensions-capture: jq not found, profiles skipped"
+	[ "$(grep -c 'jq not found' <<<"$output")" -eq 1 ]
+	[ "$(ids "$LIST")" = "$(printf 'a\nb')" ]
+	run grep -c -- '--list-extensions --profile' "$CALL_LOG"
+	[ "$output" = "0" ]
+	cmp "$PROFILES/web.txt" "$BATS_TEST_TMPDIR/web.before"
+	[ ! -e "$PROFILES/web-removed.txt" ]
+}
+
 @test "profile: an absent storage.json skips every profile and still merges the default" {
 	seed_list a
 	seed_removed

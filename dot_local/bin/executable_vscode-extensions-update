@@ -1,5 +1,5 @@
 #!/bin/bash
-# vscode-extensions-update — bring VS Code extensions current in every profile, at most
+# vscode-extensions-update—bring VS Code extensions current in every profile, at most
 # once a week.
 #
 # VS Code's own extensions.autoUpdate is off, because in-app updates fire about four

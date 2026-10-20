@@ -737,6 +737,28 @@ installed_in() {
 	[ "$output" = "0" ]
 }
 
+@test "profile: a named but unregistered profile records nothing and the rest still merge" {
+	seed_list a
+	seed_removed
+	seed_profile web w
+	seed_profile docs z a
+	register web
+	installed a b
+	installed_in web a w x
+	installed_in docs a q
+	cp "$PROFILES/docs.txt" "$BATS_TEST_TMPDIR/docs.before"
+	capture --removed q --profile docs
+	[ "$status" -eq 0 ]
+	assert_contains "profile docs is not registered on this machine, nothing recorded"
+	cmp "$PROFILES/docs.txt" "$BATS_TEST_TMPDIR/docs.before"
+	[ ! -e "$PROFILES/docs-removed.txt" ]
+	run grep -c -- '--list-extensions --profile docs' "$CALL_LOG"
+	[ "$output" = "0" ]
+	[ "$(ids "$LIST")" = "$(printf 'a\nb')" ]
+	[ "$(ids "$PROFILES/web.txt")" = "$(printf 'w\nx')" ]
+	[ -z "$(ids "$REMOVED")" ]
+}
+
 @test "profile: an absent storage.json skips every profile and still merges the default" {
 	seed_list a
 	seed_removed

@@ -515,11 +515,14 @@ STUB
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
 	p="$(vscode_profiles | head -1)"
 	vscode_write_storage "{\"theme\":\"vs-dark\",\"windowsState\":{\"lastActiveWindow\":{\"folder\":\"file:///x\"}},\"userDataProfiles\":[{\"location\":\"1a2b3c\",\"name\":\"hand-made\"},{\"location\":\"elsewhere\",\"name\":\"$p\"}]}"
+	chmod 644 "$(vscode_storage)"
 	before="$BATS_TEST_TMPDIR/storage-before.json"
 	cp "$(vscode_storage)" "$before"
 	stub_code_logging
 	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
+	# mktemp's 0600 must not replace the file's own mode.
+	[ "$(stat -f %Lp "$(vscode_storage)")" = "644" ]
 	[ "$(jq -S 'del(.userDataProfiles)' "$before")" = "$(jq -S 'del(.userDataProfiles)' "$(vscode_storage)")" ]
 	[ "$(jq -S '.userDataProfiles[0:2]' "$before")" = "$(jq -S '.userDataProfiles[0:2]' "$(vscode_storage)")" ]
 	# Already registered under its name, so it isn't added a second time.
@@ -565,6 +568,28 @@ STUB
 	for id in $(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt"); do
 		grep -qxF -- "--install-extension $id --force --profile $p" "$CALL_LOG"
 	done
+}
+
+# /usr/bin carries jq, so absence needs a PATH built from only what the
+# script calls besides jq.
+@test "install-vscode-extensions: without jq, profiles are skipped and the default still installs" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	stub_code_logging
+	tools="$BATS_TEST_TMPDIR/nojq"
+	mkdir -p "$tools"
+	for t in bash cat grep mkdir dirname mktemp mv rm chmod stat; do
+		ln -s "$(PATH=/usr/bin:/bin command -v "$t")" "$tools/$t"
+	done
+	PGREP_RC=1 PATH="$STUBS:$tools" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "!  vscode ext       no jq, profiles skipped"
+	assert_contains "  ✓  vscode ext"
+	n_default="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | grep -c '')"
+	[ "$(grep -c '' "$CALL_LOG")" -eq "$n_default" ]
+	! grep -q -- '--profile' "$CALL_LOG" || false
+	[ ! -e "$(vscode_storage)" ]
+	# The skip settles as its own line ahead of the step's summary.
+	[ "$(grep -n 'no jq, profiles skipped' <<<"$output" | cut -d: -f1)" -lt "$(grep -n '✓  vscode ext' <<<"$output" | cut -d: -f1)" ]
 }
 
 @test "install-vscode-extensions: no pending profiles deletes the marker" {

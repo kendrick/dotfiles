@@ -112,13 +112,15 @@ register_profile() {
       location: ("chezmoi-" + $n), name: $n,
       useDefaultFlags: {settings: true, keybindings: true, snippets: true,
         tasks: true, prompts: true, mcp: true, languageModels: true}}])'
-  local ok=1
+  # mktemp creates 0600, so the target's own mode goes back on after the move.
+  local ok=1 mode=644
   if [ -f "$STORAGE" ]; then
+    mode=$(stat -f %Lp "$STORAGE") || ok=0
     jq --arg n "$name" "$filter" "$STORAGE" >"$reg_tmp" || ok=0
   else
     jq -n --arg n "$name" "$filter" >"$reg_tmp" || ok=0
   fi
-  if [ "$ok" -eq 1 ] && [ -s "$reg_tmp" ] && mv "$reg_tmp" "$STORAGE"; then
+  if [ "$ok" -eq 1 ] && [ -s "$reg_tmp" ] && chmod "$mode" "$reg_tmp" && mv "$reg_tmp" "$STORAGE"; then
     reg_tmp=""
     return 0
   fi
@@ -141,7 +143,7 @@ failed=()
 install_into() {
   local profile="$1" list="$2" ext
   while IFS= read -r ext; do
-    [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
+    case "$ext" in '#'* | '') continue ;; esac
     ext_done=$((ext_done + 1))
     step_tick "$ext_done" "$ext_total" "${profile:+$profile: }$ext"
     if [ -z "$profile" ]; then
@@ -160,16 +162,16 @@ EXTEOF
 # and drops anything written behind its back, so a profile is only registered
 # while the app is closed. One already registered is safe to install into
 # either way. Registering happens here, before the count, so the denominator
-# only covers installs that will really be attempted.
+# only covers installs that will really be attempted. It also happens ahead of
+# step_begin, so no live line is up yet for jq's or mv's stderr to land on, and
+# the jq warning settles on its own row the way the no-CLI skip above does.
 ready=()
 pending=()
 check_profiles=1
 if [ "${#profiles[@]}" -gt 0 ] && ! command -v jq &>/dev/null; then
   check_profiles=0
-  step_warn "vscode ext" "jq not found, profiles skipped"
+  step_warn "vscode ext" "no jq, profiles skipped"
 fi
-
-step_begin "vscode ext"
 
 if [ "$check_profiles" -eq 1 ]; then
   for p in "${profiles[@]}"; do
@@ -191,24 +193,13 @@ for p in "${ready[@]}"; do
   ext_total=$((ext_total + default_count + $(count_ids "$(profile_list "$p")")))
 done
 
+step_begin "vscode ext"
+
 install_into "" "$extensions"
 for p in "${ready[@]}"; do
   install_into "$p" "$extensions"
   install_into "$p" "$(profile_list "$p")"
 done
-
-# The marker is what the pending line above the shebang renders from. Left
-# alone when jq is missing, since nothing was checked and a pending profile
-# from an earlier run is still pending.
-if [ "$check_profiles" -eq 1 ]; then
-  if [ "${#pending[@]}" -gt 0 ]; then
-    if ! { mkdir -p "$(dirname "$PENDING")" && printf '%s\n' "${pending[*]}" >"$PENDING"; }; then
-      echo "could not write $PENDING, so the next apply won't know to retry" >&2
-    fi
-  else
-    rm -f "$PENDING"
-  fi
-fi
 
 # The count test is not decoration. bash 3.2 expands an empty array to a single empty word,
 # so an unconditional summary would print a heading with a blank line under it on a clean
@@ -219,6 +210,20 @@ if [ "${#failed[@]}" -gt 0 ]; then
   printf '  %s\n' "${failed[@]}"
 else
   step_ok "vscode ext" "$ext_total installed"
+fi
+
+# The marker is what the pending header line renders from.
+# Written once the step has settled, so its one failure message can't share a
+# row with a frame. Left alone when jq is missing, since nothing was checked
+# and a pending profile from an earlier run is still pending.
+if [ "$check_profiles" -eq 1 ]; then
+  if [ "${#pending[@]}" -gt 0 ]; then
+    if ! { mkdir -p "$(dirname "$PENDING")" && printf '%s\n' "${pending[*]}" >"$PENDING"; }; then
+      warn "could not write $PENDING, so the next apply won't know to retry"
+    fi
+  else
+    rm -f "$PENDING"
+  fi
 fi
 
 # An open editor isn't a reason to fail an apply, so this warns and the exit

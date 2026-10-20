@@ -14,8 +14,11 @@ PROFILES="$SRC/dot_config/vscode-profiles"
 SETTINGS="$SRC/private_Library/private_Application Support/Code/User/settings.json"
 JSONC="$SRC/dot_config/font/jsonc.jq"
 
-# The ids Decision 4 moves out of the default list, named per destination so
-# the cases below cannot drift from the plan by a shared variable.
+# The ids #45 moves out of the default list, written out per destination: web
+# work, PlatformIO and C/C++ work, and Markdown work. Jest and the JSDoc
+# generator leave outright, and oxc replaces eslint and prettier in the default.
+# They're spelled out here, not read from the list files, so a list edit can't
+# move both the data and the expectation at once.
 WEB_IDS="bradlc.vscode-tailwindcss stylelint.vscode-stylelint vunguyentuan.vscode-css-variables jaspernorth.vscode-pigments radhakantaroy.vs-color-preview csstools.postcss unifiedjs.vscode-mdx formulahendry.auto-rename-tag dbaeumer.vscode-eslint esbenp.prettier-vscode"
 EMBEDDED_IDS="platformio.platformio-ide ms-vscode.cpptools"
 DOCS_IDS="shd101wyy.markdown-preview-enhanced yzhang.markdown-all-in-one robole.markdown-snippets bierner.markdown-mermaid"
@@ -91,7 +94,7 @@ profile_files() {
 	[ -z "$dups" ]
 }
 
-@test "the default list holds oxc and none of the ids Decision 4 replaced or dropped" {
+@test "the default list holds oxc and none of the ids oxc replaced or #45 dropped" {
 	ids_of "$DEFAULT" | grep -qxF 'oxc.oxc-vscode'
 	local id
 	for id in dbaeumer.vscode-eslint esbenp.prettier-vscode orta.vscode-jest crystal-spider.jsdoc-generator; do
@@ -113,7 +116,7 @@ profile_files() {
 	ids_of "$PROFILES/web.txt" | grep -qxF 'esbenp.prettier-vscode'
 }
 
-@test "each profile list holds exactly the ids Decision 4 assigns it" {
+@test "each profile list holds exactly the ids #45 assigns it" {
 	local n want
 	for n in web embedded docs; do
 		case "$n" in
@@ -127,7 +130,7 @@ profile_files() {
 	done
 }
 
-@test "every id Decision 4 takes out of the default list is tombstoned" {
+@test "every id #45 takes out of the default list is tombstoned" {
 	local id
 	for id in $WEB_IDS $EMBEDDED_IDS $DOCS_IDS $DROPPED_IDS; do
 		ids_of "$REMOVED" | grep -qxF "$id"

@@ -225,8 +225,9 @@ installed="$(code --list-extensions)" || die "code --list-extensions failed"
 
 # The CLI exits 1 ("Profile not found") for a profile VS Code never registered. That's
 # normal on a machine that hasn't applied yet or has a profile pending, so this loop skips
-# those profiles and leaves their files alone. It lists the profile an action names either
-# way, because the wrapper only passes one after `code ... --profile` succeeded.
+# those profiles and leaves their files alone, including the one --profile names. Without
+# jq there's no registration to read, so only the named profile gets listed, because the
+# wrapper passes one only after `code ... --profile` succeeded.
 p_names=()
 p_installed=()
 have_jq=""
@@ -239,27 +240,33 @@ for f in "$PROFILE_DIR"/*.txt; do
 	name="${f##*/}"
 	name="${name%.txt}"
 	profile_tracked "$name" || continue
-	if [ "$name" != "$profile" ]; then
-		if [ -z "$have_jq" ]; then
-			if [ -z "$jq_noted" ]; then
-				echo "vscode-extensions-capture: jq not found, profiles skipped" >&2
-				jq_noted=1
-			fi
-			continue
+	if [ -n "$have_jq" ]; then
+		rc=1
+		if [ -f "$STORAGE" ]; then
+			rc=0
+			jq -e --arg n "$name" '(.userDataProfiles // []) | any(.name == $n)' "$STORAGE" \
+				>/dev/null 2>&1 || rc=$?
 		fi
-		[ -f "$STORAGE" ] || continue
-		rc=0
-		jq -e --arg n "$name" '(.userDataProfiles // []) | any(.name == $n)' "$STORAGE" \
-			>/dev/null 2>&1 || rc=$?
 		if [ "$rc" -gt 1 ]; then
 			echo "vscode-extensions-capture: cannot read $STORAGE, profile $name skipped" >&2
 		fi
-		[ "$rc" -eq 0 ] || continue
+		if [ "$rc" -ne 0 ]; then
+			if [ "$name" = "$profile" ]; then
+				echo "vscode-extensions-capture: profile $name is not registered on this machine, nothing recorded" >&2
+			fi
+			continue
+		fi
+	elif [ "$name" != "$profile" ]; then
+		if [ -z "$jq_noted" ]; then
+			echo "vscode-extensions-capture: jq not found, profiles skipped" >&2
+			jq_noted=1
+		fi
+		continue
 	fi
-	one="$(code --list-extensions --profile "$name")" ||
+	listed="$(code --list-extensions --profile "$name")" ||
 		die "code --list-extensions --profile $name failed"
 	p_names+=("$name")
-	p_installed+=("$one")
+	p_installed+=("$listed")
 done
 
 acquire_lock
@@ -272,10 +279,11 @@ p_removed=()
 i=0
 while [ "$i" -lt "${#p_names[@]}" ]; do
 	name="${p_names[$i]}"
-	one="$(ids_of "$PROFILE_DIR/$name.txt")" || die "cannot read $PROFILE_DIR/$name.txt"
-	p_lists+=("$one")
-	one="$(ids_of "$PROFILE_DIR/$name-removed.txt")" || die "cannot read $PROFILE_DIR/$name-removed.txt"
-	p_removed+=("$one")
+	tracked_ids="$(ids_of "$PROFILE_DIR/$name.txt")" || die "cannot read $PROFILE_DIR/$name.txt"
+	p_lists+=("$tracked_ids")
+	tombstoned_ids="$(ids_of "$PROFILE_DIR/$name-removed.txt")" ||
+		die "cannot read $PROFILE_DIR/$name-removed.txt"
+	p_removed+=("$tombstoned_ids")
 	i=$((i + 1))
 done
 
@@ -348,15 +356,15 @@ while [ "$i" -lt "${#p_names[@]}" ]; do
 	fi
 	premoved="$(printf '%s\n' "$premoved" | normalize)"
 	p_removed[$i]="$premoved"
-	extra="$(printf '%s\n' "${p_installed[$i]}" | without "$removed_ids")" ||
+	installed_kept="$(printf '%s\n' "${p_installed[$i]}" | without "$removed_ids")" ||
 		die "cannot drop default removed ids from profile $name's installed set"
-	one="$(
+	profile_merged="$(
 		{
 			printf '%s\n' "$plist"
-			printf '%s\n' "$extra"
+			printf '%s\n' "$installed_kept"
 		} | normalize | without "$merged" | without "$premoved"
 	)" || die "cannot merge $PROFILE_DIR/$name.txt"
-	p_new+=("$one")
+	p_new+=("$profile_merged")
 	p_saves+=("$psave")
 	i=$((i + 1))
 done

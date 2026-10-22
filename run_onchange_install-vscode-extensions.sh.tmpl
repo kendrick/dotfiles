@@ -23,6 +23,10 @@
 {{- $pending := joinPath .chezmoi.homeDir ".local/state/dotfiles/vscode-profiles-pending" }}
 {{- if stat $pending }}
 # pending profiles: {{ include $pending | trim }} (VS Code running at render: {{ output "sh" "-c" "pgrep -x Code >/dev/null && echo yes || echo no" | trim }})
+{{- /* A profile also waits when storage.json couldn't be read or written.
+       Repairing that file has to change these bytes too, or a second failed
+       run renders the same lines and the repair never gets a rerun. */}}
+# storage.json usable at render: {{ output "sh" "-c" "if [ -e \"$1\" ]; then jq empty \"$1\" >/dev/null 2>&1 && [ -w \"$1\" ]; fi && echo yes || echo no" "sh" (joinPath .chezmoi.homeDir "Library/Application Support/Code/User/globalStorage/storage.json") | trim }}
 {{- end }}
 #
 # Extensions are apps, and teardown leaves apps alone.
@@ -167,6 +171,8 @@ EXTEOF
 # the jq warning settles on its own row the way the no-CLI skip above does.
 ready=()
 pending=()
+waiting=()
+unregistrable=()
 check_profiles=1
 if [ "${#profiles[@]}" -gt 0 ] && ! command -v jq &>/dev/null; then
   check_profiles=0
@@ -179,10 +185,15 @@ if [ "$check_profiles" -eq 1 ]; then
       ready+=("$p")
     elif pgrep -x Code >/dev/null 2>&1; then
       pending+=("$p")
+      waiting+=("$p")
     elif register_profile "$p"; then
       ready+=("$p")
     else
+      # Pending as well as failed: the marker is the only thing that makes a
+      # later apply rerun this script once storage.json is fixed.
       failed+=("profile $p")
+      pending+=("$p")
+      unregistrable+=("$p")
     fi
   done
 fi
@@ -230,7 +241,12 @@ fi
 # below stays 0.
 if [ "${#pending[@]}" -gt 0 ]; then
   step_warn "vscode ext" "${#pending[@]} profiles pending"
-  echo "Quit VS Code, then run 'chezmoi apply' again to create: ${pending[*]}"
+  if [ "${#waiting[@]}" -gt 0 ]; then
+    echo "Quit VS Code, then run 'chezmoi apply' again to create: ${waiting[*]}"
+  fi
+  if [ "${#unregistrable[@]}" -gt 0 ]; then
+    echo "Couldn't register these with VS Code (the errors are above). Fix what they name, then run 'chezmoi apply' again to create: ${unregistrable[*]}"
+  fi
 fi
 
 # Named the failures and still succeeded, on purpose: a stale extension id is not a reason

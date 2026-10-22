@@ -736,6 +736,53 @@ vscode_calls() {
 	[ ! -e "$(vscode_storage)" ]
 }
 
+@test "install-vscode-extensions: a profile that fails to register is named and left pending" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	vscode_write_storage '{bad'
+	stub_code_logging
+	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	for p in $(vscode_profiles); do
+		assert_contains "  profile $p"
+	done
+	assert_contains "Couldn't register these with VS Code"
+	assert_not_contains "Quit VS Code"
+	[ "$(cat "$(vscode_marker)")" = "$(vscode_profiles | tr '\n' ' ' | sed 's/ $//')" ]
+	! grep -q -- '--profile' "$CALL_LOG" || false
+}
+
+# Repairing storage.json changes nothing VS Code's open-or-closed state can
+# see, so this pins the second render line. Without it, apply 3 below renders
+# the same bytes as apply 2 and the fix never reruns.
+@test "install-vscode-extensions: real chezmoi apply registers a failed profile once storage.json is fixed" {
+	CHEZMOI="$(command -v chezmoi)"
+	v="$BATS_TEST_TMPDIR/venue"
+	vscode_venue "$v"
+	stub_code_logging
+	export HOME="$v/home"
+	vscode_write_storage '{bad'
+	n_default="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | grep -c '')"
+
+	PGREP_RC=1 vscode_apply "$v"
+	[ -e "$(vscode_marker)" ]
+	! grep -q -- '--profile' "$CALL_LOG" || false
+
+	# First render with the pending lines, so it reruns and fails the same way.
+	PGREP_RC=1 vscode_apply "$v"
+	[ -e "$(vscode_marker)" ]
+	after_broken="$(vscode_calls)"
+
+	vscode_write_storage '{}'
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(vscode_calls)" -gt "$after_broken" ]
+	for p in $(vscode_profiles); do
+		[ "$(jq -r --arg n "$p" '.userDataProfiles[] | select(.name == $n) | .location' "$(vscode_storage)")" = "chezmoi-$p" ]
+		n_own="$(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt" | grep -c '')"
+		[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq $((n_default + n_own)) ]
+	done
+	[ ! -e "$(vscode_marker)" ]
+}
+
 # ---- configure-raycast ----
 # `open` is a macOS built-in at /usr/bin/open, so PATH here is trimmed to /bin —
 # wide enough for the `cat`/`sleep` the script itself needs, narrow enough that

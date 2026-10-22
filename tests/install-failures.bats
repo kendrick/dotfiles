@@ -27,6 +27,12 @@ setup() {
 	mkdir -p "$HOME" "$STUBS"
 }
 
+# A case that chmods a dir to 555 and fails before restoring it would leave
+# bats unable to delete its tmpdir.
+teardown() {
+	chmod -R u+w "$BATS_TEST_TMPDIR" 2>/dev/null || :
+}
+
 # Rendered with the real $HOME regardless of what setup() just pointed $HOME at,
 # so the claude-plugins template's decrypt gate sees the key that's actually
 # there. That gate is why this file needs the real $HOME rather than just the
@@ -779,6 +785,34 @@ vscode_calls() {
 		[ "$(jq -r --arg n "$p" '.userDataProfiles[] | select(.name == $n) | .location' "$(vscode_storage)")" = "chezmoi-$p" ]
 		n_own="$(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt" | grep -c '')"
 		[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq $((n_default + n_own)) ]
+	done
+	[ ! -e "$(vscode_marker)" ]
+}
+
+@test "install-vscode-extensions: real chezmoi apply registers once the globalStorage dir is writable again" {
+	CHEZMOI="$(command -v chezmoi)"
+	v="$BATS_TEST_TMPDIR/venue"
+	vscode_venue "$v"
+	stub_code_logging
+	export HOME="$v/home"
+	vscode_write_storage '{}'
+	gsdir="$(dirname "$(vscode_storage)")"
+	chmod 555 "$gsdir"
+
+	PGREP_RC=1 vscode_apply "$v"
+	[ -e "$(vscode_marker)" ]
+	! grep -q -- '--profile' "$CALL_LOG" || false
+
+	# First render with the pending lines, so it reruns and fails the same way.
+	PGREP_RC=1 vscode_apply "$v"
+	[ -e "$(vscode_marker)" ]
+	after_broken="$(vscode_calls)"
+
+	chmod 755 "$gsdir"
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(vscode_calls)" -gt "$after_broken" ]
+	for p in $(vscode_profiles); do
+		[ "$(jq -r --arg n "$p" '.userDataProfiles[] | select(.name == $n) | .location' "$(vscode_storage)")" = "chezmoi-$p" ]
 	done
 	[ ! -e "$(vscode_marker)" ]
 }

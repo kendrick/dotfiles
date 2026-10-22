@@ -26,7 +26,8 @@
 {{- /* A profile also waits when storage.json couldn't be read or written.
        Repairing that file has to change these bytes too, or a second failed
        run renders the same lines and the repair never gets a rerun. */}}
-# storage.json usable at render: {{ output "sh" "-c" "if [ -e \"$1\" ]; then jq empty \"$1\" >/dev/null 2>&1 && [ -w \"$1\" ]; fi && echo yes || echo no" "sh" (joinPath .chezmoi.homeDir "Library/Application Support/Code/User/globalStorage/storage.json") | trim }}
+{{- /* The directory counts too: register_profile's temp file is made there. */}}
+# storage.json usable at render: {{ output "sh" "-c" "d=$(dirname \"$1\"); { [ ! -d \"$d\" ] || [ -w \"$d\" ]; } && if [ -e \"$1\" ]; then jq empty \"$1\" >/dev/null 2>&1 && [ -w \"$1\" ]; fi && echo yes || echo no" "sh" (joinPath .chezmoi.homeDir "Library/Application Support/Code/User/globalStorage/storage.json") | trim }}
 {{- end }}
 #
 # Extensions are apps, and teardown leaves apps alone.

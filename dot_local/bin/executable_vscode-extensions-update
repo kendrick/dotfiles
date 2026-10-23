@@ -52,13 +52,23 @@ mkdir -p "$(dirname "$STAMP")"
 # locations are VS Code's own (agents) and are not ours to update.
 STORAGE="$HOME/Library/Application Support/Code/User/globalStorage/storage.json"
 profiles=""
+roster_failed=0
+# Absent jq or an absent storage.json is deliberate default-only: a machine that never
+# launched VS Code or lacks jq has no roster to read. A file that exists but will not
+# parse is different, because stamping then would hide stale profiles for a week.
 if [ -f "$STORAGE" ] && command -v jq &>/dev/null; then
-	profiles="$(jq -r '(.userDataProfiles // [])[] | select((.location // "") | startswith("builtin/") | not) | .name' "$STORAGE" 2>/dev/null || true)"
+	if ! profiles="$(jq -r '(.userDataProfiles // [])[] | select((.location // "") | startswith("builtin/") | not) | .name' "$STORAGE" 2>/dev/null)"; then
+		profiles=""
+		roster_failed=1
+	fi
 fi
 
 # A failure must not stop the remaining profiles, or one broken profile would hide the
 # staleness of every one after it. The stamp waits until all of them have succeeded.
-failed=0
+failed=$roster_failed
+if [ "$roster_failed" -eq 1 ]; then
+	echo "    ! cannot read the profile list in storage.json"
+fi
 if ! code --update-extensions; then
 	echo "    ! code --update-extensions failed for default"
 	failed=1

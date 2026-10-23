@@ -172,6 +172,21 @@ STUB
 	[ ! -f "$STAMP" ]
 }
 
+@test "vscode-extensions-update: an unreadable storage.json updates the default but leaves the stamp" {
+	stub_code 0
+	local dir="$HOME/Library/Application Support/Code/User/globalStorage"
+	mkdir -p "$dir"
+	printf '{"userDataProfiles": [' >"$dir/storage.json"
+	age_stamp
+	local before
+	before="$(stat -f %m "$STAMP")"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER"
+	[ "$status" -eq 1 ]
+	assert_contains "cannot read the profile list in storage.json"
+	[ "$(wc -l <"$CALL_LOG" | tr -d ' ')" -eq 1 ]
+	[ "$(stat -f %m "$STAMP")" = "$before" ]
+}
+
 @test "vscode-extensions-update: an absent storage.json updates only the default and stamps" {
 	stub_code 0
 	PATH="$STUBS:/usr/bin:/bin" run bash "$HELPER"

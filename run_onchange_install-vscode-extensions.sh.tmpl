@@ -1,6 +1,34 @@
 #!/bin/bash
 # chezmoi:template:left-delimiter="{{" right-delimiter="}}"
 # VS Code extensions hash: {{ include "dot_config/vscode-extensions.txt" | sha256sum }}
+{{- /* The glob has to be absolute: a relative pattern matches nothing. The name
+       check guards the bash below, which uses each name bare as a case label
+       and an array word, and VS Code's own profile name. */}}
+{{- $profiles := list }}
+{{- range glob (joinPath .chezmoi.sourceDir "dot_config/vscode-profiles/*.txt") }}
+{{-   $base := base . }}
+{{-   if not (hasSuffix "-removed.txt" $base) }}
+{{-     if not (regexMatch "^[a-z0-9-]+\\.txt$" $base) }}
+{{-       fail (printf "dot_config/vscode-profiles/%s: profile list names must match ^[a-z0-9-]+\\.txt$" $base) }}
+{{-     end }}
+# VS Code profile {{ $base }} hash: {{ include . | sha256sum }}
+{{-     $profiles = append $profiles (trimSuffix ".txt" $base) }}
+{{-   end }}
+{{- end }}
+{{- /* run_onchange_ reruns only on a content change, so a profile left pending
+       because VS Code was open needs something here to change once it closes.
+       This line exists only while the marker does, and flips with pgrep.
+       chezmoi compares against the last run's bytes, so the line appearing
+       and then going away each cost one extra rerun. Accepted on #45. */}}
+{{- $pending := joinPath .chezmoi.homeDir ".local/state/dotfiles/vscode-profiles-pending" }}
+{{- if stat $pending }}
+# pending profiles: {{ include $pending | trim }} (VS Code running at render: {{ output "sh" "-c" "pgrep -x Code >/dev/null && echo yes || echo no" | trim }})
+{{- /* A profile also waits when storage.json couldn't be read or written.
+       Repairing that file has to change these bytes too, or a second failed
+       run renders the same lines and the repair never gets a rerun. */}}
+{{- /* The directory counts too: register_profile's temp file is made there. */}}
+# storage.json usable at render: {{ output "sh" "-c" "d=$(dirname \"$1\"); { [ ! -d \"$d\" ] || [ -w \"$d\" ]; } && if [ -e \"$1\" ]; then jq empty \"$1\" >/dev/null 2>&1 && [ -w \"$1\" ]; fi && echo yes || echo no" "sh" (joinPath .chezmoi.homeDir "Library/Application Support/Code/User/globalStorage/storage.json") | trim }}
+{{- end }}
 #
 # Extensions are apps, and teardown leaves apps alone.
 #
@@ -11,11 +39,16 @@ set -e
 
 {{ template "sh-ui.sh" . }}
 
+# Removed on every exit so a register_profile cut short by a signal can't leave
+# a half-written copy of VS Code's state beside the real one.
+reg_tmp=""
+
 # $? is read as the trap body's literal first statement. A finalizer that reads
 # it any later gets the status of whatever ran in between, and settles a failed
 # run as a success.
 ui_exit() {
   ui_st=$?
+  if [ -n "$reg_tmp" ]; then rm -f "$reg_tmp"; fi
   ui_finalize "$ui_st"
 }
 trap ui_exit EXIT
@@ -33,10 +66,75 @@ extensions=$(
 {{ include "dot_config/vscode-extensions.txt" }}
 EXTEOF
 )
-ext_total=$(printf '%s\n' "$extensions" | grep -cE '^[^#[:space:]]' || true)
-ext_done=0
 
-step_begin "vscode ext"
+# Each profile list holds only what that profile adds. The default list goes
+# into every profile as well, since it's what earns a place in every window.
+profiles=({{ range $profiles }} {{ . }}{{ end }} )
+
+profile_list() {
+  case "$1" in
+{{- range $profiles }}
+  {{ . }})
+    cat <<'EXTEOF'
+{{ include (joinPath $.chezmoi.sourceDir "dot_config/vscode-profiles" (printf "%s.txt" .)) }}
+EXTEOF
+    ;;
+{{- end }}
+  esac
+}
+
+count_ids() {
+  printf '%s\n' "$1" | grep -cE '^[^#[:space:]]' || true
+}
+
+STORAGE="$HOME/Library/Application Support/Code/User/globalStorage/storage.json"
+PROFILES_DIR="$HOME/Library/Application Support/Code/User/profiles"
+PENDING="$HOME/.local/state/dotfiles/vscode-profiles-pending"
+
+# The CLI never creates a profile: `--profile web` on an unknown name exits 1
+# with "Profile 'web' not found". VS Code's own profile registry is the
+# userDataProfiles array in storage.json, so that's what gets read and written.
+profile_registered() {
+  [ -f "$STORAGE" ] || return 1
+  jq -e --arg n "$1" '(.userDataProfiles // []) | any(.name == $n)' "$STORAGE" >/dev/null 2>&1
+}
+
+# Appends, never edits: an entry already registered under this name keeps its
+# location, whatever made it. useDefaultFlags shares settings and keybindings
+# with the default profile. extensions is left out because separate extensions
+# are the whole point. The empty-output check matters because jq reading a
+# zero-byte file exits 0 and prints nothing, and moving that into place would
+# wipe every window's state.
+register_profile() {
+  local name="$1" dir
+  dir=$(dirname "$STORAGE")
+  mkdir -p "$PROFILES_DIR/chezmoi-$name" "$dir" || return 1
+  reg_tmp=$(mktemp "$dir/.storage.json.XXXXXX") || {
+    reg_tmp=""
+    return 1
+  }
+  local filter='.userDataProfiles = ((.userDataProfiles // []) + [{
+      location: ("chezmoi-" + $n), name: $n,
+      useDefaultFlags: {settings: true, keybindings: true, snippets: true,
+        tasks: true, prompts: true, mcp: true, languageModels: true}}])'
+  # mktemp creates 0600, so the target's own mode goes back on after the move.
+  local ok=1 mode=644
+  if [ -f "$STORAGE" ]; then
+    mode=$(stat -f %Lp "$STORAGE") || ok=0
+    jq --arg n "$name" "$filter" "$STORAGE" >"$reg_tmp" || ok=0
+  else
+    jq -n --arg n "$name" "$filter" >"$reg_tmp" || ok=0
+  fi
+  if [ "$ok" -eq 1 ] && [ -s "$reg_tmp" ] && chmod "$mode" "$reg_tmp" && mv "$reg_tmp" "$STORAGE"; then
+    reg_tmp=""
+    return 0
+  fi
+  rm -f "$reg_tmp"
+  reg_tmp=""
+  return 1
+}
+
+ext_done=0
 
 # This loop used to end `2>/dev/null || true`, which threw away the exit code and the
 # reason together: an extension pulled from the marketplace read exactly like a machine
@@ -45,16 +143,75 @@ step_begin "vscode ext"
 # costs the 42 extensions queued behind it.
 failed=()
 
-while IFS= read -r ext; do
-  [[ "$ext" =~ ^#.*$ || -z "$ext" ]] && continue
-  ext_done=$((ext_done + 1))
-  step_tick "$ext_done" "$ext_total" "$ext"
-  if ! step_run code --install-extension "$ext" --force; then
-    failed+=("$ext")
-  fi
-done <<EXTEOF
-$extensions
+# An empty profile is the default, which takes no --profile at all. The flag
+# goes after --force so $2 stays the id for anything reading the call.
+install_into() {
+  local profile="$1" list="$2" ext
+  while IFS= read -r ext; do
+    case "$ext" in '#'* | '') continue ;; esac
+    ext_done=$((ext_done + 1))
+    step_tick "$ext_done" "$ext_total" "${profile:+$profile: }$ext"
+    if [ -z "$profile" ]; then
+      if ! step_run code --install-extension "$ext" --force; then
+        failed+=("$ext")
+      fi
+    elif ! step_run code --install-extension "$ext" --force --profile "$profile"; then
+      failed+=("$ext ($profile)")
+    fi
+  done <<EXTEOF
+$list
 EXTEOF
+}
+
+# A running VS Code overwrites storage.json with its own copy of the registry
+# and drops anything written behind its back, so a profile is only registered
+# while the app is closed. One already registered is safe to install into
+# either way. Registering happens here, before the count, so the denominator
+# only covers installs that will really be attempted. It also happens ahead of
+# step_begin, so no live line is up yet for jq's or mv's stderr to land on, and
+# the jq warning settles on its own row the way the no-CLI skip above does.
+ready=()
+pending=()
+waiting=()
+unregistrable=()
+check_profiles=1
+if [ "${#profiles[@]}" -gt 0 ] && ! command -v jq &>/dev/null; then
+  check_profiles=0
+  step_warn "vscode ext" "no jq, profiles skipped"
+fi
+
+if [ "$check_profiles" -eq 1 ]; then
+  for p in "${profiles[@]}"; do
+    if profile_registered "$p"; then
+      ready+=("$p")
+    elif pgrep -x Code >/dev/null 2>&1; then
+      pending+=("$p")
+      waiting+=("$p")
+    elif register_profile "$p"; then
+      ready+=("$p")
+    else
+      # Pending as well as failed: the marker is the only thing that makes a
+      # later apply rerun this script once storage.json is fixed.
+      failed+=("profile $p")
+      pending+=("$p")
+      unregistrable+=("$p")
+    fi
+  done
+fi
+
+default_count=$(count_ids "$extensions")
+ext_total=$default_count
+for p in "${ready[@]}"; do
+  ext_total=$((ext_total + default_count + $(count_ids "$(profile_list "$p")")))
+done
+
+step_begin "vscode ext"
+
+install_into "" "$extensions"
+for p in "${ready[@]}"; do
+  install_into "$p" "$extensions"
+  install_into "$p" "$(profile_list "$p")"
+done
 
 # The count test is not decoration. bash 3.2 expands an empty array to a single empty word,
 # so an unconditional summary would print a heading with a blank line under it on a clean
@@ -65,6 +222,32 @@ if [ "${#failed[@]}" -gt 0 ]; then
   printf '  %s\n' "${failed[@]}"
 else
   step_ok "vscode ext" "$ext_total installed"
+fi
+
+# The marker is what the pending header line renders from.
+# Written once the step has settled, so its one failure message can't share a
+# row with a frame. Left alone when jq is missing, since nothing was checked
+# and a pending profile from an earlier run is still pending.
+if [ "$check_profiles" -eq 1 ]; then
+  if [ "${#pending[@]}" -gt 0 ]; then
+    if ! { mkdir -p "$(dirname "$PENDING")" && printf '%s\n' "${pending[*]}" >"$PENDING"; }; then
+      warn "could not write $PENDING, so the next apply won't know to retry"
+    fi
+  else
+    rm -f "$PENDING"
+  fi
+fi
+
+# An open editor isn't a reason to fail an apply, so this warns and the exit
+# below stays 0.
+if [ "${#pending[@]}" -gt 0 ]; then
+  step_warn "vscode ext" "${#pending[@]} profiles pending"
+  if [ "${#waiting[@]}" -gt 0 ]; then
+    echo "Quit VS Code, then run 'chezmoi apply' again to create: ${waiting[*]}"
+  fi
+  if [ "${#unregistrable[@]}" -gt 0 ]; then
+    echo "Couldn't register these with VS Code (the errors are above). Fix what they name, then run 'chezmoi apply' again to create: ${unregistrable[*]}"
+  fi
 fi
 
 # Named the failures and still succeeded, on purpose: a stale extension id is not a reason

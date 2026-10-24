@@ -1,9 +1,27 @@
 # VS Code extensions removed on purpose. Capture never adds these back.
 # Remove a line (or run `code --install-extension <id>`) to allow it again.
 adamerose.markdown-wysiwyg
+bierner.markdown-mermaid
 bierner.markdown-preview-github-styles
+bradlc.vscode-tailwindcss
+crystal-spider.jsdoc-generator
+csstools.postcss
+dbaeumer.vscode-eslint
+esbenp.prettier-vscode
+formulahendry.auto-rename-tag
+jaspernorth.vscode-pigments
 ms-azuretools.vscode-docker
 ms-vscode-remote.remote-wsl
+ms-vscode.cpptools
 ms-vsliveshare.vsliveshare
+orta.vscode-jest
+platformio.platformio-ide
+radhakantaroy.vs-color-preview
+robole.markdown-snippets
+shd101wyy.markdown-preview-enhanced
+stylelint.vscode-stylelint
+unifiedjs.vscode-mdx
+vunguyentuan.vscode-css-variables
 webhint.vscode-webhint
 xyc.vscode-mdx-preview
+yzhang.markdown-all-in-one

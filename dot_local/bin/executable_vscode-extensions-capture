@@ -11,35 +11,56 @@
 #   vscode-extensions-capture --removed <id>   record <id> as removed, then merge
 #   vscode-extensions-capture --restored <id>  take <id> out of the removed list, then merge
 #
-# Prints `updated` on stdout when it changed the list, so callers need not diff the file.
+# `--profile <name>` points either action at a VS Code profile's own files under
+# dot_config/vscode-profiles/ instead of the default lists (#45). Every run merges the
+# default list and then every tracked profile VS Code has registered, whatever the action.
+#
+# Prints `updated` on stdout when it changed any list, so callers need not diff the files.
 
 set -euo pipefail
 
 usage() {
-	echo "usage: vscode-extensions-capture [--removed <id> | --restored <id>]"
+	echo "usage: vscode-extensions-capture [--profile <name>] [--removed <id> | --restored <id>]"
 }
 
 action=""
 target=""
-case "${1:-}" in
--h | --help)
-	usage
-	exit 0
-	;;
-"") ;;
---removed | --restored)
-	if [ $# -ne 2 ] || [ -z "$2" ]; then
+profile=""
+have_profile=""
+while [ $# -gt 0 ]; do
+	case "$1" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--removed | --restored)
+		if [ -n "$action" ] || [ $# -lt 2 ] || [ -z "$2" ]; then
+			usage >&2
+			exit 2
+		fi
+		action="$1"
+		target="$2"
+		shift 2
+		;;
+	--profile)
+		if [ -n "$have_profile" ] || [ $# -lt 2 ] || [ -z "$2" ]; then
+			usage >&2
+			exit 2
+		fi
+		have_profile=1
+		profile="$2"
+		shift 2
+		;;
+	*)
 		usage >&2
 		exit 2
-	fi
-	action="$1"
-	target="$2"
-	;;
-*)
-	usage >&2
-	exit 2
-	;;
-esac
+		;;
+	esac
+done
+# VS Code names its built-in profile Default, and `--profile Default` addresses it.
+if [ "$profile" = "Default" ]; then
+	profile=""
+fi
 
 if ! command -v code &>/dev/null; then
 	echo "code CLI not found, skipping"
@@ -54,6 +75,32 @@ LIST_HEADER='# VS Code extensions to install
 # Edit this list and run `chezmoi apply` to sync.'
 REMOVED_HEADER='# VS Code extensions removed on purpose. Capture never adds these back.
 # Remove a line (or run `code --install-extension <id>`) to allow it again.'
+PROFILE_DIR="$SRC/dot_config/vscode-profiles"
+STORAGE="$HOME/Library/Application Support/Code/User/globalStorage/storage.json"
+
+profile_list_header() {
+	printf '%s\n%s' "# VS Code extensions for the $1 profile, on top of vscode-extensions.txt" \
+		'# Edit this list and run `chezmoi apply` to sync.'
+}
+
+profile_removed_header() {
+	printf '%s\n%s' "# Extensions removed from the $1 VS Code profile on purpose. Capture never adds these back." \
+		"# Remove a line (or run \`code --install-extension <id> --profile $1\`) to allow it again."
+}
+
+# The name becomes a path, so only the shape the installer accepts counts. `<name>-removed`
+# is a profile's tombstone file, never a profile.
+profile_tracked() {
+	case "$1" in
+	"" | *-removed | *[!a-z0-9-]*) return 1 ;;
+	esac
+	[ -f "$PROFILE_DIR/$1.txt" ]
+}
+
+if [ -n "$profile" ] && ! profile_tracked "$profile"; then
+	echo "vscode-extensions-capture: profile $profile is not tracked, nothing recorded" >&2
+	exit 0
+fi
 
 # The lock lives outside the source tree because the next auto-sync runs `git add -A` there
 # and would commit it. It's per-user so two accounts on one Mac never contend.
@@ -161,30 +208,103 @@ write_if_changed() {
 	wrote=1
 }
 
+# grep exits 1 when it drops every line, which is an empty result. Anything above 1 is a
+# failed filter, and writing its empty output would wipe the list or every tombstone (#80).
+without() {
+	local drop="$1" rc=0
+	if [ -z "$drop" ]; then
+		cat
+		return 0
+	fi
+	grep -vixFf <(printf '%s\n' "$drop") || rc=$?
+	[ "$rc" -le 1 ]
+}
+
 # Runs before the lock because it's the slow call and reads neither file.
 installed="$(code --list-extensions)" || die "code --list-extensions failed"
 
+# The CLI exits 1 ("Profile not found") for a profile VS Code never registered. That's
+# normal on a machine that hasn't applied yet or has a profile pending, so this loop skips
+# those profiles and leaves their files alone, including the one --profile names. Without
+# jq there's no registration to read, so only the named profile gets listed, because the
+# wrapper passes one only after `code ... --profile` succeeded.
+p_names=()
+p_installed=()
+have_jq=""
+if command -v jq >/dev/null 2>&1; then
+	have_jq=1
+fi
+jq_noted=""
+for f in "$PROFILE_DIR"/*.txt; do
+	[ -f "$f" ] || continue
+	name="${f##*/}"
+	name="${name%.txt}"
+	profile_tracked "$name" || continue
+	if [ -n "$have_jq" ]; then
+		rc=1
+		if [ -f "$STORAGE" ]; then
+			rc=0
+			jq -e --arg n "$name" '(.userDataProfiles // []) | any(.name == $n)' "$STORAGE" \
+				>/dev/null 2>&1 || rc=$?
+		fi
+		if [ "$rc" -gt 1 ]; then
+			echo "vscode-extensions-capture: cannot read $STORAGE, profile $name skipped" >&2
+		fi
+		if [ "$rc" -ne 0 ]; then
+			if [ "$name" = "$profile" ]; then
+				echo "vscode-extensions-capture: profile $name is not registered on this machine, nothing recorded" >&2
+			fi
+			continue
+		fi
+	elif [ "$name" != "$profile" ]; then
+		if [ -z "$jq_noted" ]; then
+			echo "vscode-extensions-capture: jq not found, profiles skipped" >&2
+			jq_noted=1
+		fi
+		continue
+	fi
+	listed="$(code --list-extensions --profile "$name")" ||
+		die "code --list-extensions --profile $name failed"
+	p_names+=("$name")
+	p_installed+=("$listed")
+done
+
 acquire_lock
 
-# Every read happens before any write, so a failed read leaves both files as they were.
+# Every read happens before any write, so a failed read leaves every file as it was.
 list_ids="$(ids_of "$LIST")" || die "cannot read $LIST"
 removed_ids="$(ids_of "$REMOVED")" || die "cannot read $REMOVED"
+p_lists=()
+p_removed=()
+i=0
+while [ "$i" -lt "${#p_names[@]}" ]; do
+	name="${p_names[$i]}"
+	tracked_ids="$(ids_of "$PROFILE_DIR/$name.txt")" || die "cannot read $PROFILE_DIR/$name.txt"
+	p_lists+=("$tracked_ids")
+	tombstoned_ids="$(ids_of "$PROFILE_DIR/$name-removed.txt")" ||
+		die "cannot read $PROFILE_DIR/$name-removed.txt"
+	p_removed+=("$tombstoned_ids")
+	i=$((i + 1))
+done
 
 save_removed=""
-case "$action" in
---removed)
-	if ! printf '%s\n' "$removed_ids" | grep -qixF -- "$target"; then
-		removed_ids="$(printf '%s\n%s\n' "$removed_ids" "$target")"
-	fi
-	save_removed=1
-	;;
---restored)
-	removed_ids="$(printf '%s\n' "$removed_ids" | grep -vixF -- "$target" || true)"
-	if [ -f "$REMOVED" ]; then
+if [ -z "$profile" ]; then
+	case "$action" in
+	--removed)
+		if ! printf '%s\n' "$removed_ids" | grep -qixF -- "$target"; then
+			removed_ids="$(printf '%s\n%s\n' "$removed_ids" "$target")"
+		fi
 		save_removed=1
-	fi
-	;;
-esac
+		;;
+	--restored)
+		removed_ids="$(printf '%s\n' "$removed_ids" | without "$target")" ||
+			die "cannot drop $target from the ids in $REMOVED"
+		if [ -f "$REMOVED" ]; then
+			save_removed=1
+		fi
+		;;
+	esac
+fi
 removed_ids="$(printf '%s\n' "$removed_ids" | normalize)"
 
 # Removed wins: an id on both sides is dropped, so one machine that still has an extension
@@ -193,19 +313,82 @@ merged="$(
 	{
 		printf '%s\n' "$list_ids"
 		printf '%s\n' "$installed"
-	} | normalize | {
-		if [ -n "$removed_ids" ]; then
-			grep -vixFf <(printf '%s\n' "$removed_ids") || true
-		else
-			cat
-		fi
-	}
-)"
+	} | normalize | without "$removed_ids"
+)" || die "cannot drop removed ids from the merge of $LIST"
 
+# Profile merge (#45):
+#
+#   new = normalize( profile_list ∪ (installed_profile − default_removed) ) − default_merged − profile_removed
+#
+# The installer puts the whole default list into every profile, so without the
+# default_removed term every id uninstalled from the default would come back as an extra in
+# each profile. That term applies only to the installed half, because a tracked profile
+# list is explicit membership. That's how a moved id sits in web.txt while tombstoned in
+# the default.
+# Subtracting default_merged keeps an id from living in the default and a profile at once.
+p_new=()
+p_saves=()
+i=0
+while [ "$i" -lt "${#p_names[@]}" ]; do
+	name="${p_names[$i]}"
+	plist="${p_lists[$i]}"
+	premoved="${p_removed[$i]}"
+	psave=""
+	if [ "$name" = "$profile" ]; then
+		case "$action" in
+		--removed)
+			if ! printf '%s\n' "$premoved" | grep -qixF -- "$target"; then
+				premoved="$(printf '%s\n%s\n' "$premoved" "$target")"
+			fi
+			psave=1
+			;;
+		--restored)
+			premoved="$(printf '%s\n' "$premoved" | without "$target")" ||
+				die "cannot drop $target from the ids in $PROFILE_DIR/$name-removed.txt"
+			if [ -f "$PROFILE_DIR/$name-removed.txt" ]; then
+				psave=1
+			fi
+			# Add the id to the tracked list, because a default-tombstoned id never gets in
+			# through the installed half. An id in default_merged still loses below.
+			plist="$(printf '%s\n%s\n' "$plist" "$target")"
+			;;
+		esac
+	fi
+	premoved="$(printf '%s\n' "$premoved" | normalize)"
+	p_removed[$i]="$premoved"
+	installed_kept="$(printf '%s\n' "${p_installed[$i]}" | without "$removed_ids")" ||
+		die "cannot drop default removed ids from profile $name's installed set"
+	profile_merged="$(
+		{
+			printf '%s\n' "$plist"
+			printf '%s\n' "$installed_kept"
+		} | normalize | without "$merged" | without "$premoved"
+	)" || die "cannot merge $PROFILE_DIR/$name.txt"
+	p_new+=("$profile_merged")
+	p_saves+=("$psave")
+	i=$((i + 1))
+done
+
+changed=""
 if [ -n "$save_removed" ]; then
 	write_if_changed "$REMOVED" "$REMOVED_HEADER" "$removed_ids" || die "cannot write $REMOVED"
+	[ -z "$wrote" ] || changed=1
 fi
 write_if_changed "$LIST" "$LIST_HEADER" "$merged" || die "cannot write $LIST"
-if [ -n "$wrote" ]; then
+[ -z "$wrote" ] || changed=1
+i=0
+while [ "$i" -lt "${#p_names[@]}" ]; do
+	name="${p_names[$i]}"
+	if [ -n "${p_saves[$i]}" ]; then
+		write_if_changed "$PROFILE_DIR/$name-removed.txt" "$(profile_removed_header "$name")" \
+			"${p_removed[$i]}" || die "cannot write $PROFILE_DIR/$name-removed.txt"
+		[ -z "$wrote" ] || changed=1
+	fi
+	write_if_changed "$PROFILE_DIR/$name.txt" "$(profile_list_header "$name")" "${p_new[$i]}" ||
+		die "cannot write $PROFILE_DIR/$name.txt"
+	[ -z "$wrote" ] || changed=1
+	i=$((i + 1))
+done
+if [ -n "$changed" ]; then
 	echo updated
 fi

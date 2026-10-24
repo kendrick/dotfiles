@@ -192,7 +192,7 @@ if command -v code &>/dev/null; then
     echo "    vscode-extensions-capture not found, skipping"
   elif captured="$(vscode-extensions-capture)"; then
     if grep -qx updated <<<"$captured"; then
-      echo "    updated dot_config/vscode-extensions.txt"
+      echo "    updated VS Code extension lists"
     fi
   else
     echo "    ! extension capture failed, continuing"

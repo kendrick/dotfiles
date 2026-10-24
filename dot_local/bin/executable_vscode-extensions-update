@@ -1,5 +1,6 @@
 #!/bin/bash
-# vscode-extensions-update — bring VS Code extensions current, at most once a week.
+# vscode-extensions-update—bring VS Code extensions current in every profile, at most
+# once a week.
 #
 # VS Code's own extensions.autoUpdate is off, because in-app updates fire about four
 # seconds into launch and extract 200-550MB packages while the extension host is still
@@ -44,10 +45,45 @@ fi
 
 mkdir -p "$(dirname "$STAMP")"
 
-if code --update-extensions; then
+# Profiles are separate extension sets, and `code --update-extensions` touches only the
+# one it is told about, so the default alone would leave every other profile stale
+# (#45). Hand-made profiles are included on purpose: "every profile" is the contract.
+# The CLI cannot list profiles, so storage.json is the only roster. The `builtin/`
+# locations are VS Code's own (agents) and are not ours to update.
+STORAGE="$HOME/Library/Application Support/Code/User/globalStorage/storage.json"
+profiles=""
+roster_failed=0
+# Absent jq or an absent storage.json is deliberate default-only: a machine that never
+# launched VS Code or lacks jq has no roster to read. A file that exists but will not
+# parse is different, because stamping then would hide stale profiles for a week.
+if [ -f "$STORAGE" ] && command -v jq &>/dev/null; then
+	if ! profiles="$(jq -r '(.userDataProfiles // [])[] | select((.location // "") | startswith("builtin/") | not) | .name' "$STORAGE" 2>/dev/null)"; then
+		profiles=""
+		roster_failed=1
+	fi
+fi
+
+# A failure must not stop the remaining profiles, or one broken profile would hide the
+# staleness of every one after it. The stamp waits until all of them have succeeded.
+failed=$roster_failed
+if [ "$roster_failed" -eq 1 ]; then
+	echo "    ! cannot read the profile list in storage.json"
+fi
+if ! code --update-extensions; then
+	echo "    ! code --update-extensions failed for default"
+	failed=1
+fi
+while IFS= read -r name; do
+	[ -n "$name" ] || continue
+	if ! code --update-extensions --profile "$name"; then
+		echo "    ! code --update-extensions failed for $name"
+		failed=1
+	fi
+done <<<"$profiles"
+
+if [ "$failed" -eq 0 ]; then
 	touch "$STAMP"
 	echo "    extensions updated"
 else
-	echo "    ! code --update-extensions failed"
 	exit 1
 fi

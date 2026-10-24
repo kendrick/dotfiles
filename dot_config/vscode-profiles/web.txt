@@ -1,0 +1,12 @@
+# VS Code extensions for the web profile, on top of vscode-extensions.txt
+# Edit this list and run `chezmoi apply` to sync.
+bradlc.vscode-tailwindcss
+csstools.postcss
+dbaeumer.vscode-eslint
+esbenp.prettier-vscode
+formulahendry.auto-rename-tag
+jaspernorth.vscode-pigments
+radhakantaroy.vs-color-preview
+stylelint.vscode-stylelint
+unifiedjs.vscode-mdx
+vunguyentuan.vscode-css-variables

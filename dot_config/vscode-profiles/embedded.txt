@@ -1,0 +1,4 @@
+# VS Code extensions for the embedded profile, on top of vscode-extensions.txt
+# Edit this list and run `chezmoi apply` to sync.
+ms-vscode.cpptools
+platformio.platformio-ide

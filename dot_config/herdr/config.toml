@@ -78,6 +78,11 @@ rows = [
 ]
 # <<< herdr-radar sidebar block
 
+[keys]
+# ctrl+shift is the fallback for when alt doesn't arrive: without the kitty keyboard protocol it collapses to plain ctrl+j and never fires.
+next_agent = ["alt+j", "ctrl+shift+j"]
+previous_agent = ["alt+k", "ctrl+shift+k"]
+
 # >>> furkankly.zoetrope keys (managed: `setup-keys` writes this block, `remove-keys` deletes it)
 [[keys.command]]
 key = "prefix+shift+z"

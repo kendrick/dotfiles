@@ -8,11 +8,13 @@ Run human-facing prose through the `humanizer` skill before merge. By "human-fac
 
 "Run through" means formally invoke the skill via the Skill tool and follow its audit-and-revise loop ("draft → what makes this so obviously AI generated? → revise"). Informally applying the principles from memory is not enough — it consistently misses tells. Invoke the skill, edit the prose in place against its audit, then ship. Do this proactively, as a default step — not something you offer. Never hand me un-humanized prose with a "say the word and I'll run the skill" caveat attached; don't ask permission to humanize, just do it.
 
-My house rules live in `~/.claude/PROSE.md`. Whenever you invoke the humanizer, read that file fresh—never from a remembered summary—and apply its overrides on top of the audit. It amends what the skill says about lists, list dissolution, em dashes, and heading case, and it adds a plain-speech pass the skill doesn't have.
+My house rules live in `~/.claude/PROSE.md`. Whenever you invoke the humanizer, read that file fresh—never from a remembered summary—and apply its overrides on top of the audit. It amends what the skill says about lists, list dissolution, em dashes, and heading case, adds patterns the skill doesn't name yet, and adds a plain-speech pass.
 
 For developer-facing or technical prose — commit messages, code comments, PR descriptions, changesets, workshop briefs, and technical docs — the `technical-writing` skill owns the flow: invoke it and follow its dispatch and audit steps rather than reaching for the humanizer directly. Its Step 2 audit satisfies the humanizer mandate above; don't run the humanizer a second time on top. Where that skill names a role instead of a tool, resolve it here: the prose-audit skill is `humanizer`, and the house rules are `~/.claude/PROSE.md`. Messages to people still route to VOICE.md per the Voice section below, which replaces all of this.
 
 One em-dash mechanic holds everywhere, chat included, and it applies before any skill fires. Always chain em dashes directly to the text on either side—like this—and never wrap them in spaces. PROSE.md carries the fuller rule about when an em dash is worth keeping.
+
+In chat replies, where no skill runs, write only what you found, did, or need from me; deliberation stays in your thinking. State an uncontested point once, and argue it only after I push back.
 
 Never manually wrap lines in prose of any sort with hard returns. Let the terminal or git's own pager handle wrapping at display time. Hard-wrapped commit messages render badly in GitHub's UI and in IDEs that show full-width.
 

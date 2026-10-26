@@ -125,11 +125,17 @@ notify_fail() {
   notify "Dotfiles sync failed" "$1"
 }
 
-# Empty output means origin/HEAD is unset; callers must not guess a name.
+# Empty output means origin/HEAD is unset (or points outside refs/remotes/origin/);
+# callers must not guess a name. Reads the full ref because --short abbreviates against
+# local refs: a branch or tag named origin/main made it print remotes/origin/main, and
+# every run on main skipped (#69).
 default_branch() {
   local d
-  d="$(git -C "$SRC" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)"
-  printf '%s\n' "${d#origin/}"
+  d="$(git -C "$SRC" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null || true)"
+  case "$d" in
+    refs/remotes/origin/?*) printf '%s\n' "${d#refs/remotes/origin/}" ;;
+    *) printf '\n' ;;
+  esac
 }
 
 # A merge or rebase keeps HEAD attached on a feature branch, so without this the skip

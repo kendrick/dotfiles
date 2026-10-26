@@ -748,13 +748,41 @@ vscode_calls() {
 	stub_code_logging
 	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
-	for p in $(vscode_profiles); do
-		assert_contains "  profile $p"
-	done
+	assert_contains "run 'chezmoi apply' again to create: $(vscode_profiles | tr '\n' ' ' | sed 's/ $//')"
+	assert_not_contains "  profile "
 	assert_contains "Couldn't register these with VS Code"
 	assert_not_contains "Quit VS Code"
 	[ "$(cat "$(vscode_marker)")" = "$(vscode_profiles | tr '\n' ' ' | sed 's/ $//')" ]
 	! grep -q -- '--profile' "$CALL_LOG" || false
+}
+
+@test "install-vscode-extensions: when only registrations fail, the summary counts no refused extensions" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	total="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | wc -l | tr -d ' ')"
+	vscode_write_storage '{bad'
+	stub_code_logging
+	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_not_contains "refused"
+	assert_not_contains "could not install these extensions"
+	assert_contains "$total installed"
+	assert_contains "Couldn't register these with VS Code"
+}
+
+# Falsifier for the fix: a real refusal alongside failed registrations still counts, and
+# only the refused id is listed. Hiding the refused line whenever a registration fails, or
+# still counting the profiles, both fail here.
+@test "install-vscode-extensions: a refused id beside failed registrations counts alone" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	total="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | wc -l | tr -d ' ')"
+	id="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | head -1)"
+	vscode_write_storage '{bad'
+	stub_code_logging
+	FAIL_ID="$id" PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "1 of $total refused"
+	assert_contains "  $id"
+	assert_not_contains "  profile "
 }
 
 # Repairing storage.json changes nothing VS Code's open-or-closed state can

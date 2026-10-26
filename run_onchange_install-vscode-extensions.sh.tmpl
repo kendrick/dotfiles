@@ -190,9 +190,10 @@ if [ "$check_profiles" -eq 1 ]; then
     elif register_profile "$p"; then
       ready+=("$p")
     else
-      # Pending as well as failed: the marker is the only thing that makes a
-      # later apply rerun this script once storage.json is fixed.
-      failed+=("profile $p")
+      # Pending, not failed: the marker is the only thing that makes a later
+      # apply rerun this script once storage.json is fixed, and the "Couldn't
+      # register" message below names it. Keeping it out of failed leaves the
+      # refused count a count of extensions.
       pending+=("$p")
       unregistrable+=("$p")
     fi

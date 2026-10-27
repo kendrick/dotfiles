@@ -732,6 +732,50 @@ seed_off_default_since() {
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 1 ]
 }
 
+# #69: `symbolic-ref --short` abbreviates against local refs, so a branch or tag named
+# origin/main made the derived default come back as remotes/origin/main.
+@test "sync: a local branch named origin/main does not turn main into a skip" {
+	fresh_repo
+	git -C "$REPO" branch origin/main
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_not_contains "Skipping"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 2 ]
+}
+
+@test "sync: a local tag named origin/main does not turn main into a skip" {
+	fresh_repo
+	git -C "$REPO" tag origin/main
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_not_contains "Skipping"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 2 ]
+}
+
+# Falsifier: the derived branch keys on origin/HEAD's target alone, so a stray local
+# origin/main must not mask a real mismatch either.
+@test "sync: a local origin/main branch does not hide an origin/HEAD that names trunk" {
+	fresh_repo
+	git -C "$REPO" branch origin/main
+	git -C "$REPO" push -q origin main:trunk
+	git -C "$REPO" fetch -q origin
+	git -C "$REPO" remote set-head origin trunk
+	printf 'change\n' >"$REPO/change.txt"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "Skipping"
+	assert_contains "commits to trunk"
+	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 1 ]
+}
+
 @test "sync: first off-default skip records the time without notifying" {
 	fresh_repo
 	git -C "$REPO" checkout -q -b feature

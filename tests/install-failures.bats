@@ -780,7 +780,7 @@ vscode_calls() {
 @test "install-vscode-extensions: a refused id beside failed registrations counts alone" {
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
 	total="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | wc -l | tr -d ' ')"
-	id="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | head -1)"
+	id="$(first_extension)"
 	vscode_write_storage '{bad'
 	stub_code_logging
 	FAIL_ID="$id" PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"

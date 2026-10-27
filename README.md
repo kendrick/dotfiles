@@ -114,6 +114,21 @@ This repo's own `.claude/skills/` is separate: it holds the project-scoped worki
 
 </details>
 
+<details>
+<summary>How Remote Claude Containers Get the Rules</summary>
+
+A remote Claude Code container never runs chezmoi, so it starts without `~/.claude/CLAUDE.md` or the files `CLAUDE.md` tells agents to read. Two scripts under `scripts/` install them, and `.chezmoiignore` keeps both scripts out of `$HOME`.
+
+`scripts/env-setup.sh` writes `CLAUDE.md` and `DELEGATION.md` into `~/.claude`. When `~/.config/chezmoi/key.txt` holds a key and `age` is installed, it also decrypts `PROSE.md` and `VOICE.md`. Without a key, it adds a section to `CLAUDE.md` telling agents those two files aren't available. It always exits 0, so a failed fetch can't stall container startup. To use it, paste this line into a Claude Code environment's setup-script field:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/kendrick/dotfiles/main/scripts/env-setup.sh | bash
+```
+
+Run `scripts/remote-bootstrap.sh <skill-name>...` by hand when a container also needs skills. It runs `env-setup.sh`, then copies each named skill's whole folder from its source repo in the skills lockfile into `~/.claude/skills/`. It skips a skill that account sync already put under `~/.claude/skills/synced/`, and it exits 1 if anything failed.
+
+</details>
+
 ## Machine Roles
 
 chezmoi prompts for a role on first init. Role and email live in `~/.config/chezmoi/chezmoi.toml` and never hit the repo. The role still drives a few things directly—the auto-sync default, whether `awssso` gets deployed—but for packages it only picks a starting set of bundles.

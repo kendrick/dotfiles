@@ -873,7 +873,7 @@ write_taps() {
 	run_fix_answering y
 	[ "$status" -eq 0 ]
 	assert_contains "fixture-cask" "$(brew list --cask)"
-	# Whole-line: the trust call logs "trust --tap acme/fixture-tap", which holds the substring.
+	# -x because the logged "trust --tap acme/fixture-tap" line contains "tap acme/fixture-tap".
 	[ "$(grep -cx 'tap acme/fixture-tap' "$BREW_LOG")" -eq 0 ]
 }
 
@@ -888,7 +888,7 @@ write_taps() {
 	assert_contains "trust --tap acme/fixture-tap" "$(sed '/^install/q' "$BREW_LOG")"
 }
 
-# Falsifier: trusting every present tap, rather than every enabled one, would trust this.
+# Trusting every present tap instead of every enabled one would trust acme/other-tap here.
 @test "doctor --fix does not trust a present tap from a disabled bundle" {
 	stub_brew_state
 	write_typed_packages "cask:fixture-cask"

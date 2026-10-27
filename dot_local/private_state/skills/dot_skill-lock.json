@@ -178,9 +178,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "b4adbdd96428a1b0fb9d1ed66e527a5459b62972",
+      "skillFolderHash": "a3d67b2a94d21d09999977abbdfe776373498945",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-10-23T21:24:24.166Z"
+      "updatedAt": "2026-10-27T03:59:44.410Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -564,9 +564,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "technical-writing/SKILL.md",
-      "skillFolderHash": "90b933275c3cc090cfe4a0b522e918d398525680",
+      "skillFolderHash": "08407750f7c8dc889c3fc43f0af3f82bda36edee",
       "installedAt": "2026-08-20T17:19:36.512Z",
-      "updatedAt": "2026-09-23T03:31:37.544Z"
+      "updatedAt": "2026-10-27T03:59:47.840Z"
     },
     "jd-audit": {
       "source": "kendrick/skills",
@@ -600,9 +600,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "5407fb5a5d4593ba6f79713d1fecaad7a49dbafe",
+      "skillFolderHash": "c08bd09cdf53ddd0475e91cb17114be8e38dc640",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-10-23T21:25:07.863Z"
+      "updatedAt": "2026-10-27T04:00:13.207Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
@@ -737,9 +737,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "1999e4c2d539b6633abbd55563ad6d8e86ba07a5",
+      "skillFolderHash": "25c6aac24dca06d5d9092f2f8cb0535bc2bc90a1",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-10-23T21:24:44.727Z"
+      "updatedAt": "2026-10-25T07:27:58.524Z"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",
@@ -755,9 +755,36 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-wave/SKILL.md",
-      "skillFolderHash": "40c2afd9652e12e84feb8565d146c41fce64ddd5",
+      "skillFolderHash": "f1ff27bd9e484f82dc6f25c2f8b29bd8aabb6e65",
       "installedAt": "2026-09-24T21:07:13.811Z",
-      "updatedAt": "2026-10-13T04:41:31.903Z"
+      "updatedAt": "2026-10-25T07:28:01.346Z"
+    },
+    "design-control-loop": {
+      "source": "humanlayer/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/humanlayer/skills.git",
+      "skillPath": "plugins/design-control-loop/skills/design-control-loop/SKILL.md",
+      "skillFolderHash": "a8a023f8f62a384a76297b31d9f844c5ad3adf95",
+      "installedAt": "2026-10-25T01:11:21.114Z",
+      "updatedAt": "2026-10-25T01:11:21.114Z"
+    },
+    "improve-claude-md": {
+      "source": "dexhorthy/slopfiles",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/dexhorthy/slopfiles.git",
+      "skillPath": "plugins/improve-claude-md/skills/improve-claude-md/SKILL.md",
+      "skillFolderHash": "742389d936458a62c303c5625232038788a9588f",
+      "installedAt": "2026-10-25T01:31:12.153Z",
+      "updatedAt": "2026-10-25T01:31:12.153Z"
+    },
+    "claude-md-improver": {
+      "source": "anthropics/claude-plugins-official",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/claude-plugins-official.git",
+      "skillPath": "plugins/claude-md-management/skills/claude-md-improver/SKILL.md",
+      "skillFolderHash": "7188018e6710998fbc3227fdacd1b2b6e0508c38",
+      "installedAt": "2026-10-25T01:31:39.474Z",
+      "updatedAt": "2026-10-25T01:31:39.474Z"
     }
   },
   "dismissed": {
@@ -769,11 +796,13 @@
     "codex",
     "cursor",
     "droid",
+    "fx",
     "gemini-cli",
     "github-copilot",
     "kilo",
     "kimi-code-cli",
     "opencode",
+    "pi",
     "warp",
     "zed",
     "claude-code"

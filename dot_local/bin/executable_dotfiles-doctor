@@ -404,8 +404,8 @@ if [[ "$fix" -eq 1 ]]; then
   new_taps=""
   while IFS= read -r tap; do
     [[ -n "$tap" ]] || continue
-    grep -qxF "$tap" <<<"$tapped" && continue
-    new_taps="$new_taps $tap"
+    # A present tap still needs trusting: one added before Homebrew 6 was never trusted (#79).
+    grep -qxF "$tap" <<<"$tapped" || new_taps="$new_taps $tap"
     case " $tap_list " in
     *" $tap "*) ;;
     *) tap_list="$tap_list $tap" ;;

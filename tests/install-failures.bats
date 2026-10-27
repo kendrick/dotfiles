@@ -373,6 +373,11 @@ vscode_ids() {
 	grep -vE '^\s*#|^\s*$' "$1"
 }
 
+# Space-joined, the form the pending marker and the "Couldn't register" line use.
+vscode_profiles_joined() {
+	vscode_profiles | tr '\n' ' ' | sed 's/ $//'
+}
+
 vscode_profiles() {
 	local f b
 	for f in "$SRC"/dot_config/vscode-profiles/*.txt; do
@@ -547,7 +552,7 @@ STUB
 	[ "$status" -eq 0 ]
 	! grep -q -- '--profile' "$CALL_LOG" || false
 	cmp -s "$before" "$(vscode_storage)"
-	[ "$(cat "$(vscode_marker)")" = "$(vscode_profiles | tr '\n' ' ' | sed 's/ $//')" ]
+	[ "$(cat "$(vscode_marker)")" = "$(vscode_profiles_joined)" ]
 	assert_contains "Quit VS Code, then run 'chezmoi apply' again to create:"
 }
 
@@ -748,13 +753,41 @@ vscode_calls() {
 	stub_code_logging
 	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
-	for p in $(vscode_profiles); do
-		assert_contains "  profile $p"
-	done
+	assert_contains "run 'chezmoi apply' again to create: $(vscode_profiles_joined)"
+	assert_not_contains "  profile "
 	assert_contains "Couldn't register these with VS Code"
 	assert_not_contains "Quit VS Code"
-	[ "$(cat "$(vscode_marker)")" = "$(vscode_profiles | tr '\n' ' ' | sed 's/ $//')" ]
+	[ "$(cat "$(vscode_marker)")" = "$(vscode_profiles_joined)" ]
 	! grep -q -- '--profile' "$CALL_LOG" || false
+}
+
+@test "install-vscode-extensions: when only registrations fail, the summary counts no refused extensions" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	total="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | wc -l | tr -d ' ')"
+	vscode_write_storage '{bad'
+	stub_code_logging
+	PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_not_contains "refused"
+	assert_not_contains "could not install these extensions"
+	assert_contains "$total installed"
+	assert_contains "Couldn't register these with VS Code"
+}
+
+# Falsifier for the fix: a real refusal beside failed registrations still
+# counts, and only that id is listed. Hiding the refused line whenever a
+# registration fails, or still counting the profiles, both fail here.
+@test "install-vscode-extensions: a refused id beside failed registrations counts alone" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	total="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | wc -l | tr -d ' ')"
+	id="$(first_extension)"
+	vscode_write_storage '{bad'
+	stub_code_logging
+	FAIL_ID="$id" PGREP_RC=1 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "1 of $total refused"
+	assert_contains "  $id"
+	assert_not_contains "  profile "
 }
 
 # Repairing storage.json changes nothing VS Code's open-or-closed state can

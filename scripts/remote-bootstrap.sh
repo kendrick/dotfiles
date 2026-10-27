@@ -1,11 +1,9 @@
 #!/bin/bash
-# Fuller bootstrap for a remote Claude Code container (#43), run by hand: env-setup.sh's rules,
-# then each named skill from the lockfile, for containers where account skill sync is missing.
+# Fuller bootstrap for a remote Claude Code container (#43), run by hand: env-setup.sh's rules, then each named skill from the lockfile, for containers where account skill sync is missing.
 #
 #   remote-bootstrap.sh <skill-name>...
 #
-# A person watches this one run, so it attempts every step, names each failure on stderr, and
-# exits 1 if anything failed.
+# A person watches this one run, so it attempts every step, names each failure on stderr, and exits 1 if anything failed.
 
 base="${DOTFILES_RAW_BASE:-https://raw.githubusercontent.com/kendrick/dotfiles/main}"
 export DOTFILES_RAW_BASE="$base"
@@ -20,8 +18,7 @@ fail() {
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/remote-bootstrap.XXXXXX")" || exit 1
 trap 'rm -rf "$tmp"' EXIT
 
-# Fetched and run, so env-setup.sh stays the only copy of that logic.
-# It always exits 0, so its stderr is the only sign that part of it failed.
+# Fetched and run, so env-setup.sh stays the only copy of that logic. It always exits 0, so its stderr is the only sign that part of it failed.
 if curl -fsSL "$base/scripts/env-setup.sh" -o "$tmp/env-setup.sh"; then
 	bash "$tmp/env-setup.sh" 2>"$tmp/env-setup.err"
 	if [ -s "$tmp/env-setup.err" ]; then
@@ -47,8 +44,7 @@ if ! curl -fsSL "$base/dot_local/private_state/skills/dot_skill-lock.json" -o "$
 	exit 1
 fi
 
-# One clone per source repo, however many skills share it. Lines are "<url> <dir>"; bash 3.2
-# has no associative arrays.
+# One clone per source repo, however many skills share it. Lines are "<url> <dir>"; bash 3.2 has no associative arrays.
 clones="$tmp/clones"
 : >"$clones"
 n=0
@@ -84,8 +80,7 @@ for name in "$@"; do
 		continue
 	fi
 
-	# Copy the whole folder so scripts/ and references/ arrive with SKILL.md. A skill at its
-	# repo's root would otherwise drag .git along.
+	# Copy the whole folder so scripts/ and references/ arrive with SKILL.md. A skill at its repo's root would otherwise drag .git along.
 	stage="$tmp/stage-$name"
 	mkdir -p "$skills" &&
 		cp -R "$(dirname "$repo/$path")" "$stage" &&

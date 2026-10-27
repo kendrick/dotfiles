@@ -1,9 +1,7 @@
 #!/bin/bash
-# Installs the global ~/.claude rules into a remote Claude Code container, where chezmoi never
-# runs (#43). Paste it into an environment's setup-script field, or pipe it from curl.
+# Installs the global ~/.claude rules into a remote Claude Code container, where chezmoi never runs (#43). Paste it into an environment's setup-script field, or pipe it from curl.
 #
-# The setup field holds one script, so this file sources nothing beside it. It always exits 0,
-# because a failed fetch must never wedge container startup.
+# The setup field holds one script, so this file sources nothing beside it. It always exits 0, because a failed fetch must never wedge container startup.
 
 base="${DOTFILES_RAW_BASE:-https://raw.githubusercontent.com/kendrick/dotfiles/main}"
 dest="$HOME/.claude"
@@ -42,8 +40,7 @@ if [ -s "$key" ] && command -v age >/dev/null 2>&1; then
 	fi
 fi
 
-# Each run rebuilds CLAUDE.md from the fetched text, so a second run writes the same bytes as
-# the first.
+# Each run rebuilds CLAUDE.md from the fetched text, so a second run writes the same bytes as the first.
 if fetch dot_claude/CLAUDE.md "$tmp/CLAUDE.src"; then
 	awk '$0 != "@RTK.md"' "$tmp/CLAUDE.src" >"$tmp/CLAUDE.md"
 	if [ "$have_rules" = 0 ]; then
@@ -55,6 +52,10 @@ This container has no age key, so `~/.claude/PROSE.md` and `~/.claude/VOICE.md` 
 MD
 	fi
 	mv -f "$tmp/CLAUDE.md" "$dest/CLAUDE.md"
+	# The amendment says PROSE.md and VOICE.md weren't installed, so copies left by an earlier keyed run have to go with it.
+	if [ "$have_rules" = 0 ]; then
+		rm -f "$dest/PROSE.md" "$dest/VOICE.md"
+	fi
 fi
 
 exit 0

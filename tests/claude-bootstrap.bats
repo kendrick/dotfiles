@@ -1,16 +1,12 @@
 #!/usr/bin/env bats
 #
-# scripts/env-setup.sh and scripts/remote-bootstrap.sh (#43): give a remote Claude container
-# the global ~/.claude/CLAUDE.md (and the files it cites) without chezmoi.
+# scripts/env-setup.sh and scripts/remote-bootstrap.sh (#43): give a remote Claude container the global ~/.claude/CLAUDE.md (and the files it cites) without chezmoi.
 #
-# Expected values come from the issue's acceptance criteria and the plan's Decisions, never from
-# reading the scripts. Both scripts fetch "$DOTFILES_RAW_BASE/<source path>" (Decision 1), so
-# every case points that at a file:// fixture laid out like the repo.
+# Expected values come from the issue's acceptance criteria and the plan's Decisions, never from reading the scripts. Both scripts fetch "$DOTFILES_RAW_BASE/<source path>" (Decision 1), so every case points that at a file:// fixture laid out like the repo.
 
 load 'helpers'
 
-# `run --separate-stderr` needs 1.5+. A plain `run cmd 2>file` merges stderr into $output and
-# leaves the file empty, so a stderr assertion against the file could never pass.
+# `run --separate-stderr` needs 1.5+. A plain `run cmd 2>file` merges stderr into $output and leaves the file empty, so a stderr assertion against the file could never pass.
 bats_require_minimum_version 1.5.0
 
 SRC="${BATS_TEST_DIRNAME}/.."
@@ -29,8 +25,7 @@ setup() {
 	export DOTFILES_RAW_BASE
 	mkdir -p "$FX/dot_claude" "$FX/scripts" "$FX/dot_local/private_state/skills" "$HOME"
 
-	# One extra @RTK.md mention that is not the whole line: only a line that is exactly
-	# @RTK.md goes, so this one has to survive.
+	# One extra @RTK.md mention that is not the whole line: only a line that is exactly @RTK.md goes, so this one has to survive.
 	cat >"$FX/dot_claude/CLAUDE.md" <<'MD'
 # Fixture rules
 
@@ -69,9 +64,7 @@ MD
 	fi
 }
 
-# Shadows age with a stub that logs its arguments and fails. Decision 3 says a 0-byte key is
-# no key at all, but a script that checks existence and then falls back on the failed decrypt
-# would still end up with the amendment, so the output files alone can't catch it. The log can.
+# Shadows age with a stub that logs its arguments and fails. Decision 3 says a 0-byte key is no key at all, but a script that checks existence and then falls back on the failed decrypt would still end up with the amendment, so the output files alone can't catch it. The log can.
 stub_age() {
 	AGE_LOG="$D/age-calls.log"
 	mkdir -p "$D/stubs"
@@ -97,8 +90,7 @@ install_key() {
 	cp "$FX_KEY" "$KEY"
 }
 
-# Byte comparison reported as a word, so the assert_* helpers (and the mutation check that
-# inverts them) can gate it.
+# Byte comparison reported as a word, so the assert_* helpers (and the mutation check that inverts them) can gate it.
 same_bytes() {
 	if cmp -s "$1" "$2"; then echo same; else echo differ; fi
 }
@@ -258,8 +250,7 @@ AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.c
 }
 
 # ---- 5. no usable key (criterion 5, Decisions 3-4) ----
-# The 0-byte case is the falsifier: a failed `op read` leaves an empty key.txt behind, and a
-# check by existence instead of size would try to decrypt with it.
+# The 0-byte case is the falsifier: a failed `op read` leaves an empty key.txt behind, and a check by existence instead of size would try to decrypt with it.
 
 @test "with no key file, env-setup.sh appends the amendment and installs neither PROSE.md nor VOICE.md" {
 	run run_env
@@ -303,6 +294,22 @@ AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.c
 	assert_contains "absent" "$(present "$HOME/.claude/PROSE.md")"
 	assert_contains "absent" "$(present "$HOME/.claude/VOICE.md")"
 	assert_not_contains "key.txt" "$(cat "$AGE_LOG" 2>/dev/null)"
+}
+
+# The amendment tells agents PROSE.md and VOICE.md weren't installed, so copies left by an earlier keyed run would make it false.
+@test "a run without the key after a keyed run removes PROSE.md and VOICE.md and adds the amendment once" {
+	require_age
+	install_key
+	run run_env
+	assert_contains "status=0" "status=$status"
+	assert_contains "present" "$(present "$HOME/.claude/PROSE.md")"
+	rm -f "$KEY"
+	run run_env
+	assert_contains "status=0" "status=$status"
+	assert_contains "absent" "$(present "$HOME/.claude/PROSE.md")"
+	assert_contains "absent" "$(present "$HOME/.claude/VOICE.md")"
+	assert_contains "count=1" "count=$(grep -cxF "$AMENDMENT_HEAD" "$HOME/.claude/CLAUDE.md")"
+	assert_contains "$AMENDMENT_BODY" "$(cat "$HOME/.claude/CLAUDE.md")"
 }
 
 # ---- 6. whole skill folders (criterion 6, Decision 7) ----

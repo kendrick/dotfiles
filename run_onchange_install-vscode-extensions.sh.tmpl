@@ -28,6 +28,9 @@
        run renders the same lines and the repair never gets a rerun. */}}
 {{- /* The directory counts too: register_profile's temp file is made there. */}}
 # storage.json usable at render: {{ output "sh" "-c" "d=$(dirname \"$1\"); { [ ! -d \"$d\" ] || [ -w \"$d\" ]; } && if [ -e \"$1\" ]; then jq empty \"$1\" >/dev/null 2>&1 && [ -w \"$1\" ]; fi && echo yes || echo no" "sh" (joinPath .chezmoi.homeDir "Library/Application Support/Code/User/globalStorage/storage.json") | trim }}
+{{- /* register_profile also makes its folder under Code/User/profiles, so
+       repairing that has to change these bytes for the same reason. */}}
+# Code/User/profiles usable at render: {{ output "sh" "-c" "[ ! -e \"$1\" ] || { [ -d \"$1\" ] && [ -w \"$1\" ]; } && echo yes || echo no" "sh" (joinPath .chezmoi.homeDir "Library/Application Support/Code/User/profiles") | trim }}
 {{- end }}
 #
 # Extensions are apps, and teardown leaves apps alone.
@@ -97,6 +100,13 @@ PENDING="$HOME/.local/state/dotfiles/vscode-profiles-pending"
 profile_registered() {
   [ -f "$STORAGE" ] || return 1
   jq -e --arg n "$1" '(.userDataProfiles // []) | any(.name == $n)' "$STORAGE" >/dev/null 2>&1
+}
+
+# A profile with useDefaultFlags.extensions uses the default profile's
+# extensions, so installing into it would refill the lean default (#45, #82).
+# It only reads the entry, because rewriting it is the user's call.
+profile_shares_extensions() {
+  jq -e --arg n "$1" '(.userDataProfiles // []) | any(.name == $n and .useDefaultFlags.extensions == true)' "$STORAGE" >/dev/null 2>&1
 }
 
 # Appends, never edits: an entry already registered under this name keeps its
@@ -174,6 +184,7 @@ ready=()
 pending=()
 waiting=()
 unregistrable=()
+shared=()
 check_profiles=1
 if [ "${#profiles[@]}" -gt 0 ] && ! command -v jq &>/dev/null; then
   check_profiles=0
@@ -183,7 +194,11 @@ fi
 if [ "$check_profiles" -eq 1 ]; then
   for p in "${profiles[@]}"; do
     if profile_registered "$p"; then
-      ready+=("$p")
+      if profile_shares_extensions "$p"; then
+        shared+=("$p")
+      else
+        ready+=("$p")
+      fi
     elif pgrep -x Code >/dev/null 2>&1; then
       pending+=("$p")
       waiting+=("$p")
@@ -249,6 +264,12 @@ if [ "${#pending[@]}" -gt 0 ]; then
   if [ "${#unregistrable[@]}" -gt 0 ]; then
     echo "Couldn't register these with VS Code (the errors are above). Fix what they name, then run 'chezmoi apply' again to create: ${unregistrable[*]}"
   fi
+fi
+
+if [ "${#shared[@]}" -gt 0 ]; then
+  step_warn "vscode ext" "${#shared[@]} profiles skipped"
+  echo "These VS Code profiles share the default profile's extensions, so installing into them would fill the default: ${shared[*]}"
+  echo "Turn off extension sharing for each in VS Code, or rename it."
 fi
 
 # Named the failures and still succeeded, on purpose: a stale extension id is not a reason

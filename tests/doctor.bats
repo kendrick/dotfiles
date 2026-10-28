@@ -90,6 +90,49 @@ homebrew_section() {
 	bash "$SCRIPT" 2>&1 | sed -n '/== Homebrew ==/,/^$/p'
 }
 
+vscode_section() {
+	bash "$SCRIPT" 2>&1 | sed -n '/== VS Code extensions ==/,/^$/p'
+}
+
+vscode_storage_file() {
+	echo "$HOME/Library/Application Support/Code/User/globalStorage/storage.json"
+}
+
+# Registers the named profiles the way the installer does.
+write_vscode_storage() {
+	local json='{"userDataProfiles":[' sep="" p
+	for p in "$@"; do
+		json="$json$sep{\"location\":\"chezmoi-$p\",\"name\":\"$p\"}"
+		sep=","
+	done
+	mkdir -p "$(dirname "$(vscode_storage_file)")"
+	printf '%s]}\n' "$json" >"$(vscode_storage_file)"
+}
+
+# Answers --list-extensions per profile from $FIXTURE/installed/<name>.txt
+# (default.txt with no --profile), and logs every call.
+stub_code_profiles() {
+	mkdir -p "$FIXTURE/installed" "$FIXTURE/dot_config/vscode-profiles"
+	export CODE_LOG="$BATS_TEST_TMPDIR/code.log"
+	: >"$CODE_LOG"
+	cat >"$STUBS/code" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >>"$CODE_LOG"
+p=default
+[ "${2:-}" = "--profile" ] && p="$3"
+[ -n "${FAIL_PROFILE:-}" ] && [ "$p" = "$FAIL_PROFILE" ] && exit 1
+cat "$FIXTURE/installed/$p.txt" 2>/dev/null
+exit 0
+STUB
+	chmod +x "$STUBS/code"
+	echo fixture.extension >"$FIXTURE/installed/default.txt"
+}
+
+# Lines of one profile's blocks: from its first heading to the next heading that isn't its own.
+profile_block() {
+	awk -v n="$1" '/^-- /{on = index($0, "-- " n " profile") == 1} on' <<<"$output"
+}
+
 app_store_section() {
 	bash "$SCRIPT" 2>&1 | sed -n '/== App Store ==/,/^$/p'
 }
@@ -965,4 +1008,121 @@ write_taps() {
 
 @test "doctor never emits an uninstall" {
 	assert_not_contains "uninstall" "$(cat "$SCRIPT")"
+}
+
+@test "vscode profile: an id only in the profile list and missing is named under it" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	echo fixture.extension >"$FIXTURE/installed/web.txt"
+	write_vscode_storage web
+	run vscode_section
+	assert_contains "-- web profile, in your dotfiles but not installed"
+	assert_contains "    web.only"
+}
+
+@test "vscode profile: another profile's id is not reported under this one" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	echo docs.only >"$FIXTURE/dot_config/vscode-profiles/docs.txt"
+	printf 'fixture.extension\nweb.only\n' >"$FIXTURE/installed/web.txt"
+	printf 'fixture.extension\ndocs.only\n' >"$FIXTURE/installed/docs.txt"
+	write_vscode_storage web docs
+	run vscode_section
+	block="$(profile_block docs)"
+	assert_contains "-- docs profile, here but not in your dotfiles" "$block"
+	assert_not_contains "web.only" "$block"
+	assert_not_contains "docs.only" "$block"
+}
+
+@test "vscode profile: a default-list id missing from the profile is named under it" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	echo web.only >"$FIXTURE/installed/web.txt"
+	write_vscode_storage web
+	run vscode_section
+	block="$(profile_block web)"
+	assert_contains "    fixture.extension" "$block"
+}
+
+@test "vscode profile: an installed id in no list is named under here-but-not-in-dotfiles" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	printf 'fixture.extension\nweb.only\nstray.ext\n' >"$FIXTURE/installed/web.txt"
+	write_vscode_storage web
+	run vscode_section
+	block="$(profile_block web)"
+	assert_contains "    stray.ext" "$block"
+	assert_not_contains "    web.only" "$block"
+}
+
+@test "vscode profile: an unregistered tracked profile is named not created yet, with no --profile call" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	write_vscode_storage
+	run vscode_section
+	assert_contains "-- web profile: not created yet"
+	run grep -c -- '--profile' "$CODE_LOG"
+	[ "$output" = "0" ]
+}
+
+@test "vscode profile: without jq the profile blocks give way to a skipped line and the default still runs" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	write_vscode_storage web
+	tools="$BATS_TEST_TMPDIR/nojq"
+	mkdir -p "$tools"
+	for t in /bin/* /usr/bin/*; do
+		case "${t##*/}" in jq) continue ;; esac
+		[ -e "$tools/${t##*/}" ] || ln -s "$t" "$tools/${t##*/}"
+	done
+	[ ! -e "$tools/jq" ]
+	PATH="$STUBS:$tools" run bash "$SCRIPT"
+	section="$(sed -n '/== VS Code extensions ==/,/^$/p' <<<"$output")"
+	assert_contains "-- profiles skipped: jq not found" "$section"
+	assert_contains "-- here but not in your dotfiles" "$section"
+	assert_contains "-- in your dotfiles but not installed (install by hand" "$section"
+	assert_not_contains "web profile" "$section"
+}
+
+@test "vscode profile: an unreadable storage.json is skipped with a note" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	mkdir -p "$(dirname "$(vscode_storage_file)")"
+	echo '{bad' >"$(vscode_storage_file)"
+	run vscode_section
+	assert_contains "-- profiles skipped: cannot read storage.json"
+	assert_not_contains "web profile"
+}
+
+@test "vscode profile: an absent storage.json is skipped with a note" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	run vscode_section
+	assert_contains "-- profiles skipped: no storage.json, VS Code has never run here"
+}
+
+@test "vscode profile: ids match case-insensitively" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	printf 'Fixture.Extension\nweb.only\n' >"$FIXTURE/installed/web.txt"
+	write_vscode_storage web
+	run vscode_section
+	block="$(profile_block web)"
+	assert_contains "-- web profile, here but not in your dotfiles" "$block"
+	assert_not_contains "    fixture.extension" "$block"
+	assert_not_contains "    web.only" "$block"
+}
+
+@test "vscode profile: a failing CLI call for one profile does not stop the next" {
+	stub_code_profiles
+	echo web.only >"$FIXTURE/dot_config/vscode-profiles/web.txt"
+	echo docs.only >"$FIXTURE/dot_config/vscode-profiles/docs.txt"
+	printf 'fixture.extension\nweb.only\n' >"$FIXTURE/installed/web.txt"
+	printf 'fixture.extension\ndocs.only\n' >"$FIXTURE/installed/docs.txt"
+	write_vscode_storage web docs
+	FAIL_PROFILE=web run bash "$SCRIPT"
+	[ "$status" -eq 0 ]
+	assert_contains "! code --list-extensions --profile web failed"
+	assert_contains "-- docs profile, here but not in your dotfiles"
+	assert_contains "-- docs profile, in your dotfiles but not installed"
 }

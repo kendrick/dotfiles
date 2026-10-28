@@ -782,6 +782,41 @@ vscode_calls() {
 	[ ! -e "$(vscode_storage)" ]
 }
 
+# Every tracked profile registered, with only $1 sharing the default's extensions.
+vscode_write_shared_storage() {
+	vscode_write_storage "$(vscode_profiles | jq -R . | jq -s --arg s "$1" \
+		'{userDataProfiles: map({location: ("chezmoi-" + .), name: ., useDefaultFlags: {extensions: (. == $s)}})}')"
+}
+
+# The skip only helps if turning sharing off reruns the installer, and
+# run_onchange_ reruns only when the rendered bytes change (#82 review).
+@test "install-vscode-extensions: real chezmoi apply installs a shared profile once its sharing is turned off" {
+	CHEZMOI="$(command -v chezmoi)"
+	v="$BATS_TEST_TMPDIR/venue"
+	vscode_venue "$v"
+	stub_code_logging
+	export HOME="$v/home"
+	p="$(vscode_profiles | head -1)"
+	n_default="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | grep -c '')"
+	n_own="$(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt" | grep -c '')"
+	vscode_write_shared_storage "$p"
+
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(cat "$(vscode_marker)")" = "$p" ]
+	# The marker appearing changes the bytes once, so settle that rerun first.
+	PGREP_RC=1 vscode_apply "$v"
+	PGREP_RC=1 vscode_apply "$v"
+	before="$(vscode_calls)"
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(vscode_calls)" -eq "$before" ]
+	[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq 0 ]
+
+	vscode_write_shared_storage ""
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq $((n_default + n_own)) ]
+	[ ! -e "$(vscode_marker)" ]
+}
+
 @test "install-vscode-extensions: a profile that fails to register is named and left pending" {
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
 	vscode_write_storage '{bad'

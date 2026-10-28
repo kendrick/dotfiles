@@ -31,6 +31,9 @@
 {{- /* register_profile also makes its folder under Code/User/profiles, so
        repairing that has to change these bytes for the same reason. */}}
 # Code/User/profiles usable at render: {{ output "sh" "-c" "[ ! -e \"$1\" ] || { [ -d \"$1\" ] && [ -w \"$1\" ]; } && echo yes || echo no" "sh" (joinPath .chezmoi.homeDir "Library/Application Support/Code/User/profiles") | trim }}
+{{- /* A profile skipped for sharing the default's extensions waits too, so
+       turning sharing off has to change these bytes as well. */}}
+# profiles sharing extensions at render: {{ output "sh" "-c" "jq -r --arg t \"$2\" '($t | split(\" \")) as $t | [(.userDataProfiles // [])[] | select(.useDefaultFlags.extensions == true and (.name as $n | $t | index($n))) | .name] | join(\" \")' \"$1\" 2>/dev/null || true" "sh" (joinPath .chezmoi.homeDir "Library/Application Support/Code/User/globalStorage/storage.json") (join " " $profiles) | trim }}
 {{- end }}
 #
 # Extensions are apps, and teardown leaves apps alone.
@@ -232,10 +235,11 @@ fi
 # The marker is what the pending header line renders from.
 # Written once the step has settled, so its one failure message can't share a
 # row with a frame. Left alone when jq is missing, since nothing was checked
-# and a pending profile from an earlier run is still pending.
+# and a pending profile from an earlier run is still pending. Shared profiles
+# go in too, since the marker is what keeps the sharing line rendering.
 if [ "$check_profiles" -eq 1 ]; then
-  if [ "${#pending[@]}" -gt 0 ]; then
-    if ! { mkdir -p "$(dirname "$PENDING")" && printf '%s\n' "${pending[*]}" >"$PENDING"; }; then
+  if [ "${#pending[@]}" -gt 0 ] || [ "${#shared[@]}" -gt 0 ]; then
+    if ! { mkdir -p "$(dirname "$PENDING")" && printf '%s\n' "${pending[*]} ${shared[*]}" | xargs >"$PENDING"; }; then
       warn "could not write $PENDING, so the next apply won't know to retry"
     fi
   else

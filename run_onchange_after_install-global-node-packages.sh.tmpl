@@ -17,14 +17,7 @@ set -e
 
 {{ template "sh-ui.sh" . }}
 
-# $? is read as the trap body's literal first statement. A finalizer that reads
-# it any later gets the status of whatever ran in between, and settles a failed
-# run as a success.
-ui_exit() {
-  ui_st=$?
-  ui_finalize "$ui_st"
-}
-trap ui_exit EXIT
+ui_trap_exit
 
 install_globals() {
   local manager="$1"
@@ -67,13 +60,7 @@ install_globals() {
 # stays off here because nvm is a shell function whose failures shouldn't abort apply,
 # and bash 3.2 wouldn't reliably suppress them inline anyway.
 set +e
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-/opt/homebrew}"
-if [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]; then
-  . "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
-elif [ -s "$NVM_DIR/nvm.sh" ]; then
-  . "$NVM_DIR/nvm.sh"
-fi
+ui_load_nvm
 if command -v nvm >/dev/null 2>&1; then
   nvm use default >/dev/null 2>&1   # activate the existing default, if any, before checking
   node_floor=24

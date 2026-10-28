@@ -75,7 +75,7 @@ if command -v git >/dev/null 2>&1; then
 	fi
 fi
 
-# The guarded surface's converted files (T-002..T-005, plus tests/macos-defaults.bats from #66, tests/prerequisites.bats from #59, tests/age-key.bats from #74, tests/vscode-profiles.bats and tests/vscode-extensions-capture.bats from #45, and tests/claude-bootstrap.bats from #43), and no others.
+# The guarded surface's converted files (T-002..T-005, plus tests/macos-defaults.bats from #66, tests/prerequisites.bats from #59, tests/age-key.bats from #74, tests/vscode-profiles.bats and tests/vscode-extensions-capture.bats from #45, tests/claude-bootstrap.bats from #43, and tests/node-globals.bats from #91), and no others.
 #
 # tests/install-failures.bats is excluded by name: its 30 assert_contains/
 # assert_not_contains call sites predate this job (#17) and, since T-001
@@ -86,7 +86,7 @@ fi
 # tests/lint.bats is excluded by name too: it is the reintroduction guard
 # added by this job (V-1), not a conversion target, and counting any helper
 # call it happens to make would inflate the per-file totals below.
-ALL_FILES="tests/apps.bats tests/doctor.bats tests/font.bats tests/font-add.bats tests/jsonc.bats tests/licensed-fonts.bats tests/macos-defaults.bats tests/packages.bats tests/prerequisites.bats tests/age-key.bats tests/vscode-profiles.bats tests/vscode-extensions-capture.bats tests/claude-bootstrap.bats"
+ALL_FILES="tests/apps.bats tests/doctor.bats tests/font.bats tests/font-add.bats tests/jsonc.bats tests/licensed-fonts.bats tests/macos-defaults.bats tests/packages.bats tests/prerequisites.bats tests/age-key.bats tests/vscode-profiles.bats tests/vscode-extensions-capture.bats tests/claude-bootstrap.bats tests/node-globals.bats"
 
 usage() {
 	echo "usage: tests/mutation-check.sh [FILE]" >&2

@@ -10,10 +10,7 @@
 
 {{ template "sh-ui.sh" . }}
 
-if ! command -v brew &>/dev/null; then
-  step_warn "packages" "Homebrew not found"
-  exit 0
-fi
+ui_require brew "packages" "Homebrew not found"
 
 brewfile=$(cat <<'BREWEOF'
 {{ template "Brewfile" . }}
@@ -273,14 +270,7 @@ handle_bundle_result() {
 # unset trap reference just expands empty, so rm -f no-ops on the happy path instead of
 # needing a second trap registration.
 bundle_log=$(mktemp -t dotfiles-brew-bundle)
-# $? first, before the removals: rm -f always returns 0, so a finalizer reading
-# it afterward settles a failed run as a success.
-ui_exit() {
-  ui_st=$?
-  rm -f "$bundle_log" "$retry_log"
-  ui_finalize "$ui_st"
-}
-trap ui_exit EXIT
+ui_trap_exit 'rm -f "$bundle_log" "$retry_log"'
 
 # The step line opens here and settles after brew exits. In between the
 # installer owns one live line, and only for as long as brew has nothing to say.

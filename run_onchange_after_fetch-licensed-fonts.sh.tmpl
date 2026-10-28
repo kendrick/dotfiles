@@ -52,14 +52,7 @@ items=$(echo "$manifest" | grep -vE '^\s*(#|$)' || true)
 workdir=$(mktemp -d)
 # Fires on failure too, so a fetch that dies partway doesn't leave licensed font
 # bytes sitting in /tmp.
-# $? first, before the removal: rm always returns 0, so a finalizer reading it
-# afterward would settle a failed fetch as a success.
-ui_exit() {
-  ui_st=$?
-  rm -rf "$workdir"
-  ui_finalize "$ui_st"
-}
-trap ui_exit EXIT
+ui_trap_exit 'rm -rf "$workdir"'
 
 mkdir -p "$FONT_DIR"
 installed=0

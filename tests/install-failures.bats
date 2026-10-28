@@ -504,6 +504,41 @@ STUB
 	[ "$(grep -vc -- '--profile' "$CALL_LOG")" -eq "$n_default" ]
 }
 
+@test "install-vscode-extensions: a same-named profile that shares the default's extensions gets no profile installs" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	p="$(vscode_profiles | head -1)"
+	vscode_write_storage "{\"userDataProfiles\":[{\"location\":\"x1\",\"name\":\"$p\",\"useDefaultFlags\":{\"extensions\":true}}]}"
+	before="$(jq -S . "$(vscode_storage)")"
+	stub_code_logging
+	# Running, so the other profiles stay pending and only $p is in play.
+	PGREP_RC=0 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq 0 ]
+	assert_contains "share the default profile's extensions"
+	assert_contains "would fill the default: $p"
+	assert_contains "Turn off extension sharing"
+	[ "$(jq -S . "$(vscode_storage)")" = "$before" ]
+}
+
+# Falsifier for the fix above: only a true extensions flag skips, so a fix
+# that skips every pre-existing profile fails both of these.
+@test "install-vscode-extensions: a same-named profile with extensions unshared or unset still gets both lists" {
+	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
+	p="$(vscode_profiles | head -1)"
+	n_default="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | grep -c '')"
+	n_own="$(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt" | grep -c '')"
+	for flags in '{"extensions":false}' '{"settings":true}'; do
+		vscode_write_storage "{\"userDataProfiles\":[{\"location\":\"x1\",\"name\":\"$p\",\"useDefaultFlags\":$flags}]}"
+		before="$(jq -S . "$(vscode_storage)")"
+		stub_code_logging
+		PGREP_RC=0 PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+		[ "$status" -eq 0 ]
+		[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq $((n_default + n_own)) ]
+		assert_not_contains "share the default profile's extensions"
+		[ "$(jq -S . "$(vscode_storage)")" = "$before" ]
+	done
+}
+
 @test "install-vscode-extensions: with VS Code closed, an unregistered profile is registered and installed" {
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
 	vscode_write_storage '{"userDataProfiles":[]}'
@@ -747,6 +782,41 @@ vscode_calls() {
 	[ ! -e "$(vscode_storage)" ]
 }
 
+# Every tracked profile registered, with only $1 sharing the default's extensions.
+vscode_write_shared_storage() {
+	vscode_write_storage "$(vscode_profiles | jq -R . | jq -s --arg s "$1" \
+		'{userDataProfiles: map({location: ("chezmoi-" + .), name: ., useDefaultFlags: {extensions: (. == $s)}})}')"
+}
+
+# The skip only helps if turning sharing off reruns the installer, and
+# run_onchange_ reruns only when the rendered bytes change (#82 review).
+@test "install-vscode-extensions: real chezmoi apply installs a shared profile once its sharing is turned off" {
+	CHEZMOI="$(command -v chezmoi)"
+	v="$BATS_TEST_TMPDIR/venue"
+	vscode_venue "$v"
+	stub_code_logging
+	export HOME="$v/home"
+	p="$(vscode_profiles | head -1)"
+	n_default="$(vscode_ids "$SRC/dot_config/vscode-extensions.txt" | grep -c '')"
+	n_own="$(vscode_ids "$SRC/dot_config/vscode-profiles/$p.txt" | grep -c '')"
+	vscode_write_shared_storage "$p"
+
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(cat "$(vscode_marker)")" = "$p" ]
+	# The marker appearing changes the bytes once, so settle that rerun first.
+	PGREP_RC=1 vscode_apply "$v"
+	PGREP_RC=1 vscode_apply "$v"
+	before="$(vscode_calls)"
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(vscode_calls)" -eq "$before" ]
+	[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq 0 ]
+
+	vscode_write_shared_storage ""
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(grep -c -- "--profile $p\$" "$CALL_LOG")" -eq $((n_default + n_own)) ]
+	[ ! -e "$(vscode_marker)" ]
+}
+
 @test "install-vscode-extensions: a profile that fails to register is named and left pending" {
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
 	vscode_write_storage '{bad'
@@ -842,6 +912,38 @@ vscode_calls() {
 	after_broken="$(vscode_calls)"
 
 	chmod 755 "$gsdir"
+	PGREP_RC=1 vscode_apply "$v"
+	[ "$(vscode_calls)" -gt "$after_broken" ]
+	for p in $(vscode_profiles); do
+		[ "$(jq -r --arg n "$p" '.userDataProfiles[] | select(.name == $n) | .location' "$(vscode_storage)")" = "chezmoi-$p" ]
+	done
+	[ ! -e "$(vscode_marker)" ]
+}
+
+# register_profile makes its folder under Code/User/profiles, which neither
+# storage.json line sees. Without the profiles line, apply 3 renders the same
+# bytes as apply 2 and the repair never reruns (#83).
+@test "install-vscode-extensions: real chezmoi apply registers once Code/User/profiles is a directory again" {
+	CHEZMOI="$(command -v chezmoi)"
+	v="$BATS_TEST_TMPDIR/venue"
+	vscode_venue "$v"
+	stub_code_logging
+	export HOME="$v/home"
+	vscode_write_storage '{}'
+	pdir="$HOME/Library/Application Support/Code/User/profiles"
+	: >"$pdir"
+
+	PGREP_RC=1 vscode_apply "$v"
+	[ -e "$(vscode_marker)" ]
+	! grep -q -- '--profile' "$CALL_LOG" || false
+
+	# First render with the pending lines, so it reruns and fails the same way.
+	PGREP_RC=1 vscode_apply "$v"
+	[ -e "$(vscode_marker)" ]
+	after_broken="$(vscode_calls)"
+
+	rm "$pdir"
+	mkdir "$pdir"
 	PGREP_RC=1 vscode_apply "$v"
 	[ "$(vscode_calls)" -gt "$after_broken" ]
 	for p in $(vscode_profiles); do

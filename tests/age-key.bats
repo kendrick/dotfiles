@@ -51,7 +51,21 @@ OP
 	printf '#!/bin/sh\nexit 0\n' >"$STUBS/open"
 	printf '#!/bin/sh\nexit 0\n' >"$STUBS/brew"
 	chmod +x "$STUBS"/*
-	export OP_LOG OP_ACCOUNTS OP_DETACHED_OK
+
+	# The Homebrew sh-ui.sh loads at include time. Its shellenv names the fake prefix too, so
+	# nothing that defaults to ${HOMEBREW_PREFIX:-/opt/homebrew} falls through to the real one.
+	FAKE_PREFIX="$D/prefix"
+	BREW_LOG="$D/brew.log"
+	mkdir -p "$FAKE_PREFIX/bin"
+	cat >"$FAKE_PREFIX/bin/brew" <<'BREW'
+#!/bin/sh
+echo "$*" >>"$BREW_LOG"
+[ "$1" = shellenv ] && echo "export HOMEBREW_PREFIX=\"$FAKE_PREFIX\""
+exit 0
+BREW
+	chmod +x "$FAKE_PREFIX/bin/brew"
+	DOTFILES_BREW_BIN="$FAKE_PREFIX/bin/brew"
+	export OP_LOG OP_ACCOUNTS OP_DETACHED_OK FAKE_PREFIX BREW_LOG DOTFILES_BREW_BIN
 
 	HOME="$HOME_FX" env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
 		chezmoi execute-template \
@@ -59,22 +73,24 @@ OP
 		--config "$(ui_fixture_config)" \
 		--destination "$D/dest" \
 		<"$(ui_src)/run_before_provision-age-key.sh.tmpl" >"$D/age-key.sh"
-	retarget_wait_and_brew "$D/age-key.sh"
+	retarget_wait "$D/age-key.sh"
 }
 
-# Rewrites the two fixed values in the rendered copy instead of adding env overrides to
-# production code. The brew probe is one brew_bin= assignment, which must stay overridable
-# only by rewriting the file. Fail here unless the key path lands under the temp dir and
-# exactly those two lines changed, or the cases would wait ten minutes or reach the real op.
-retarget_wait_and_brew() {
+# Every case ran the script, and the script loaded the fake Homebrew rather than the real
+# one. A case that reached /opt/homebrew would never call this stub.
+teardown() {
+	grep -qx shellenv "$BREW_LOG"
+}
+
+# Rewrites the fixed wait in the rendered copy instead of adding an env override to
+# production code. Fail here unless the key path lands under the temp dir and exactly that
+# line changed, or the cases would wait ten minutes or reach the real op.
+retarget_wait() {
 	grep -q "^KEY_PATH=\"$HOME_FX/.config/chezmoi/key.txt\"\$" "$1"
-	sed -e 's|^WAIT_TIMEOUT=600$|WAIT_TIMEOUT=2|' \
-		-e 's|^\( *\)brew_bin=/opt/homebrew/bin/brew$|\1brew_bin=/nonexistent/brew|' "$1" >"$1.adapted"
-	[ "$(diff "$1" "$1.adapted" | grep -c '^>')" -eq 2 ]
+	sed -e 's|^WAIT_TIMEOUT=600$|WAIT_TIMEOUT=2|' "$1" >"$1.adapted"
+	[ "$(diff "$1" "$1.adapted" | grep -c '^>')" -eq 1 ]
 	mv "$1.adapted" "$1"
 	[ "$(grep -c '^WAIT_TIMEOUT=2$' "$1")" -eq 1 ]
-	[ "$(grep -c '^ *brew_bin=/nonexistent/brew$' "$1")" -eq 1 ]
-	[ "$(grep -c '/opt/homebrew' "$1")" -eq 0 ]
 }
 
 run_attended() {
@@ -139,4 +155,14 @@ run_attended() {
 	[ "$status" -eq 0 ]
 	assert_contains "already provisioned"
 	[ ! -e "$OP_LOG" ]
+}
+
+# The guarantee the cases above lean on, checked on what the script executes rather than on
+# its text: the shared kit still names /opt/homebrew as its default, so a grep can't tell.
+@test "the cases load only the fake Homebrew and execute nothing under /opt/homebrew" {
+	printf '[]' >"$OP_ACCOUNTS"
+	env PATH="$STUBS:/usr/bin:/bin" /bin/bash -x "$D/age-key.sh" </dev/null >"$D/out" 2>"$D/trace" || true
+	assert_contains "brew_bin=$FAKE_PREFIX/bin/brew" "$(cat "$D/trace")"
+	assert_contains "$FAKE_PREFIX/bin/brew shellenv" "$(cat "$D/trace")"
+	assert_not_contains "/opt/homebrew" "$(cat "$D/trace")"
 }

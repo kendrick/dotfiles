@@ -472,6 +472,8 @@ step_fail() { _ui_close '✗' "$1" "${2:-}"; }
 # whatever the trap body's own first command returned—and
 # run_once_before_install-prerequisites' trap opens with `rm -f`, which always
 # returns 0, so a failing script would settle its line as a success.
+# ui_trap_exit below is the shared trap that gets this right. Prerequisites opts
+# out of it and keeps its own cleanup trap, with the same $?-first ordering.
 #
 # Every command is guarded, not just the last. Under `set -e` a trap aborts at
 # its first failing command, and the write to a vanished tty is exactly the
@@ -491,3 +493,47 @@ ui_finalize() {
   show_cursor || true
   return 0
 }
+
+# The standard EXIT trap. An optional argument is cleanup code, eval'd at exit
+# so it sees the variables' values then rather than now. Pass it single-quoted.
+ui_trap_exit() {
+  _UI_EXIT_CLEANUP="${1:-}"
+  trap _ui_on_exit EXIT
+}
+
+_ui_on_exit() {
+  ui_st=$?
+  # Guarded so a failing cleanup under `set -e` can't skip the finalizer.
+  [ -z "${_UI_EXIT_CLEANUP:-}" ] || eval "$_UI_EXIT_CLEANUP" || true
+  ui_finalize "$ui_st"
+}
+
+# Every run_ script is its own process, so nvm has to be sourced again in each one.
+# Callers do their own `nvm use`; what they want from it differs.
+ui_load_nvm() {
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-/opt/homebrew}"
+  if [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]; then
+    . "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
+  elif [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+  fi
+}
+
+# ui_require <cmd> <label> <message>: settle as skipped and exit 0 when cmd is
+# missing. Exit 0 because a missing tool must not abort the rest of the apply.
+ui_require() {
+  command -v "$1" &>/dev/null && return 0
+  step_warn "$2" "$3"
+  exit 0
+}
+
+# chezmoi starts each run_ script with the caller's PATH, which on a factory Mac has no
+# /opt/homebrew/bin even after prerequisites installs it, so every script loads Homebrew
+# itself (#92). DOTFILES_BREW_BIN is for tests, which must never reach the real one.
+# An `if` rather than `&&`, so a missing brew doesn't leave the kit's status at 1 for a
+# caller that sources it under `set -e`.
+brew_bin="${DOTFILES_BREW_BIN:-/opt/homebrew/bin/brew}"
+if [ -x "$brew_bin" ]; then
+  eval "$("$brew_bin" shellenv)"
+fi

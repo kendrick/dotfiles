@@ -52,6 +52,49 @@ if command -v code &>/dev/null; then
   # as done and no later apply goes back for the extension the marketplace pulled.
   echo "-- in your dotfiles but not installed (install by hand; apply won't retry until the list changes):"
   comm -13 <(echo "$installed") <(echo "$listed") | sed 's/^/    /'
+
+  # Profiles are separate extension sets since #45, so the default comparison above can't
+  # see drift inside them. The roster comes from storage.json because the CLI can't list
+  # profiles. Each profile should hold the default list plus its own.
+  tracked_profiles=()
+  for f in "$SRC"/dot_config/vscode-profiles/*.txt; do
+    [[ -e "$f" ]] || continue
+    n="$(basename "$f" .txt)"
+    [[ "$n" =~ ^[a-z0-9-]+$ && "$n" != *-removed ]] || continue
+    tracked_profiles+=("$n")
+  done
+  if [[ ${#tracked_profiles[@]} -gt 0 ]]; then
+    storage="$HOME/Library/Application Support/Code/User/globalStorage/storage.json"
+    roster=""
+    skip=""
+    if ! command -v jq &>/dev/null; then
+      skip="jq not found"
+    elif [[ ! -f "$storage" ]]; then
+      skip="no storage.json, VS Code has never run here"
+    elif ! roster="$(jq -r '(.userDataProfiles // [])[] | select((.location // "") | startswith("builtin/") | not) | .name' "$storage" 2>/dev/null)"; then
+      skip="cannot read storage.json"
+    fi
+    if [[ -n "$skip" ]]; then
+      echo "-- profiles skipped: $skip"
+    else
+      for name in "${tracked_profiles[@]}"; do
+        if ! grep -qxF -- "$name" <<<"$roster"; then
+          echo "-- $name profile: not created yet (quit VS Code, then run chezmoi apply)"
+          continue
+        fi
+        if ! p_installed="$(code --list-extensions --profile "$name" 2>/dev/null)"; then
+          echo "    ! code --list-extensions --profile $name failed"
+          continue
+        fi
+        p_installed="$(tr A-Z a-z <<<"$p_installed" | sed '/^[[:space:]]*$/d' | sort)"
+        p_listed="$({ cat "$list" "$SRC/dot_config/vscode-profiles/$name.txt"; } | grep -vE '^[[:space:]]*#|^[[:space:]]*$' | tr A-Z a-z | sort -u || true)"
+        echo "-- $name profile, here but not in your dotfiles (remove it, or capture with dotfiles-sync):"
+        comm -23 <(echo "$p_installed") <(echo "$p_listed") | sed 's/^/    /'
+        echo "-- $name profile, in your dotfiles but not installed (install with code --profile $name; apply won't retry until a list changes):"
+        comm -13 <(echo "$p_installed") <(echo "$p_listed") | sed 's/^/    /'
+      done
+    fi
+  fi
 else
   echo "    code CLI not found — skipping"
 fi

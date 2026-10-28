@@ -22,11 +22,7 @@ WANT="v0.3.4"
 
 {{ template "sh-ui.sh" . }}
 
-ui_exit() {
-  ui_st=$?
-  ui_finalize "$ui_st"
-}
-trap ui_exit EXIT
+ui_trap_exit
 
 RECEIPT="{{ joinPath .chezmoi.homeDir ".local" "state" "tode" "install.json" }}"
 BIN="{{ joinPath .chezmoi.homeDir ".local" "bin" "tode" }}"
@@ -34,10 +30,7 @@ BIN="{{ joinPath .chezmoi.homeDir ".local" "bin" "tode" }}"
 # Every other installer here guards its tool and skips when it is absent; this one reads the
 # receipt through jq, so it owes the same guard. Without it a missing jq empties both reads,
 # which puts the version below the floor forever and reinstalls on every apply.
-if ! command -v jq &>/dev/null; then
-  step_warn "tode" "jq not found"
-  exit 0
-fi
+ui_require jq "tode" "jq not found"
 
 # WANT is a floor, not an equality. The installer only ever serves upstream's current
 # stable, so the moment upstream ships a release this repo has not caught up to, an

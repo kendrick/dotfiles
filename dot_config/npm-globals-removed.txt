@@ -1,0 +1,2 @@
+# Global npm packages removed on purpose. Capture never adds these back.
+# Remove a line (or run `npm install -g <pkg>`) to allow it again.

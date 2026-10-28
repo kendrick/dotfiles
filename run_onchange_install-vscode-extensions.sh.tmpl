@@ -46,20 +46,9 @@ set -e
 # a half-written copy of VS Code's state beside the real one.
 reg_tmp=""
 
-# $? is read as the trap body's literal first statement. A finalizer that reads
-# it any later gets the status of whatever ran in between, and settles a failed
-# run as a success.
-ui_exit() {
-  ui_st=$?
-  if [ -n "$reg_tmp" ]; then rm -f "$reg_tmp"; fi
-  ui_finalize "$ui_st"
-}
-trap ui_exit EXIT
+ui_trap_exit 'if [ -n "$reg_tmp" ]; then rm -f "$reg_tmp"; fi'
 
-if ! command -v code &>/dev/null; then
-  step_warn "vscode ext" "VS Code CLI not found"
-  exit 0
-fi
+ui_require code "vscode ext" "VS Code CLI not found"
 
 # Read into a variable before the loop rather than straight off a heredoc: the
 # live line needs a denominator, and a heredoc redirect gives the loop no way

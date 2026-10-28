@@ -41,7 +41,9 @@ CURL
 	printf 'fail' >"$D/curl.mode"
 	CURL_MODE="$D/curl.mode"
 	CURL_BODY="$D/installer.sh"
-	export CURL_LOG CURL_MODE CURL_BODY BREW_LOG FAKE_PREFIX
+	# Where install.sh "lands" brew in these cases, so none of them probes the real Homebrew.
+	DOTFILES_BREW_BIN="$FAKE_PREFIX/bin/brew"
+	export CURL_LOG CURL_MODE CURL_BODY BREW_LOG FAKE_PREFIX DOTFILES_BREW_BIN
 
 	env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
 		chezmoi execute-template \
@@ -49,18 +51,6 @@ CURL
 		--config "$(ui_fixture_config)" \
 		--destination "$D/dest" \
 		<"$(ui_src)/run_once_before_install-prerequisites.sh.tmpl" >"$D/prereqs.sh"
-	retarget_brew_prefix "$D/prereqs.sh"
-}
-
-# The script probes a fixed brew_bin=/opt/homebrew/bin/brew, which is where install.sh really
-# lands and must not be overridable from the environment. Tests point that one assignment
-# at a throwaway prefix by rewriting the file instead. Fail here unless exactly one line
-# was rewritten, or every case would probe the developer's real Homebrew.
-retarget_brew_prefix() {
-	sed "s|^\( *\)brew_bin=/opt/homebrew/bin/brew\$|\1brew_bin=$FAKE_PREFIX/bin/brew|" "$1" >"$1.retargeted"
-	mv "$1.retargeted" "$1"
-	[ "$(grep -c "^ *brew_bin=$FAKE_PREFIX/bin/brew\$" "$1")" -eq 1 ]
-	[ "$(grep -c "^ *brew_bin=/opt/homebrew" "$1")" -eq 0 ]
 }
 
 # What the fake Homebrew installer does: nothing but exit, or land a brew stub that logs argv
@@ -155,7 +145,6 @@ run_prereqs() {
 	mkdir -p "$v/src/.chezmoitemplates" "$v/dest" "$v/home"
 	cp "$(ui_src)/.chezmoitemplates/sh-ui.sh" "$v/src/.chezmoitemplates/sh-ui.sh"
 	cp "$(ui_src)/run_once_before_install-prerequisites.sh.tmpl" "$v/src/"
-	retarget_brew_prefix "$v/src/run_once_before_install-prerequisites.sh.tmpl"
 	cp "$(ui_fixture_config)" "$v/chezmoi.toml"
 
 	chezmoi_apply() {

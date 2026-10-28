@@ -15,14 +15,7 @@
 
 {{ template "sh-ui.sh" . }}
 
-# $? is read as the trap body's literal first statement. A finalizer that reads
-# it any later gets the status of whatever ran in between, and settles a failed
-# run as a success.
-ui_exit() {
-  ui_st=$?
-  ui_finalize "$ui_st"
-}
-trap ui_exit EXIT
+ui_trap_exit
 
 KEY_PATH="{{ joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt" }}"
 OP_REF="op://Personal/chezmoi age key/key.txt"
@@ -34,10 +27,6 @@ if [ -s "$KEY_PATH" ] && grep -q 'AGE-SECRET-KEY-1' "$KEY_PATH" 2>/dev/null; the
 fi
 
 step_begin "age key"
-
-# brew lands on a non-login shell's PATH only once we add it (prerequisites installed it).
-brew_bin=/opt/homebrew/bin/brew
-[ -x "$brew_bin" ] && eval "$("$brew_bin" shellenv)"
 
 # Both casks, not just the CLI. `op` authenticates through the desktop app, so the CLI on
 # its own is a binary whose only trick is telling you to go install the app. The Brewfile

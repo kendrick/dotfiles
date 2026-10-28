@@ -24,19 +24,9 @@ set -e
 
 {{ template "sh-ui.sh" . }}
 
-# $? is read as the trap body's literal first statement. A finalizer that reads
-# it any later gets the status of whatever ran in between, and settles a failed
-# run as a success.
-ui_exit() {
-  ui_st=$?
-  ui_finalize "$ui_st"
-}
-trap ui_exit EXIT
+ui_trap_exit
 
-if ! command -v claude &>/dev/null; then
-  step_warn "claude plugins" "claude CLI not found"
-  exit 0
-fi
+ui_require claude "claude plugins" "claude CLI not found"
 
 plugin_done=0
 step_begin "claude plugins"

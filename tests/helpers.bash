@@ -46,6 +46,13 @@ assert_not_contains() {
 REAL_AGE="$(command -v age || true)"
 REAL_AGE_KEYGEN="$(command -v age-keygen || true)"
 
+# sh-ui.sh evals `brew shellenv` from DOTFILES_BREW_BIN, defaulting to the real
+# /opt/homebrew. Left at that default, every rendered script a test runs would
+# put real Homebrew ahead of its stub PATH and reach live brew, code, and npm.
+# Exported at load time so env -u, subshells, and chezmoi apply all inherit it;
+# a case that wants a Homebrew points it at a fake prefix of its own.
+export DOTFILES_BREW_BIN=/nonexistent/homebrew/bin/brew
+
 # This repo's own chezmoi.toml points [age].identity at
 # "$HOME/.config/chezmoi/key.txt" (confirmed against the real config on this
 # machine). Encrypted fixtures adopt that same path under the test's

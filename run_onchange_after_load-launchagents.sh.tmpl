@@ -15,14 +15,7 @@ set -e
 
 {{ template "sh-ui.sh" . }}
 
-# $? is read as the trap body's literal first statement. A finalizer that reads
-# it any later gets the status of whatever ran in between, and settles a failed
-# run as a success.
-ui_exit() {
-  ui_st=$?
-  ui_finalize "$ui_st"
-}
-trap ui_exit EXIT
+ui_trap_exit
 
 SCHEDULE="{{ $sched }}"
 PLIST="{{ .chezmoi.homeDir }}/Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist"

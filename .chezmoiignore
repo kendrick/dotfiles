@@ -32,6 +32,8 @@ tests
 .config/vscode-profiles/**
 .config/npm-globals.txt
 .config/pnpm-globals.txt
+.config/npm-globals-removed.txt
+.config/pnpm-globals-removed.txt
 .config/raycast-extensions.txt
 .config/macos-defaults.txt
 .config/macos-defaults.captured

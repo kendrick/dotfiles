@@ -186,57 +186,111 @@ function code() {
 }
 
 # `npm` / `pnpm` global installs change ~/.npm-globals or the pnpm global store.
-# When -g/--global appears alongside a mutating subcommand, regenerate the
-# tracked list of globals for whichever manager was invoked.
+# When -g/--global appears alongside a mutating subcommand, merge this machine's
+# globals into the tracked list. The list is shared across Macs, so it's
+# (list ∪ installed here) − removed, never a rewrite from one machine's view: a
+# package only another Mac has must survive (#91, same defect as #75 for VS Code).
+# `<manager>-globals-removed.txt` is the tombstone file: a global uninstall records
+# the package there so a Mac that still has it can't put it back.
 function _dotfiles_regen_node_globals() {
-	local manager="$1"  # npm or pnpm
-	local list="$(chezmoi source-path)/dot_config/${manager}-globals.txt"
-	local packages
-	packages=$(command "$manager" list -g --depth=0 --json 2>/dev/null | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-# pnpm wraps in a list; npm doesn't
-deps = data[0].get('dependencies', {}) if isinstance(data, list) else data.get('dependencies', {})
-# npm and corepack ship bundled with Node, so 'npm list -g' always reports them.
-# Tracking them means a fresh machine runs 'npm install -g npm', which self-updates
+	local manager="$1" action="$2"  # npm|pnpm; added|removed|update
+	shift 2
+	local src="$(chezmoi source-path)/dot_config"
+	local verb=install
+	[ "$manager" = pnpm ] && verb=add
+	local json
+	json=$(command "$manager" list -g --depth=0 --json 2>/dev/null) || return
+	# Version specs and tags aren't part of the name a tombstone matches on.
+	local -a names
+	local n
+	for n in "$@"; do
+		case "$n" in
+			-*) ;;
+			@*) n="${n#@}"; names+=("@${n%%@*}") ;;
+			*) names+=("${n%%@*}") ;;
+		esac
+	done
+	_NG_JSON="$json" python3 -c '
+import json, os, sys
+manager, action, list_path, removed_path, list_hdr, removed_hdr, *names = sys.argv[1:]
+data = json.loads(os.environ["_NG_JSON"])
+# pnpm wraps in a list; npm doesn'"'"'t
+deps = data[0].get("dependencies", {}) if isinstance(data, list) else data.get("dependencies", {})
+# npm and corepack ship bundled with Node, so "npm list -g" always reports them.
+# Tracking them means a fresh machine runs "npm install -g npm", which self-updates
 # in place, exits non-zero, and aborts chezmoi apply. Drop the plumbing; keep intent.
-bundled = {'npm', 'corepack', 'pnpm', 'yarn'}
-print('\n'.join(sorted(k for k in deps if k not in bundled)))
-" 2>/dev/null) || return
-	{
-		echo "# Global ${manager} packages to install"
-		echo "# Edit this list (or use \`${manager} ${manager:-install} -g <pkg>\`) and run \`chezmoi apply\` to sync."
-		echo "$packages"
-	} >"$list"
+bundled = {"npm", "corepack", "pnpm", "yarn"}
+
+def ids(path):
+    try:
+        with open(path) as f:
+            return {l.strip() for l in f if l.strip() and not l.lstrip().startswith("#")}
+    except FileNotFoundError:
+        return set()
+
+def write(path, header, body):
+    text = header + "\n" + "".join(x + "\n" for x in body)
+    try:
+        if open(path).read() == text:
+            return
+    except FileNotFoundError:
+        pass
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+removed = ids(removed_path)
+if action == "removed":
+    removed |= set(names)
+elif action == "added":
+    removed -= set(names)
+merged = sorted((ids(list_path) | set(deps)) - bundled - removed)
+write(list_path, list_hdr, merged)
+if action == "removed" or (action == "added" and os.path.exists(removed_path)):
+    write(removed_path, removed_hdr, sorted(removed))
+' "$manager" "$action" "$src/${manager}-globals.txt" "$src/${manager}-globals-removed.txt" \
+		"# Global ${manager} packages to install
+# Edit this list (or use \`${manager} ${verb} -g <pkg>\`) and run \`chezmoi apply\` to sync." \
+		"# Global ${manager} packages removed on purpose. Capture never adds these back.
+# Remove a line (or run \`${manager} ${verb} -g <pkg>\`) to allow it again." \
+		"${names[@]}" 2>/dev/null
+}
+
+# A failed command changed nothing worth recording. `update -g` with no names is
+# left alone: it moves versions, not membership.
+function _dotfiles_node_globals_hook() {
+	local manager="$1" rc="$2" sub="$3"
+	shift 3
+	[ "$rc" -eq 0 ] || return 0
+	case " $* " in
+		*" -g "*|*" --global "*) ;;
+		*) return 0 ;;
+	esac
+	local action
+	case "$sub" in
+		install|i|add) action=added ;;
+		uninstall|un|remove|rm) action=removed ;;
+		update|up|upgrade)
+			action=update
+			[ -n "${*:#-*}" ] || return 0
+			;;
+		*) return 0 ;;
+	esac
+	_dotfiles_regen_node_globals "$manager" "$action" "$@"
 }
 
 function npm() {
 	command npm "$@"
 	local rc=$?
-	case "$1" in
-		install|i|uninstall|un|remove|rm|update|up|upgrade)
-			case "$*" in
-				*" -g "*|*" --global"*|*" -g")
-					_dotfiles_regen_node_globals npm
-					;;
-			esac
-			;;
-	esac
+	_dotfiles_node_globals_hook npm $rc "$@"
 	return $rc
 }
 
 function pnpm() {
 	command pnpm "$@"
 	local rc=$?
-	case "$1" in
-		add|install|i|remove|rm|uninstall|un|update|up|upgrade)
-			case "$*" in
-				*" -g "*|*" --global"*|*" -g")
-					_dotfiles_regen_node_globals pnpm
-					;;
-			esac
-			;;
-	esac
+	_dotfiles_node_globals_hook pnpm $rc "$@"
 	return $rc
 }
 

@@ -1,4 +1,3 @@
 # Global npm packages to install
 # Edit this list (or use `npm install -g <pkg>`) and run `chezmoi apply` to sync.
-nanoid
 picmin

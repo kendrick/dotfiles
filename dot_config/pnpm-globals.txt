@@ -1,3 +1,7 @@
 # Global pnpm packages to install
-# Edit this list (or use `pnpm pnpm -g <pkg>`) and run `chezmoi apply` to sync.
+# Edit this list (or use `pnpm add -g <pkg>`) and run `chezmoi apply` to sync.
+@pnp/cli-microsoft365
+@tobilu/qmd
+commitizen
+cz-conventional-changelog
 nanoid

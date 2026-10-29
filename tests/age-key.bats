@@ -19,6 +19,7 @@ setup() {
 	OP_LOG="$D/op.log"
 	OP_ACCOUNTS="$D/accounts.json"
 	OP_DETACHED_OK="$D/detached-ok"
+	OP_SIGNED_OUT="$D/signed-out"
 	mkdir -p "$STUBS" "$HOME_FX"
 	printf '[]' >"$OP_ACCOUNTS"
 
@@ -30,6 +31,11 @@ case "$1" in
 account) cat "$OP_ACCOUNTS" ;;
 read)
 	if [ -t 0 ]; then echo "read tty=yes" >>"$OP_LOG"; else echo "read tty=no" >>"$OP_LOG"; fi
+	# Listed, but added with `op account add` and never signed in: fails at once, no prompt.
+	if [ -e "$OP_SIGNED_OUT" ]; then
+		echo "[ERROR] account is not signed in" >&2
+		exit 1
+	fi
 	if grep -q '"url"' "$OP_ACCOUNTS"; then
 		echo "AGE-SECRET-KEY-1FIXTURE"
 		exit 0
@@ -65,7 +71,7 @@ exit 0
 BREW
 	chmod +x "$FAKE_PREFIX/bin/brew"
 	DOTFILES_BREW_BIN="$FAKE_PREFIX/bin/brew"
-	export OP_LOG OP_ACCOUNTS OP_DETACHED_OK FAKE_PREFIX BREW_LOG DOTFILES_BREW_BIN
+	export OP_LOG OP_ACCOUNTS OP_DETACHED_OK OP_SIGNED_OUT FAKE_PREFIX BREW_LOG DOTFILES_BREW_BIN
 
 	HOME="$HOME_FX" env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
 		chezmoi execute-template \
@@ -133,6 +139,17 @@ run_attended() {
 	assert_contains "fetched from 1Password" "$ATT_OUT"
 	assert_contains "AGE-SECRET-KEY-1FIXTURE" "$(cat "$KEY")"
 	assert_contains "read tty=yes" "$(cat "$OP_LOG")"
+}
+
+@test "attended, listed but signed out: the guidance names op signin" {
+	printf '[{"url":"my.1password.com"}]' >"$OP_ACCOUNTS"
+	: >"$OP_SIGNED_OUT"
+	run_attended
+	[ "$ATT_STATUS" -ne 199 ]
+	assert_contains "age key          1Password would not ans" "$ATT_OUT"
+	assert_contains 'Without the integration, sign in first: eval "$(op signin)"' "$ATT_OUT"
+	assert_contains "op read \"op://Personal/chezmoi age key/key.txt\" > \"$KEY\"" "$ATT_OUT"
+	[ ! -e "$KEY" ]
 }
 
 @test "non-interactive, not ready: settles failed without a tty read" {

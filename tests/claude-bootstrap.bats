@@ -172,6 +172,55 @@ AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.c
 	assert_contains "same" "$(same_bytes "$HOME/.claude/CLAUDE.md" "$D/seeded.md")"
 }
 
+@test "ENV_SETUP_STRICT=1 makes env-setup.sh exit 1 on a failed fetch" {
+	DOTFILES_RAW_BASE="file://$D/does-not-exist"
+	export DOTFILES_RAW_BASE
+	run --separate-stderr env ENV_SETUP_STRICT=1 bash "$SRC/scripts/env-setup.sh"
+	assert_contains "status=1" "status=$status"
+	assert_contains "CLAUDE.md" "$stderr"
+}
+
+@test "ENV_SETUP_STRICT=1 leaves a clean env-setup.sh run at exit 0" {
+	run env ENV_SETUP_STRICT=1 bash "$SRC/scripts/env-setup.sh"
+	assert_contains "status=0" "status=$status"
+}
+
+# A fetch that works but an install that doesn't is still a failure: mv can't replace a non-empty directory.
+@test "remote-bootstrap.sh exits 1 when a fetched file can't be installed" {
+	mkdir -p "$HOME/.claude/DELEGATION.md/DELEGATION.md/blocker"
+	run run_bootstrap
+	assert_contains "status=1" "status=$status"
+}
+
+# Falsifier for judging by stderr: age warns, then decrypts fine, so nothing failed.
+@test "remote-bootstrap.sh exits 0 when age warns on stderr but decrypts" {
+	require_age
+	install_key
+	build_skills
+	mkdir -p "$D/stubs"
+	cat >"$D/stubs/age" <<SH
+#!/bin/sh
+echo "age: harmless warning" >&2
+exec "$REAL_AGE" "\$@"
+SH
+	chmod +x "$D/stubs/age"
+	PATH="$D/stubs:$PATH"
+	export PATH
+	run run_bootstrap alpha
+	assert_contains "status=0" "status=$status"
+	assert_contains "same" "$(same_bytes "$HOME/.claude/PROSE.md" "$PROSE_PLAIN")"
+	assert_contains "same" "$(same_bytes "$HOME/.claude/VOICE.md" "$VOICE_PLAIN")"
+}
+
+# Falsifier for ignoring env-setup: a missing base fails every fetch, and the exit status has to say so.
+@test "remote-bootstrap.sh exits 1 and names the failed fetch when the base is missing" {
+	DOTFILES_RAW_BASE="file://$D/does-not-exist"
+	export DOTFILES_RAW_BASE
+	run --separate-stderr run_bootstrap
+	assert_contains "status=1" "status=$status"
+	assert_contains "could not fetch" "$stderr"
+}
+
 # ---- 3. idempotency (criterion 3, Decision 5) ----
 
 @test "env-setup.sh twice with no key leaves CLAUDE.md byte-identical, amendment once" {

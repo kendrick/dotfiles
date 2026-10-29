@@ -75,18 +75,29 @@ if command -v git >/dev/null 2>&1; then
 	fi
 fi
 
-# The guarded surface's converted files (T-002..T-005, plus tests/macos-defaults.bats from #66, tests/prerequisites.bats from #59, tests/age-key.bats from #74, tests/vscode-profiles.bats and tests/vscode-extensions-capture.bats from #45, tests/claude-bootstrap.bats from #43, and tests/node-globals.bats from #91), and no others.
+# Every tests/*.bats that calls assert_contains/assert_not_contains is scanned,
+# so a new test file is covered without anyone remembering to list it here.
+# That includes tests/install-failures.bats: its call sites once predated the
+# conversion job and looked like overcounting, but the job is finished and an
+# assertion that can't turn its case red is a weak test wherever it lives.
 #
-# tests/install-failures.bats is excluded by name: its 30 assert_contains/
-# assert_not_contains call sites predate this job (#17) and, since T-001
-# moved the helper definitions into tests/helpers.bash, resolve to the exact
-# same functions these do. They are formally indistinguishable from this
-# job's conversions, so scanning that file would overcount.
+# tests/lint.bats is excluded by name: it is the reintroduction guard added by
+# this job (V-1), not a conversion target, and counting any helper call it
+# happens to make would inflate the per-file totals below.
 #
-# tests/lint.bats is excluded by name too: it is the reintroduction guard
-# added by this job (V-1), not a conversion target, and counting any helper
-# call it happens to make would inflate the per-file totals below.
-ALL_FILES="tests/apps.bats tests/doctor.bats tests/font.bats tests/font-add.bats tests/jsonc.bats tests/licensed-fonts.bats tests/macos-defaults.bats tests/packages.bats tests/prerequisites.bats tests/age-key.bats tests/vscode-profiles.bats tests/vscode-extensions-capture.bats tests/claude-bootstrap.bats tests/node-globals.bats"
+# tests/mutation-check.bats is excluded by name too: it tests this script, and
+# its two assertions sit in the shared mc_interrupted_by() helper, outside any
+# @test, so enumeration would reject them and abort the whole run.
+ALL_FILES=""
+for f in tests/*.bats; do
+	if [ "$f" = "tests/lint.bats" ] || [ "$f" = "tests/mutation-check.bats" ]; then
+		continue
+	fi
+	if grep -qE '^[[:space:]]*(assert_contains|assert_not_contains)[[:space:]]' "$f"; then
+		ALL_FILES="$ALL_FILES $f"
+	fi
+done
+ALL_FILES="${ALL_FILES# }"
 
 usage() {
 	echo "usage: tests/mutation-check.sh [FILE]" >&2
@@ -109,7 +120,7 @@ if [ "$#" -eq 1 ]; then
 		fi
 	done
 	if [ "$match" -ne 1 ]; then
-		echo "tests/mutation-check.sh: '$1' is not one of the converted files" >&2
+		echo "tests/mutation-check.sh: '$1' is not a scanned file" >&2
 		usage
 		exit 2
 	fi
@@ -117,7 +128,7 @@ if [ "$#" -eq 1 ]; then
 fi
 
 echo "mutation-check: scanning $TARGET_FILES"
-echo "mutation-check: excluded by name — tests/install-failures.bats (30 pre-existing call sites, predate this job), tests/lint.bats (the reintroduction guard, not a conversion target)"
+echo "mutation-check: excluded by name — tests/lint.bats (the reintroduction guard, not a conversion target), tests/mutation-check.bats (tests this script; its assertions sit in a helper)"
 echo "mutation-check: excluded by shape — tests/packages.bats's [ -n \"\$cask\" ] || continue is loop control, not an assertion; inverting it would change which iterations run rather than make a case fail"
 
 WORKDIR="$(mktemp -d)"
@@ -177,9 +188,9 @@ strip_heredocs() {
 # first if one is hit — that means the candidate sits between two tests (or
 # inside a plain helper function such as setup()) and has no enclosing case.
 # Column-0 `}` is a safe boundary here: every @test/function body in these
-# six files is closed by an unindented `}`, while any `{ ...; }` command
+# scanned files is closed by an unindented `}`, while any `{ ...; }` command
 # group or `${...}` expansion nested inside a body is always indented —
-# verified against all six files before this script was written, and it is
+# verified against the scanned files before this script was written, and it is
 # what lets this locate the doctor.bats disjunction without a line pin.
 find_enclosing_test() {
 	file="$1"

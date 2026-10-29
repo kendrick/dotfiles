@@ -185,6 +185,13 @@ AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.c
 	assert_contains "status=0" "status=$status"
 }
 
+# A fetch that works but an install that doesn't is still a failure: mv can't replace a non-empty directory.
+@test "remote-bootstrap.sh exits 1 when a fetched file can't be installed" {
+	mkdir -p "$HOME/.claude/DELEGATION.md/DELEGATION.md/blocker"
+	run run_bootstrap
+	assert_contains "status=1" "status=$status"
+}
+
 # Falsifier for judging by stderr: age warns, then decrypts fine, so nothing failed.
 @test "remote-bootstrap.sh exits 0 when age warns on stderr but decrypts" {
 	require_age

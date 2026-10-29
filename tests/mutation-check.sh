@@ -84,9 +84,13 @@ fi
 # tests/lint.bats is excluded by name: it is the reintroduction guard added by
 # this job (V-1), not a conversion target, and counting any helper call it
 # happens to make would inflate the per-file totals below.
+#
+# tests/mutation-check.bats is excluded by name too: it tests this script, and
+# its two assertions sit in the shared mc_interrupted_by() helper, outside any
+# @test, so enumeration would reject them and abort the whole run.
 ALL_FILES=""
 for f in tests/*.bats; do
-	if [ "$f" = "tests/lint.bats" ]; then
+	if [ "$f" = "tests/lint.bats" ] || [ "$f" = "tests/mutation-check.bats" ]; then
 		continue
 	fi
 	if grep -qE '^[[:space:]]*(assert_contains|assert_not_contains)[[:space:]]' "$f"; then
@@ -124,7 +128,7 @@ if [ "$#" -eq 1 ]; then
 fi
 
 echo "mutation-check: scanning $TARGET_FILES"
-echo "mutation-check: excluded by name — tests/lint.bats (the reintroduction guard, not a conversion target)"
+echo "mutation-check: excluded by name — tests/lint.bats (the reintroduction guard, not a conversion target), tests/mutation-check.bats (tests this script; its assertions sit in a helper)"
 echo "mutation-check: excluded by shape — tests/packages.bats's [ -n \"\$cask\" ] || continue is loop control, not an assertion; inverting it would change which iterations run rather than make a case fail"
 
 WORKDIR="$(mktemp -d)"

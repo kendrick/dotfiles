@@ -23,7 +23,7 @@ fetch() {
 }
 
 if fetch dot_claude/private_DELEGATION.md "$tmp/DELEGATION.md"; then
-	mv -f "$tmp/DELEGATION.md" "$dest/DELEGATION.md"
+	mv -f "$tmp/DELEGATION.md" "$dest/DELEGATION.md" || rc=1
 fi
 
 # A failed `op read` leaves a 0-byte key.txt behind, so the check is on size.
@@ -40,26 +40,26 @@ if [ -s "$key" ] && command -v age >/dev/null 2>&1; then
 		fi
 	done
 	if [ "$have_rules" = 1 ]; then
-		mv -f "$tmp/PROSE.md" "$dest/PROSE.md"
-		mv -f "$tmp/VOICE.md" "$dest/VOICE.md"
+		mv -f "$tmp/PROSE.md" "$dest/PROSE.md" || rc=1
+		mv -f "$tmp/VOICE.md" "$dest/VOICE.md" || rc=1
 	fi
 fi
 
 # Each run rebuilds CLAUDE.md from the fetched text, so a second run writes the same bytes as the first.
 if fetch dot_claude/CLAUDE.md "$tmp/CLAUDE.src"; then
-	awk '$0 != "@RTK.md"' "$tmp/CLAUDE.src" >"$tmp/CLAUDE.md"
+	awk '$0 != "@RTK.md"' "$tmp/CLAUDE.src" >"$tmp/CLAUDE.md" || rc=1
 	if [ "$have_rules" = 0 ]; then
-		cat >>"$tmp/CLAUDE.md" <<'MD'
+		cat >>"$tmp/CLAUDE.md" <<'MD' || rc=1
 
 ## Missing House Rules
 
 This container has no age key, so `~/.claude/PROSE.md` and `~/.claude/VOICE.md` were not installed. When a rule above says to read one of them, say that it's unavailable here and continue without it.
 MD
 	fi
-	mv -f "$tmp/CLAUDE.md" "$dest/CLAUDE.md"
+	mv -f "$tmp/CLAUDE.md" "$dest/CLAUDE.md" || rc=1
 	# The amendment says PROSE.md and VOICE.md weren't installed, so copies left by an earlier keyed run have to go with it.
 	if [ "$have_rules" = 0 ]; then
-		rm -f "$dest/PROSE.md" "$dest/VOICE.md"
+		rm -f "$dest/PROSE.md" "$dest/VOICE.md" || rc=1
 	fi
 fi
 

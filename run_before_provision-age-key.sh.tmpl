@@ -52,6 +52,10 @@ fi
 # would put one in your face every couple of seconds for as long as we wait. Listing
 # accounts asks for none of that: it returns what the desktop app is exposing, which stays
 # empty until the CLI integration is switched on.
+# A listed account can still be signed out when it was added with `op account add` and the
+# integration is off, so the read fails in 0:00 (#94). `op whoami` can't tell those apart: on
+# op 2.41.1 with the integration on it reports "not signed in" while `op read` works, so it
+# would make a ready Mac sit out the whole wait. The failure guidance covers `op signin`.
 op_ready() { op account list --format=json 2>/dev/null | grep -q '"url"'; }
 
 # Only wait when someone's there to act on it. Under a non-interactive apply this falls
@@ -87,6 +91,8 @@ if key=$(read_key) && [ -n "$key" ]; then
   say "(Encrypted Claude config deploys on the next apply, once chezmoi re-reads the key.)"
 else
   step_fail "age key" "1Password would not answer"
-  say "Unlock 1Password and turn on its CLI integration (Settings > Developer), then:"
+  say "Unlock 1Password and turn on its CLI integration (Settings > Developer)."
+  say "Without the integration, sign in first: eval \"\$(op signin)\""
+  say "Then:"
   say "  op read \"$OP_REF\" > \"$KEY_PATH\" && chmod 600 \"$KEY_PATH\" && chezmoi apply"
 fi

@@ -1,20 +1,24 @@
 #!/bin/bash
 # Installs the global ~/.claude rules into a remote Claude Code container, where chezmoi never runs (#43). Paste it into an environment's setup-script field, or pipe it from curl.
 #
-# The setup field holds one script, so this file sources nothing beside it. It always exits 0, because a failed fetch must never wedge container startup.
+# The setup field holds one script, so this file sources nothing beside it. It exits 0 every time, because a failed fetch must never wedge container startup, unless ENV_SETUP_STRICT=1 is set. Then it exits 1 if any step failed, which is how remote-bootstrap.sh tells a failure from a harmless warning on stderr.
 
 base="${DOTFILES_RAW_BASE:-https://raw.githubusercontent.com/kendrick/dotfiles/main}"
 dest="$HOME/.claude"
+rc=0
+# Without ENV_SETUP_STRICT=1 every path still ends in exit 0.
+finish() { [ "${ENV_SETUP_STRICT:-}" = 1 ] && exit "$1"; exit 0; }
 key="$HOME/.config/chezmoi/key.txt"
 
-mkdir -p "$dest" || exit 0
+mkdir -p "$dest" || finish 1
 # Staged inside ~/.claude so each install is a same-filesystem mv and can't leave a half-written file.
-tmp="$(mktemp -d "$dest/.env-setup.XXXXXX")" || exit 0
+tmp="$(mktemp -d "$dest/.env-setup.XXXXXX")" || finish 1
 trap 'rm -rf "$tmp"' EXIT
 
 fetch() {
 	curl -fsSL "$base/$1" -o "$2" 2>/dev/null && return 0
 	echo "env-setup: could not fetch $1, leaving any existing copy in place" >&2
+	rc=1
 	return 1
 }
 
@@ -31,6 +35,7 @@ if [ -s "$key" ] && command -v age >/dev/null 2>&1; then
 			have_rules=0
 		elif ! age -d -i "$key" -o "$tmp/$f.md" "$tmp/$f.md.age"; then
 			echo "env-setup: could not decrypt $f.md" >&2
+			rc=1
 			have_rules=0
 		fi
 	done
@@ -58,4 +63,4 @@ MD
 	fi
 fi
 
-exit 0
+finish "$rc"

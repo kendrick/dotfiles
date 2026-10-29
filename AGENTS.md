@@ -9,7 +9,7 @@
 ```bash
 bats tests/              # the whole suite; green as of 2026-09-10 (279 passing, 0 failures, 0 skips)
 bats tests/doctor.bats   # one file
-tests/mutation-check.sh  # inverts each assertion and requires its case to report `not ok`
+tests/mutation-check.sh  # inverts each assertion in every tests/*.bats but lint.bats and requires its case to report `not ok`
 ```
 
 `bats tests/` is the only entry point anyone has to remember, and it exits 0. Treat any failure as a regression you caused—there are no grandfathered failures left to skip past. Run `mutation-check.sh` after changing an assertion, and read its per-file counts rather than its total.

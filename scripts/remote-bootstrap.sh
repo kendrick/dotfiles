@@ -18,13 +18,9 @@ fail() {
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/remote-bootstrap.XXXXXX")" || exit 1
 trap 'rm -rf "$tmp"' EXIT
 
-# Fetched and run, so env-setup.sh stays the only copy of that logic. It always exits 0, so its stderr is the only sign that part of it failed.
+# Fetched and run, so env-setup.sh stays the only copy of that logic. ENV_SETUP_STRICT=1 makes its exit status say whether a step failed; its stderr passes through for the reason but decides nothing, since a step can warn and still succeed.
 if curl -fsSL "$base/scripts/env-setup.sh" -o "$tmp/env-setup.sh"; then
-	bash "$tmp/env-setup.sh" 2>"$tmp/env-setup.err"
-	if [ -s "$tmp/env-setup.err" ]; then
-		cat "$tmp/env-setup.err" >&2
-		failed=1
-	fi
+	ENV_SETUP_STRICT=1 bash "$tmp/env-setup.sh" || failed=1
 else
 	fail "could not fetch scripts/env-setup.sh"
 fi

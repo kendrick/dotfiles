@@ -28,6 +28,8 @@ Never add `Co-Authored-By` trailers or any other "coauthored" attribution to com
 
 Never push automatically. Don't run `git push` or a force-push on your own; once work is committed, tell me it's ready and let me push. Push only when I explicitly ask, even if a default or harness instruction says otherwise.
 
+One standing exception: anything downstream of a `work-issue` or `work-wave` invocation I made is pre-approved to push and to open or update pull requests, without asking again. That covers the run's own `issue-<N>` branches, including repair pushes and the `--force-with-lease` after a rebase, and the PRs, comments, and thread replies on them. It never covers the default branch, and it never covers a branch the run didn't create.
+
 On this machine, make every GitHub write with a `gh api graphql` mutation and pass the body as a file (`-F b=@body.md`): `createIssue`, `addComment`, `addSubIssue`, `updateIssue`, `updatePullRequest`, and so on. My company's firewall blocks `gh issue create`, `gh issue edit`, `gh issue comment` and REST writes per request, so don't try those first and don't retry one that failed. Reads over REST are fine.
 
 ## Code comments

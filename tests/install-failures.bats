@@ -387,6 +387,17 @@ vscode_profiles() {
 	done
 }
 
+# Entry counts per quoted EXTEOF heredoc in a rendered installer, one per line:
+# the default list first, then each profile's own list. Read from the render
+# rather than dot_config/ because dotfiles-sync and the code() wrapper rewrite
+# those files in place, and a second read can land on different bytes (#36).
+rendered_list_counts() {
+	awk "/^[[:space:]]*cat <<'EXTEOF'\$/ { n++; c[n] = 0; on = 1; next }
+		/^EXTEOF\$/ { on = 0; next }
+		on && !/^[[:space:]]*(#|\$)/ { c[n]++ }
+		END { for (i = 1; i <= n; i++) print c[i] }" "$1"
+}
+
 vscode_storage() {
 	echo "$HOME/Library/Application Support/Code/User/globalStorage/storage.json"
 }
@@ -454,10 +465,11 @@ STUB
 
 @test "install-vscode-extensions: one failure does not stop the rest" {
 	script="$(render_script run_onchange_install-vscode-extensions.sh.tmpl)"
-	default="$(grep -vcE '^\s*#|^\s*$' "$SRC/dot_config/vscode-extensions.txt")"
+	counts="$(rendered_list_counts "$script")"
+	[ -n "$counts" ]
+	default="$(printf '%s\n' "$counts" | head -1)"
 	expected="$default"
-	for p in $(vscode_profiles); do
-		own="$(grep -vcE '^\s*#|^\s*$' "$SRC/dot_config/vscode-profiles/$p.txt")"
+	for own in $(printf '%s\n' "$counts" | tail -n +2); do
 		expected=$((expected + default + own))
 	done
 	export CALL_LOG="$BATS_TEST_TMPDIR/vscode-calls.log"

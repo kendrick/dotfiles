@@ -40,9 +40,9 @@ These are settled. Implement them as written.
    ```
 5. **Idempotent by construction.** Each run builds `CLAUDE.md` in full, as the fetched text plus the amendment when needed, in a temp file, then `mv`s it into place. It never appends to an existing `~/.claude/CLAUDE.md`. Two runs give byte-identical files.
 6. **Failure handling:**
-   - `env-setup.sh` always exits 0. If a fetch fails, it prints one line to stderr naming the path and leaves any existing file untouched, so a network failure can't wedge container startup.
+   - `env-setup.sh` exits 0 by default. If a fetch fails, it prints one line to stderr naming the path and leaves any existing file untouched, so a network failure can't wedge container startup. With `ENV_SETUP_STRICT=1` set, it exits 1 if any fetch, decrypt, or install step failed (#90, #95).
    - `remote-bootstrap.sh` is run by hand, so it reports honestly. It attempts everything, names each failure on stderr, and exits 1 if anything failed.
-7. **`remote-bootstrap.sh` usage:** `remote-bootstrap.sh <skill-name>...`. First it fetches `scripts/env-setup.sh` from the base and runs it with `bash`, passing `DOTFILES_RAW_BASE` through. Then, for each named skill:
+7. **`remote-bootstrap.sh` usage:** `remote-bootstrap.sh <skill-name>...`. First it fetches `scripts/env-setup.sh` from the base and runs it with `ENV_SETUP_STRICT=1 bash`, passing `DOTFILES_RAW_BASE` through. It counts a nonzero exit as a failure and lets stderr through for the reason, but never judges by stderr, since a step can warn and still succeed. Then, for each named skill:
    - Look the name up in the lockfile, fetched from the base. An unknown name is a failure.
    - If `~/.claude/skills/synced/*/<name>/SKILL.md` exists, following symlinks, skip it and say "synced".
    - Otherwise shallow-clone `sourceUrl` into a temp dir and copy the whole directory holding `skillPath`'s `SKILL.md` to `~/.claude/skills/<name>`, replacing any previous copy. Clone each source repo once per run, even when several skills share it.

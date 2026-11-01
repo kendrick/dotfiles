@@ -16,9 +16,14 @@ SRC="${BATS_TEST_DIRNAME}/.."
 SCRIPT="$SRC/dot_local/bin/executable_dotfiles-apps"
 # Resolved before setup() puts the stub dir on PATH, so jq stays reachable once the
 # Homebrew directory it shares with the real fzf/chezmoi/brew is dropped (see setup()).
-REAL_JQ="$(command -v jq)"
+# `|| true` keeps a missing jq from aborting collection for the whole suite; setup() turns
+# it into a skip.
+REAL_JQ="$(command -v jq || true)"
 
 setup() {
+	if [ -z "$REAL_JQ" ]; then
+		skip "jq not installed on this machine"
+	fi
 	unset XDG_CACHE_HOME
 	export HOME="$BATS_TEST_TMPDIR/home"
 	export STUBS="$BATS_TEST_TMPDIR/stubs"

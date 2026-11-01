@@ -16,14 +16,12 @@ load 'helpers'
 SRC="${BATS_TEST_DIRNAME}/.."
 SCRIPT="$SRC/dot_local/bin/executable_dotfiles-doctor"
 
-# Resolved before setup() puts the stub dir on PATH, so the last test can reach the real
-# binary to render the repo's own templates.
-REAL_CHEZMOI="$(command -v chezmoi)"
-
-# Same capture-before-stub idiom, for the one case that has to narrow PATH far enough to
-# hide a tool that is genuinely installed. Guarded the way helpers.bash guards its own
-# captures: `load` runs under errexit, so an unguarded miss here would abort every case in
-# the file before one of them ran.
+# Both captures run before setup() puts the stub dir on PATH, so the real binaries stay
+# reachable: chezmoi renders the repo's own templates in the registry case, and jq is
+# linked back in by the cases that narrow PATH. Guarded with `|| true` because `load` runs
+# file scope under errexit while bats gathers tests, so an unguarded miss aborts
+# collection for the whole suite, not just this file (#32).
+REAL_CHEZMOI="$(command -v chezmoi || true)"
 REAL_JQ="$(command -v jq || true)"
 
 setup() {
@@ -675,6 +673,9 @@ JSON
 # a cask declaration, or filed into a bundle no role enables, fails here rather than on
 # someone's fresh machine.
 @test "the repo's own font registry and package registry agree" {
+	if [ -z "$REAL_CHEZMOI" ]; then
+		skip "chezmoi not installed on this machine"
+	fi
 	unset FIXTURE
 	# --source alone isn't enough here, unlike everywhere else that reaches the real
 	# binary. The section under test narrows tracked casks to the bundles this machine

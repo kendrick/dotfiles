@@ -116,3 +116,17 @@ load 'helpers'
 	run git -C "$repo" check-ignore -q "dot_claude/.normalize-tmp-deadbeef.tmp"
 	[ "$status" -eq 0 ]
 }
+
+# bats evaluates file scope under errexit while it gathers tests, so one bare
+# capture of a missing tool there reports `1..1` / `bats-gather-tests` for the
+# whole suite, not just its file (#32). Column 0 only: a capture inside a
+# @test body fails just that case, which is the right failure.
+@test "no unguarded file-scope command -v capture" {
+	local hits
+	hits="$(grep -nE '^[A-Za-z_][A-Za-z0-9_]*="\$\(command -v [^|)]*\)"' \
+		"$BATS_TEST_DIRNAME"/*.bats "$BATS_TEST_DIRNAME/helpers.bash" || true)"
+	if [ -n "$hits" ]; then
+		printf 'unguarded capture (add || true):\n%s\n' "$hits"
+		return 1
+	fi
+}

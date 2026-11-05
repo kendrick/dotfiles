@@ -485,3 +485,60 @@ STUB
 	assert_contains "-float 0.1" "$(cat "$DEFAULTS_LOG")"
 	assert_contains "SystemUIServer" "$(cat "$KILLALL_LOG")"
 }
+
+# A real apply, because the retry is chezmoi's decision: run_onchange_ reruns only when the
+# rendered bytes differ from the last successful run, and running the script by hand skips that.
+restore_venue() {
+	local v="$1"
+	mkdir -p "$v/src/.chezmoitemplates" "$v/src/dot_config" "$v/dest" "$v/home"
+	cp "$SRC/.chezmoitemplates/sh-ui.sh" "$v/src/.chezmoitemplates/"
+	cp "$SRC/run_onchange_after_restore-macos-defaults.sh.tmpl" "$v/src/"
+	printf '%s\n' "com.apple.finder FXPreferredViewStyle string clmv" >"$v/src/dot_config/macos-defaults.captured"
+	: >"$v/chezmoi.toml"
+}
+
+restore_apply() {
+	local v="$1"
+	(
+		unset XDG_CONFIG_HOME XDG_CACHE_HOME XDG_STATE_HOME
+		export HOME="$v/home" PATH="$STUBS:/usr/bin:/bin"
+		"$CHEZMOI" apply --no-tty --source "$v/src" --destination "$v/dest" \
+			--config "$v/chezmoi.toml" --persistent-state "$v/state.boltdb"
+	) >>"$v/apply.out" 2>&1
+}
+
+@test "real chezmoi apply retries a refused key on the next apply, and stops once it lands" {
+	command -v chezmoi >/dev/null || skip "chezmoi not on PATH"
+	CHEZMOI="$(command -v chezmoi)"
+	v="$BATS_TEST_TMPDIR/venue"
+	restore_venue "$v"
+	stub_defaults_fake
+	echo "com.apple.finder FXPreferredViewStyle Nlsv" >"$FAKE_LIVE"
+	export REFUSE_KEY=FXPreferredViewStyle
+	restore_apply "$v"
+	restore_apply "$v"
+	assert_contains "|2|" "|$(grep -c 'fake defaults: refused' "$v/apply.out")|"
+	unset REFUSE_KEY
+	restore_apply "$v"
+	assert_contains "write com.apple.finder FXPreferredViewStyle -string clmv" "$(cat "$DEFAULTS_LOG")"
+	[ ! -e "$v/home/.local/state/dotfiles/macos-defaults-pending" ]
+}
+
+# Falsifier for the case above: without the pending block the render never changes, so
+# chezmoi never reruns the script and the refused key is tried once.
+@test "without the pending block, real chezmoi apply never retries a refused key" {
+	command -v chezmoi >/dev/null || skip "chezmoi not on PATH"
+	CHEZMOI="$(command -v chezmoi)"
+	v="$BATS_TEST_TMPDIR/venue"
+	restore_venue "$v"
+	tmpl="$v/src/run_onchange_after_restore-macos-defaults.sh.tmpl"
+	grep -q 'macos-defaults-pending' "$tmpl"
+	sed -i '' '/if stat \$pending/,/end }}/d' "$tmpl"
+	assert_not_contains "refused last run" "$(cat "$tmpl")"
+	stub_defaults_fake
+	echo "com.apple.finder FXPreferredViewStyle Nlsv" >"$FAKE_LIVE"
+	export REFUSE_KEY=FXPreferredViewStyle
+	restore_apply "$v"
+	restore_apply "$v"
+	assert_contains "|1|" "|$(grep -c 'fake defaults: refused' "$v/apply.out")|"
+}

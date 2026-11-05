@@ -3,6 +3,13 @@
 # Captured defaults hash: {{ include "dot_config/macos-defaults.captured" | sha256sum }}
 # Re-runs whenever the capture changes, which on this machine means a `chezmoi update`
 # brought another Mac's values, or a fresh machine's first apply.
+{{- /* run_onchange_ reruns only on a content change, and this script exits 0 even when
+       defaults refuses a key, so nothing would retry it. Whatever fixes a refusal lives
+       outside the repo, so while the marker exists the render changes every apply. */}}
+{{- $pending := joinPath .chezmoi.homeDir ".local/state/dotfiles/macos-defaults-pending" }}
+{{- if stat $pending }}
+# refused last run, retrying: {{ include $pending | trim | replace "\n" ", " }} (render {{ now.UnixNano }})
+{{- end }}
 #
 # The write half of #66's capture. Named to sort after configure-macos because chezmoi
 # runs after-scripts by target name: captured values have to land on top of that
@@ -19,6 +26,7 @@
 
 applied="$HOME/.local/state/dotfiles/macos-defaults.applied"
 applied_new="$applied.new.$$"
+pending="$HOME/.local/state/dotfiles/macos-defaults-pending"
 ui_trap_exit 'rm -f "$applied_new"'
 
 captured="{{ joinPath .chezmoi.sourceDir "dot_config" "macos-defaults.captured" }}"
@@ -104,7 +112,10 @@ if [ "${#refused[@]}" -gt 0 ]; then
   step_warn "macos defaults" "${#refused[@]} refused"
   echo "defaults would not write these captured keys (its errors are above):"
   printf '  %s\n' "${refused[@]}"
+  # The header renders from this, which is what gets the next apply to retry.
+  printf '%s\n' "${refused[@]}" >"$pending" 2>/dev/null || say "could not write $pending, so the next apply won't retry"
 else
+  rm -f "$pending"
   step_ok "macos defaults" "$written written"
 fi
 exit 0

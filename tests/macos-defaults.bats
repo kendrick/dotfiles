@@ -260,3 +260,21 @@ sync_stubs() {
 	assert_not_contains "$PLIST ka " "$(cat "$OUT")"
 	assert_contains "$PLIST kb " "$(cat "$OUT")"
 }
+
+# ---- restore (#99) ----
+
+# chezmoi's run order is the consumer here, so this runs a real apply against a temp
+# source holding stand-ins named like the two real scripts, and reads back the order
+# they actually ran in. The two [ -f ] lines tie the stand-ins to names the repo holds.
+@test "restore runs after configure-macos in chezmoi's own apply order" {
+	command -v chezmoi >/dev/null || skip "chezmoi not on PATH"
+	[ -f "$SRC/run_once_after_configure-macos.sh" ]
+	[ -f "$SRC/run_onchange_after_restore-macos-defaults.sh.tmpl" ]
+	local src="$BATS_TEST_TMPDIR/order-src" log="$BATS_TEST_TMPDIR/order.log"
+	mkdir -p "$src"
+	printf '#!/bin/sh\necho configure >>"%s"\n' "$log" >"$src/run_once_after_configure-macos.sh"
+	printf '#!/bin/sh\necho restore >>"%s"\n' "$log" >"$src/run_onchange_after_restore-macos-defaults.sh.tmpl"
+	run source_only_run "$src" apply --no-tty
+	[ "$status" -eq 0 ]
+	assert_contains "|configure restore |" "|$(tr '\n' ' ' <"$log")|"
+}

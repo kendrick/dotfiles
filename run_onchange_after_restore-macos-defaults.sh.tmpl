@@ -1,0 +1,27 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# Captured defaults hash: {{ include "dot_config/macos-defaults.captured" | sha256sum }}
+# Re-runs whenever the capture changes, which on this machine means a `chezmoi update`
+# brought another Mac's values, or a fresh machine's first apply.
+#
+# The write half of #66's capture. Named to sort after configure-macos because chezmoi
+# runs after-scripts by target name: captured values have to land on top of that
+# script's one-shot baseline, not under it.
+#
+# Preference writes, not files.
+#
+# teardown:none
+#
+# No `set -e`, same reason as configure-macos: one key macOS refuses must not
+# abort the rest.
+
+{{ template "sh-ui.sh" . }}
+
+ui_trap_exit
+
+captured="{{ joinPath .chezmoi.sourceDir "dot_config" "macos-defaults.captured" }}"
+
+ui_require defaults "macos defaults" "defaults not found"
+[ -r "$captured" ] || { step_warn "macos defaults" "no capture"; exit 0; }
+
+exit 0

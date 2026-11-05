@@ -17,7 +17,9 @@
 
 {{ template "sh-ui.sh" . }}
 
-ui_trap_exit
+applied="$HOME/.local/state/dotfiles/macos-defaults.applied"
+applied_new="$applied.new.$$"
+ui_trap_exit 'rm -f "$applied_new"'
 
 captured="{{ joinPath .chezmoi.sourceDir "dot_config" "macos-defaults.captured" }}"
 
@@ -30,13 +32,32 @@ written=0
 refused=()
 changed_domains=()
 
+# dotfiles-sync rewrites the capture on this machine too, which re-triggers this script.
+# The record of what the last run applied keeps that self-capture from reverting a setting
+# changed since: a line already in it hasn't moved, so whatever is live stays.
+mkdir -p "$(dirname "$applied")" 2>/dev/null || :
+: >"$applied_new" 2>/dev/null || :
+
 # The capture is `domain key type value`, and the value is whatever `defaults read`
-# printed, spaces included, so it goes last. read -r's final variable takes the rest.
-while read -r d k t v; do
-  case "$d" in '' | '#'*) continue ;; esac
+# printed, so it keeps its spaces. Split by hand: `read d k t v` would trim them, and
+# `|| [ -n "$line" ]` keeps a last line that has no newline.
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in '' | '#'*) continue ;; esac
+  d=${line%% *}
+  rest=${line#* }
+  k=${rest%% *}
+  rest=${rest#* }
+  t=${rest%% *}
+  v=${rest#* }
+  case "$t" in bool | int | float | string) ;; *) continue ;; esac
+  if [ -f "$applied" ] && grep -qxF -- "$line" "$applied"; then
+    echo "$line" >>"$applied_new" 2>/dev/null || :
+    continue
+  fi
   # A key absent here reads as a failure, which counts as differing: the capture has a
   # value and the machine doesn't.
   if live="$(defaults read "$d" "$k" 2>/dev/null </dev/null)" && [ "$live" = "$v" ]; then
+    echo "$line" >>"$applied_new" 2>/dev/null || :
     continue
   fi
   arg="$v"
@@ -48,10 +69,14 @@ while read -r d k t v; do
   if step_run defaults write "$d" "$k" -"$t" "$arg" </dev/null; then
     written=$((written + 1))
     changed_domains+=("$d")
+    echo "$line" >>"$applied_new" 2>/dev/null || :
   else
+    # Left out of the record so the next run retries it.
     refused+=("$d $k")
   fi
 done <"$captured"
+
+mv -f "$applied_new" "$applied" 2>/dev/null || say "could not save $applied; the next run may rewrite keys"
 
 # Finder, the Dock and the screenshot service cache their prefs and only read a write
 # after a restart. Anything else picks it up on its own or at next login.

@@ -123,7 +123,11 @@ stub_defaults_passthrough() {
 [ "$1" = write ] && echo "$@" >>"$DEFAULTS_LOG"
 exec /usr/bin/defaults "$@"
 STUB
-	chmod +x "$STUBS/defaults"
+	# Logged rather than real so no restore case can restart Finder or the Dock.
+	export KILLALL_LOG="$BATS_TEST_TMPDIR/killall.log"
+	: >"$KILLALL_LOG"
+	printf '#!/usr/bin/env bash\necho "$@" >>"$KILLALL_LOG"\n' >"$STUBS/killall"
+	chmod +x "$STUBS/defaults" "$STUBS/killall"
 }
 
 @test "both macos-defaults files are source-only" {
@@ -315,7 +319,7 @@ sync_stubs() {
 	printf '%s\n' "$PLIST k1 bool 1" "$PLIST k2 string new value" >"$CAP"
 	script="$(render_restore "$CAP")"
 	stub_defaults_passthrough
-	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
 	assert_contains "|1|" "|$(defaults read "$PLIST" k1)|"
 	assert_contains "|new value|" "|$(defaults read "$PLIST" k2)|"
@@ -327,16 +331,21 @@ sync_stubs() {
 	printf '%s\n' "$PLIST k1 bool 1" >"$CAP"
 	script="$(render_restore "$CAP")"
 	stub_defaults_passthrough
-	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
 	assert_not_contains "write" "$(cat "$DEFAULTS_LOG")"
+	assert_contains "|0|" "|$(wc -c <"$KILLALL_LOG" | tr -d ' ')|"
 
 	defaults write "$PLIST" local -string changed
-	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	assert_not_contains "write" "$(cat "$DEFAULTS_LOG")"
 
-	defaults write "$PLIST" k1 -bool false
-	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	# The record now keeps a live edit to an unmoved capture, so the capture itself has to
+	# move (as it does when another machine's value arrives) for k1 to be written.
+	defaults write "$PLIST" k1 -bool true
+	printf '%s\n' "$PLIST k1 bool 0" >"$CAP"
+	script="$(render_restore "$CAP")"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	assert_contains "|1|" "|$(grep -c '^write' "$DEFAULTS_LOG")|"
 	assert_contains "|changed|" "|$(defaults read "$PLIST" local)|"
 }
@@ -375,7 +384,7 @@ STUB
 	printf '%s\n' "com.apple.finder FXPreferredViewStyle string clmv" "com.apple.dock show-recents bool 0" \
 		"NSGlobalDomain AppleKeyboardUIMode int 3" >"$CAP"
 	script="$(render_restore "$CAP")"
-	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
 	assert_contains "|Finder|" "|$(tr '\n' '|' <"$KILLALL_LOG")"
 	assert_not_contains "Dock" "$(cat "$KILLALL_LOG")"
@@ -388,7 +397,7 @@ STUB
 	printf '%s\n' "com.apple.finder FXPreferredViewStyle Nlsv" "com.apple.dock show-recents 1" >"$FAKE_LIVE"
 	printf '%s\n' "com.apple.finder FXPreferredViewStyle string clmv" "com.apple.dock show-recents bool 0" >"$CAP"
 	script="$(render_restore "$CAP")"
-	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
 	[ "$status" -eq 0 ]
 	assert_contains "fake defaults: refused FXPreferredViewStyle"
 	assert_contains "would not write these captured keys"
@@ -403,4 +412,76 @@ STUB
 	run cmp -s "$BATS_TEST_TMPDIR/before.sh" "$(render_restore "$CAP")"
 	[ "$status" -ne 0 ]
 	assert_contains "macos-defaults.captured" "$(head -5 "$SRC/run_onchange_after_restore-macos-defaults.sh.tmpl")"
+}
+
+@test "restore keeps a same-machine change when only another key's capture moved" {
+	defaults write "$PLIST" k1 -bool true
+	defaults write "$PLIST" k2 -string a
+	printf '%s\n' "$PLIST k1 bool 1" "$PLIST k2 string a" >"$CAP"
+	script="$(render_restore "$CAP")"
+	stub_defaults_passthrough
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	defaults write "$PLIST" k1 -bool false
+	printf '%s\n' "$PLIST k1 bool 1" "$PLIST k2 string b" >"$CAP"
+	script="$(render_restore "$CAP")"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "|b|" "|$(defaults read "$PLIST" k2)|"
+	assert_contains "|0|" "|$(defaults read "$PLIST" k1)|"
+}
+
+@test "restore lands a value another machine captured" {
+	defaults write "$PLIST" k1 -bool true
+	printf '%s\n' "$PLIST k1 bool 1" >"$CAP"
+	script="$(render_restore "$CAP")"
+	stub_defaults_passthrough
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	printf '%s\n' "$PLIST k1 bool 0" >"$CAP"
+	script="$(render_restore "$CAP")"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "|0|" "|$(defaults read "$PLIST" k1)|"
+}
+
+@test "restore leaves a refused key out of the record and retries it next run" {
+	stub_defaults_fake
+	export REFUSE_KEY=FXPreferredViewStyle
+	printf '%s\n' "com.apple.finder FXPreferredViewStyle Nlsv" "com.apple.dock show-recents 1" >"$FAKE_LIVE"
+	printf '%s\n' "com.apple.finder FXPreferredViewStyle string clmv" "com.apple.dock show-recents bool 0" >"$CAP"
+	script="$(render_restore "$CAP")"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	record="$BATS_TEST_TMPDIR/home/.local/state/dotfiles/macos-defaults.applied"
+	assert_not_contains "FXPreferredViewStyle" "$(cat "$record")"
+	assert_contains "com.apple.dock show-recents bool 0" "$(cat "$record")"
+	unset REFUSE_KEY
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "write com.apple.finder FXPreferredViewStyle -string clmv" "$(cat "$DEFAULTS_LOG")"
+}
+
+@test "restore keeps trailing spaces in a value and applies a last line with no newline" {
+	printf '%s\n%s' "$PLIST k3 string trail  " "$PLIST k4 int 3" >"$CAP"
+	script="$(render_restore "$CAP")"
+	stub_defaults_passthrough
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "|trail  |" "|$(defaults read "$PLIST" k3)|"
+	assert_contains "|3|" "|$(defaults read "$PLIST" k4)|"
+}
+
+@test "restore writes int and float with their types and restarts SystemUIServer for screencapture" {
+	stub_defaults_fake
+	printf '%s\n' "NSGlobalDomain AppleKeyboardUIMode 0" "com.apple.dock expose-animation-duration 0.5" \
+		"com.apple.screencapture type jpg" >"$FAKE_LIVE"
+	printf '%s\n' "NSGlobalDomain AppleKeyboardUIMode int 3" "com.apple.dock expose-animation-duration float 0.1" \
+		"com.apple.screencapture type string png" >"$CAP"
+	script="$(render_restore "$CAP")"
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "-int 3" "$(cat "$DEFAULTS_LOG")"
+	assert_contains "-float 0.1" "$(cat "$DEFAULTS_LOG")"
+	assert_contains "SystemUIServer" "$(cat "$KILLALL_LOG")"
 }

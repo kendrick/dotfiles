@@ -381,3 +381,17 @@ STUB
 	assert_not_contains "Dock" "$(cat "$KILLALL_LOG")"
 	assert_contains "|1|" "|$(wc -l <"$KILLALL_LOG" | tr -d ' ')|"
 }
+
+@test "restore names a refused key, still writes the rest, and exits 0" {
+	stub_defaults_fake
+	export REFUSE_KEY=FXPreferredViewStyle
+	printf '%s\n' "com.apple.finder FXPreferredViewStyle Nlsv" "com.apple.dock show-recents 1" >"$FAKE_LIVE"
+	printf '%s\n' "com.apple.finder FXPreferredViewStyle string clmv" "com.apple.dock show-recents bool 0" >"$CAP"
+	script="$(render_restore "$CAP")"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "fake defaults: refused FXPreferredViewStyle"
+	assert_contains "would not write these captured keys"
+	assert_contains "  com.apple.finder FXPreferredViewStyle"
+	assert_contains "write com.apple.dock show-recents -bool false" "$(cat "$DEFAULTS_LOG")"
+}

@@ -74,5 +74,12 @@ if [ "${#apps[@]}" -gt 0 ]; then
   done
 fi
 
-step_ok "macos defaults" "$written written"
+# Guarded on the count: bash 3.2 turns an empty array into one empty word.
+if [ "${#refused[@]}" -gt 0 ]; then
+  step_warn "macos defaults" "${#refused[@]} refused"
+  echo "defaults would not write these captured keys (its errors are above):"
+  printf '  %s\n' "${refused[@]}"
+else
+  step_ok "macos defaults" "$written written"
+fi
 exit 0

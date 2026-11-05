@@ -14,6 +14,7 @@ setup() {
 	PLIST="$BATS_TEST_TMPDIR/test.plist"
 	LIST="$BATS_TEST_TMPDIR/list.txt"
 	OUT="$BATS_TEST_TMPDIR/captured"
+	CAP="$BATS_TEST_TMPDIR/capture"
 }
 
 # A read-only dir can't be removed by bats' own cleanup.
@@ -94,6 +95,35 @@ source_only_run() {
 	printf '[data]\nmachine_role = "personal"\n' >"$BATS_TEST_TMPDIR/chezmoi.toml"
 	( unset XDG_CONFIG_HOME XDG_CACHE_HOME; export HOME="$BATS_TEST_TMPDIR/h"
 	  chezmoi "${@:2}" --config "$BATS_TEST_TMPDIR/chezmoi.toml" --source "$src" --destination "$BATS_TEST_TMPDIR/dest" 2>&1 )
+}
+
+# Renders the restore script against a temp source whose capture is $1. The script reads
+# the capture from .chezmoi.sourceDir at runtime, so the fixture is what it acts on.
+# The real $HOME is kept for the render only; chezmoi needs its config to start.
+REAL_HOME="$HOME"
+render_restore() {
+	local src="$BATS_TEST_TMPDIR/restore-src" out="$BATS_TEST_TMPDIR/restore.sh"
+	mkdir -p "$src/dot_config"
+	cp -R "$SRC/.chezmoitemplates" "$src/"
+	cp "$1" "$src/dot_config/macos-defaults.captured"
+	HOME="$REAL_HOME" chezmoi execute-template --source "$src" \
+		<"$SRC/run_onchange_after_restore-macos-defaults.sh.tmpl" >"$out"
+	echo "$out"
+}
+
+# Logs every write, then hands the call to the real defaults, so the plist under
+# $BATS_TEST_TMPDIR really changes and the assertion reads it back with defaults itself.
+stub_defaults_passthrough() {
+	STUBS="$BATS_TEST_TMPDIR/stubs"
+	export DEFAULTS_LOG="$BATS_TEST_TMPDIR/defaults-writes.log"
+	mkdir -p "$STUBS"
+	: >"$DEFAULTS_LOG"
+	cat >"$STUBS/defaults" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = write ] && echo "$@" >>"$DEFAULTS_LOG"
+exec /usr/bin/defaults "$@"
+STUB
+	chmod +x "$STUBS/defaults"
 }
 
 @test "both macos-defaults files are source-only" {
@@ -277,4 +307,16 @@ sync_stubs() {
 	run source_only_run "$src" apply --no-tty
 	[ "$status" -eq 0 ]
 	assert_contains "|configure restore |" "|$(tr '\n' ' ' <"$log")|"
+}
+
+@test "restore writes each differing captured key, as defaults reads it back" {
+	defaults write "$PLIST" k1 -bool false
+	defaults write "$PLIST" k2 -string old
+	printf '%s\n' "$PLIST k1 bool 1" "$PLIST k2 string new value" >"$CAP"
+	script="$(render_restore "$CAP")"
+	stub_defaults_passthrough
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "|1|" "|$(defaults read "$PLIST" k1)|"
+	assert_contains "|new value|" "|$(defaults read "$PLIST" k2)|"
 }

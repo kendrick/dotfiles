@@ -24,4 +24,34 @@ captured="{{ joinPath .chezmoi.sourceDir "dot_config" "macos-defaults.captured" 
 ui_require defaults "macos defaults" "defaults not found"
 [ -r "$captured" ] || { step_warn "macos defaults" "no capture"; exit 0; }
 
+step_begin "macos defaults"
+
+written=0
+refused=()
+changed_domains=()
+
+# The capture is `domain key type value`, and the value is whatever `defaults read`
+# printed, spaces included, so it goes last. read -r's final variable takes the rest.
+while read -r d k t v; do
+  case "$d" in '' | '#'*) continue ;; esac
+  # A key absent here reads as a failure, which counts as differing: the capture has a
+  # value and the machine doesn't.
+  if live="$(defaults read "$d" "$k" 2>/dev/null </dev/null)" && [ "$live" = "$v" ]; then
+    continue
+  fi
+  arg="$v"
+  # `defaults read` prints bools as 1/0, but `write -bool` takes only true/false/yes/no
+  # and rejects 1 with its usage text.
+  if [ "$t" = bool ]; then
+    case "$v" in 1) arg=true ;; 0) arg=false ;; esac
+  fi
+  if step_run defaults write "$d" "$k" -"$t" "$arg" </dev/null; then
+    written=$((written + 1))
+    changed_domains+=("$d")
+  else
+    refused+=("$d $k")
+  fi
+done <"$captured"
+
+step_ok "macos defaults" "$written written"
 exit 0

@@ -320,3 +320,23 @@ sync_stubs() {
 	assert_contains "|1|" "|$(defaults read "$PLIST" k1)|"
 	assert_contains "|new value|" "|$(defaults read "$PLIST" k2)|"
 }
+
+@test "restore writes nothing when live matches the capture, and only the perturbed key after" {
+	defaults write "$PLIST" k1 -bool true
+	defaults write "$PLIST" local -string mine
+	printf '%s\n' "$PLIST k1 bool 1" >"$CAP"
+	script="$(render_restore "$CAP")"
+	stub_defaults_passthrough
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_not_contains "write" "$(cat "$DEFAULTS_LOG")"
+
+	defaults write "$PLIST" local -string changed
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	assert_not_contains "write" "$(cat "$DEFAULTS_LOG")"
+
+	defaults write "$PLIST" k1 -bool false
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	assert_contains "|1|" "|$(grep -c '^write' "$DEFAULTS_LOG")|"
+	assert_contains "|changed|" "|$(defaults read "$PLIST" local)|"
+}

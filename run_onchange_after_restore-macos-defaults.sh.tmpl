@@ -53,5 +53,26 @@ while read -r d k t v; do
   fi
 done <"$captured"
 
+# Finder, the Dock and the screenshot service cache their prefs and only read a write
+# after a restart. Anything else picks it up on its own or at next login.
+apps=()
+if [ "${#changed_domains[@]}" -gt 0 ]; then
+  for d in "${changed_domains[@]}"; do
+    case "$d" in
+    com.apple.finder) app=Finder ;;
+    com.apple.dock) app=Dock ;;
+    com.apple.screencapture) app=SystemUIServer ;;
+    *) continue ;;
+    esac
+    case " ${apps[*]-} " in *" $app "*) ;; *) apps+=("$app") ;; esac
+  done
+fi
+if [ "${#apps[@]}" -gt 0 ]; then
+  for app in "${apps[@]}"; do
+    # Exits 1 when the app isn't running, which is fine: it reads the new value at launch.
+    killall "$app" 2>/dev/null || :
+  done
+fi
+
 step_ok "macos defaults" "$written written"
 exit 0

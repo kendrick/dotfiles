@@ -340,3 +340,44 @@ sync_stubs() {
 	assert_contains "|1|" "|$(grep -c '^write' "$DEFAULTS_LOG")|"
 	assert_contains "|changed|" "|$(defaults read "$PLIST" local)|"
 }
+
+# Reads answer from $FAKE_LIVE ("domain key value" lines) and writes are only logged.
+# For cases that need real domain names, which must never reach real preferences.
+# $REFUSE_KEY, when set, makes a write of that key fail the way defaults does.
+stub_defaults_fake() {
+	STUBS="$BATS_TEST_TMPDIR/stubs"
+	export DEFAULTS_LOG="$BATS_TEST_TMPDIR/defaults-writes.log" FAKE_LIVE="$BATS_TEST_TMPDIR/live"
+	export KILLALL_LOG="$BATS_TEST_TMPDIR/killall.log"
+	mkdir -p "$STUBS"
+	: >"$DEFAULTS_LOG"
+	: >"$KILLALL_LOG"
+	cat >"$STUBS/defaults" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+read) awk -v d="$2" -v k="$3" '$1 == d && $2 == k { sub(/^[^ ]+ [^ ]+ /, ""); print; f = 1 } END { exit !f }' "$FAKE_LIVE" ;;
+write)
+	if [ -n "${REFUSE_KEY:-}" ] && [ "$3" = "$REFUSE_KEY" ]; then
+		echo "fake defaults: refused $3" >&2
+		exit 1
+	fi
+	echo "$@" >>"$DEFAULTS_LOG" ;;
+*) exit 1 ;;
+esac
+STUB
+	printf '#!/usr/bin/env bash\necho "$@" >>"$KILLALL_LOG"\n' >"$STUBS/killall"
+	chmod +x "$STUBS/defaults" "$STUBS/killall"
+}
+
+@test "restore restarts only the apps whose domains got a write" {
+	stub_defaults_fake
+	printf '%s\n' "com.apple.finder FXPreferredViewStyle Nlsv" "com.apple.dock show-recents 0" \
+		"NSGlobalDomain AppleKeyboardUIMode 0" >"$FAKE_LIVE"
+	printf '%s\n' "com.apple.finder FXPreferredViewStyle string clmv" "com.apple.dock show-recents bool 0" \
+		"NSGlobalDomain AppleKeyboardUIMode int 3" >"$CAP"
+	script="$(render_restore "$CAP")"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "|Finder|" "|$(tr '\n' '|' <"$KILLALL_LOG")"
+	assert_not_contains "Dock" "$(cat "$KILLALL_LOG")"
+	assert_contains "|1|" "|$(wc -l <"$KILLALL_LOG" | tr -d ' ')|"
+}

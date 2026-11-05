@@ -395,3 +395,12 @@ STUB
 	assert_contains "  com.apple.finder FXPreferredViewStyle"
 	assert_contains "write com.apple.dock show-recents -bool false" "$(cat "$DEFAULTS_LOG")"
 }
+
+@test "editing one captured value changes the rendered restore script" {
+	printf '%s\n' "$PLIST k1 bool 1" >"$CAP"
+	cp "$(render_restore "$CAP")" "$BATS_TEST_TMPDIR/before.sh"
+	printf '%s\n' "$PLIST k1 bool 0" >"$CAP"
+	run cmp -s "$BATS_TEST_TMPDIR/before.sh" "$(render_restore "$CAP")"
+	[ "$status" -ne 0 ]
+	assert_contains "macos-defaults.captured" "$(head -5 "$SRC/run_onchange_after_restore-macos-defaults.sh.tmpl")"
+}

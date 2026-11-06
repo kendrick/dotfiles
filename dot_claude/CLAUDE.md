@@ -26,6 +26,8 @@ Never add `Co-Authored-By` trailers or any other "coauthored" attribution to com
 
 ## Git workflow
 
+Commit as you go, without being asked: by the end of a task, the working tree is clean, committed in atomic chunks (one logical change each) with Conventional Commits subjects, unless the repo's own log uses another convention. Pushing still waits for me.
+
 Never push automatically. Don't run `git push` or a force-push on your own; once work is committed, tell me it's ready and let me push. Push only when I explicitly ask, even if a default or harness instruction says otherwise.
 
 One standing exception: anything downstream of a `work-issue` or `work-wave` invocation I made is pre-approved to push and to open or update pull requests, without asking again. That covers the run's own `issue-<N>` branches, including repair pushes and the `--force-with-lease` after a rebase, and the PRs, comments, and thread replies on them. It never covers the default branch, and it never covers a branch the run didn't create.

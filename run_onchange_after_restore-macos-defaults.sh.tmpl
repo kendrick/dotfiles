@@ -1,0 +1,121 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# Captured defaults hash: {{ include "dot_config/macos-defaults.captured" | sha256sum }}
+# Re-runs whenever the capture changes, which on this machine means a `chezmoi update`
+# brought another Mac's values, or a fresh machine's first apply.
+{{- /* run_onchange_ reruns only on a content change, and this script exits 0 even when
+       defaults refuses a key, so nothing would retry it. Whatever fixes a refusal lives
+       outside the repo, so while the marker exists the render changes every apply. */}}
+{{- $pending := joinPath .chezmoi.homeDir ".local/state/dotfiles/macos-defaults-pending" }}
+{{- if stat $pending }}
+# refused last run, retrying: {{ include $pending | trim | replace "\n" ", " }} (render {{ now.UnixNano }})
+{{- end }}
+#
+# The write half of #66's capture. Named to sort after configure-macos because chezmoi
+# runs after-scripts by target name: captured values have to land on top of that
+# script's one-shot baseline, not under it.
+#
+# Preference writes, not files.
+#
+# teardown:none
+#
+# No `set -e`, same reason as configure-macos: one key macOS refuses must not
+# abort the rest.
+
+{{ template "sh-ui.sh" . }}
+
+applied="$HOME/.local/state/dotfiles/macos-defaults.applied"
+applied_new="$applied.new.$$"
+pending="$HOME/.local/state/dotfiles/macos-defaults-pending"
+ui_trap_exit 'rm -f "$applied_new"'
+
+captured="{{ joinPath .chezmoi.sourceDir "dot_config" "macos-defaults.captured" }}"
+
+ui_require defaults "macos defaults" "defaults not found"
+[ -r "$captured" ] || { step_warn "macos defaults" "no capture"; exit 0; }
+
+step_begin "macos defaults"
+
+written=0
+refused=()
+changed_domains=()
+
+# dotfiles-sync rewrites the capture on this machine too, which re-triggers this script.
+# The record of what the last run applied keeps that self-capture from reverting a setting
+# changed since: a line already in it hasn't moved, so whatever is live stays.
+mkdir -p "$(dirname "$applied")" 2>/dev/null || :
+: >"$applied_new" 2>/dev/null || :
+
+# The capture is `domain key type value`, and the value is whatever `defaults read`
+# printed, so it keeps its spaces. Split by hand: `read d k t v` would trim them, and
+# `|| [ -n "$line" ]` keeps a last line that has no newline.
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in '' | '#'*) continue ;; esac
+  d=${line%% *}
+  rest=${line#* }
+  k=${rest%% *}
+  rest=${rest#* }
+  t=${rest%% *}
+  v=${rest#* }
+  case "$t" in bool | int | float | string) ;; *) continue ;; esac
+  if [ -f "$applied" ] && grep -qxF -- "$line" "$applied"; then
+    echo "$line" >>"$applied_new" 2>/dev/null || :
+    continue
+  fi
+  # A key absent here reads as a failure, which counts as differing: the capture has a
+  # value and the machine doesn't.
+  if live="$(defaults read "$d" "$k" 2>/dev/null </dev/null)" && [ "$live" = "$v" ]; then
+    echo "$line" >>"$applied_new" 2>/dev/null || :
+    continue
+  fi
+  arg="$v"
+  # `defaults read` prints bools as 1/0, but `write -bool` takes only true/false/yes/no
+  # and rejects 1 with its usage text.
+  if [ "$t" = bool ]; then
+    case "$v" in 1) arg=true ;; 0) arg=false ;; esac
+  fi
+  if step_run defaults write "$d" "$k" -"$t" "$arg" </dev/null; then
+    written=$((written + 1))
+    changed_domains+=("$d")
+    echo "$line" >>"$applied_new" 2>/dev/null || :
+  else
+    # Left out of the record so the next run retries it.
+    refused+=("$d $k")
+  fi
+done <"$captured"
+
+mv -f "$applied_new" "$applied" 2>/dev/null || say "could not save $applied; the next run may rewrite keys"
+
+# Finder, the Dock and the screenshot service cache their prefs and only read a write
+# after a restart. Anything else picks it up on its own or at next login.
+apps=()
+if [ "${#changed_domains[@]}" -gt 0 ]; then
+  for d in "${changed_domains[@]}"; do
+    case "$d" in
+    com.apple.finder) app=Finder ;;
+    com.apple.dock) app=Dock ;;
+    com.apple.screencapture) app=SystemUIServer ;;
+    *) continue ;;
+    esac
+    case " ${apps[*]-} " in *" $app "*) ;; *) apps+=("$app") ;; esac
+  done
+fi
+if [ "${#apps[@]}" -gt 0 ]; then
+  for app in "${apps[@]}"; do
+    # Exits 1 when the app isn't running, which is fine: it reads the new value at launch.
+    killall "$app" 2>/dev/null || :
+  done
+fi
+
+# Guarded on the count: bash 3.2 turns an empty array into one empty word.
+if [ "${#refused[@]}" -gt 0 ]; then
+  step_warn "macos defaults" "${#refused[@]} refused"
+  echo "defaults would not write these captured keys (its errors are above):"
+  printf '  %s\n' "${refused[@]}"
+  # The header renders from this, which is what gets the next apply to retry.
+  printf '%s\n' "${refused[@]}" >"$pending" 2>/dev/null || say "could not write $pending, so the next apply won't retry"
+else
+  rm -f "$pending"
+  step_ok "macos defaults" "$written written"
+fi
+exit 0

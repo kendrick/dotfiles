@@ -28,12 +28,14 @@ set -euo pipefail
 # returns 0, and stdout stays pointed at the temp file. The counts after the loop, lines read
 # and lines written, catch both.
 capture_macos_defaults() (
-  list="$1" out="$2" n=0 want=0 tmp=""
+  list="$1" out="$2" rec="${3:-}" n=0 want=0 tmp="" live=""
   [ -r "$list" ] || { echo "==> macos-defaults: can't read $list"; exit 1; }
-  trap '[ -z "$tmp" ] || rm -f "$tmp"' EXIT
+  trap '[ -z "$tmp" ] || rm -f "$tmp" "$live"' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
   tmp="$(mktemp "$out.XXXXXX")" || { echo "==> macos-defaults: can't write beside $out"; exit 1; }
+  live="$tmp.live"
+  : >"$live" || { echo "==> macos-defaults: can't write $live"; exit 1; }
   while IFS= read -r line || [ -n "$line" ]; do
     n=$((n + 1))
     case "$line" in '' | '#'*) continue ;; esac
@@ -53,6 +55,7 @@ capture_macos_defaults() (
     if val="$(defaults read "$d" "$k" 2>/dev/null </dev/null)" && [[ "$val" != *$'\n'* ]]; then
       want=$((want + 1))
       printf '%s %s %s %s\n' "$d" "$k" "$t" "$val" >>"$tmp" || { echo "==> macos-defaults: can't write $tmp"; exit 1; }
+      printf '%s %s %s %s\n' "$d" "$k" "$t" "$val" >>"$live" || { echo "==> macos-defaults: can't write $live"; exit 1; }
       continue
     fi
     echo "==> macos-defaults: unreadable $d $k, skipped"
@@ -69,17 +72,27 @@ capture_macos_defaults() (
   [ "$n" -eq "$total" ] || { echo "==> macos-defaults: stopped at line $n of $total"; exit 1; }
   have="$(wc -l <"$tmp")" || have=-1
   [ "$((have + 0))" -eq "$want" ] || { echo "==> macos-defaults: wrote $((have + 0)) of $want lines"; exit 1; }
-  if [ -f "$out" ] && cmp -s "$tmp" "$out"; then
-    exit 0
+  if ! { [ -f "$out" ] && cmp -s "$tmp" "$out"; }; then
+    mv "$tmp" "$out" || { echo "==> macos-defaults: can't replace $out"; exit 1; }
   fi
-  mv "$tmp" "$out" || { echo "==> macos-defaults: can't replace $out"; exit 1; }
+  # #99: restore treats a captured line missing from its record as another machine's value
+  # and writes it. A value read here came from this machine, so it goes in the record, or a
+  # setting changed again before the next apply would be reverted to this capture. Lines
+  # carried over for unreadable keys stay out: they're another machine's and should land.
+  [ -n "$rec" ] || exit 0
+  if ! { mkdir -p "$(dirname "$rec")" &&
+    { [ ! -f "$rec" ] || awk 'FILENAME == ARGV[1] { seen[$1 " " $2] = 1; next } !(($1 " " $2) in seen)' "$live" "$rec"; cat "$live"; } >"$rec.new" &&
+    mv -f "$rec.new" "$rec"; }; then
+    rm -f "$rec.new"
+    echo "==> macos-defaults: can't update $rec, so the next apply may revert a newer local change"
+  fi
 )
 
 # Test entry point: runs only the capture, so tests need no source repo, branch guard or log.
 if [ "${1:-}" = "--capture-macos-defaults" ]; then
-  [ "$#" -eq 3 ] || { echo "usage: dotfiles-sync --capture-macos-defaults <list> <out>" >&2; exit 2; }
+  [ "$#" -eq 3 ] || [ "$#" -eq 4 ] || { echo "usage: dotfiles-sync --capture-macos-defaults <list> <out> [record]" >&2; exit 2; }
   # Same `||` shape as the sync phase, so set -e is off inside the function here too.
-  capture_macos_defaults "$2" "$3" || exit $?
+  capture_macos_defaults "$2" "$3" "${4:-}" || exit $?
   exit 0
 fi
 
@@ -615,7 +628,9 @@ fi
 # No heading and no "skipping" line: tests/sync-guard.bats diffs the whole run's output
 # against a pre-guard baseline, so any unconditional output here fails it.
 if [ -f "$SRC/dot_config/macos-defaults.txt" ]; then
-  capture_macos_defaults "$SRC/dot_config/macos-defaults.txt" "$SRC/dot_config/macos-defaults.captured" ||
+  # The record path is the one run_onchange_after_restore-macos-defaults.sh.tmpl reads.
+  capture_macos_defaults "$SRC/dot_config/macos-defaults.txt" "$SRC/dot_config/macos-defaults.captured" \
+    "$HOME/.local/state/dotfiles/macos-defaults.applied" ||
     echo "==> macos-defaults: capture failed, continuing"
 fi
 

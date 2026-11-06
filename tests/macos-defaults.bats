@@ -542,3 +542,59 @@ restore_apply() {
 	restore_apply "$v"
 	assert_contains "|1|" "|$(grep -c 'fake defaults: refused' "$v/apply.out")|"
 }
+
+# Codex's sequence on #100: restore records A, the user picks B, a sync captures B, the
+# user picks C, and the next apply must leave C. The capture's own record write is what
+# tells restore that B came from this machine.
+@test "a value this machine captured is never written back over a newer local change" {
+	defaults write "$PLIST" k1 -string A
+	printf '%s\n' "$PLIST k1 string" >"$LIST"
+	printf '%s\n' "$PLIST k1 string A" >"$OUT"
+	record="$BATS_TEST_TMPDIR/home/.local/state/dotfiles/macos-defaults.applied"
+	stub_defaults_passthrough
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$(render_restore "$OUT")"
+	[ "$status" -eq 0 ]
+	defaults write "$PLIST" k1 -string B
+	run bash "$SCRIPT" --capture-macos-defaults "$LIST" "$OUT" "$record"
+	[ "$status" -eq 0 ]
+	assert_contains "$PLIST k1 string B" "$(cat "$OUT")"
+	defaults write "$PLIST" k1 -string C
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$(render_restore "$OUT")"
+	[ "$status" -eq 0 ]
+	assert_contains "|C|" "|$(defaults read "$PLIST" k1)|"
+}
+
+# Falsifier for the case above: a capture that skips the record leaves B looking like
+# another machine's value, so restore writes it over C.
+@test "without the capture's record write, restore reverts the newer local change" {
+	defaults write "$PLIST" k1 -string A
+	printf '%s\n' "$PLIST k1 string" >"$LIST"
+	printf '%s\n' "$PLIST k1 string A" >"$OUT"
+	stub_defaults_passthrough
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$(render_restore "$OUT")"
+	[ "$status" -eq 0 ]
+	defaults write "$PLIST" k1 -string B
+	run bash "$SCRIPT" --capture-macos-defaults "$LIST" "$OUT"
+	[ "$status" -eq 0 ]
+	defaults write "$PLIST" k1 -string C
+	HOME="$BATS_TEST_TMPDIR/home" PATH="$STUBS:/usr/bin:/bin" run bash "$(render_restore "$OUT")"
+	[ "$status" -eq 0 ]
+	assert_contains "|B|" "|$(defaults read "$PLIST" k1)|"
+}
+
+@test "the capture records only keys it read live, replacing their old record lines" {
+	defaults write "$PLIST" k1 -string new
+	printf '%s\n' "$PLIST k1 string" "$PLIST gone string" >"$LIST"
+	printf '%s\n' "$PLIST k1 string old" "$PLIST gone string theirs" >"$OUT"
+	record="$BATS_TEST_TMPDIR/rec/applied"
+	mkdir -p "$(dirname "$record")"
+	printf '%s\n' "$PLIST k1 string old" "other.domain k9 int 1" >"$record"
+	run bash "$SCRIPT" --capture-macos-defaults "$LIST" "$OUT" "$record"
+	[ "$status" -eq 0 ]
+	assert_contains "$PLIST gone string theirs" "$(cat "$OUT")"
+	assert_contains "$PLIST k1 string new" "$(cat "$record")"
+	assert_not_contains "$PLIST k1 string old" "$(cat "$record")"
+	assert_not_contains "$PLIST gone " "$(cat "$record")"
+	assert_contains "other.domain k9 int 1" "$(cat "$record")"
+	assert_contains "|0|" "|$(find "$BATS_TEST_TMPDIR" -maxdepth 1 -name 'captured.*' | grep -c '')|"
+}

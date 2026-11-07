@@ -764,7 +764,7 @@
       "skillPath": "plugins/design-control-loop/skills/design-control-loop/SKILL.md",
       "skillFolderHash": "a8a023f8f62a384a76297b31d9f844c5ad3adf95",
       "installedAt": "2026-10-25T01:11:21.114Z",
-      "updatedAt": "2026-11-02T21:04:31.199Z"
+      "updatedAt": "2026-11-07T21:38:01.426Z"
     },
     "improve-claude-md": {
       "source": "dexhorthy/slopfiles",
@@ -773,7 +773,7 @@
       "skillPath": "plugins/improve-claude-md/skills/improve-claude-md/SKILL.md",
       "skillFolderHash": "742389d936458a62c303c5625232038788a9588f",
       "installedAt": "2026-10-25T01:31:12.153Z",
-      "updatedAt": "2026-10-25T01:31:12.153Z"
+      "updatedAt": "2026-11-07T21:37:59.614Z"
     },
     "claude-md-improver": {
       "source": "anthropics/claude-plugins-official",
@@ -782,7 +782,7 @@
       "skillPath": "plugins/claude-md-management/skills/claude-md-improver/SKILL.md",
       "skillFolderHash": "7188018e6710998fbc3227fdacd1b2b6e0508c38",
       "installedAt": "2026-10-25T01:31:39.474Z",
-      "updatedAt": "2026-10-25T01:31:39.474Z"
+      "updatedAt": "2026-11-07T21:37:58.165Z"
     },
     "fframes-video": {
       "source": "fframes.studio",

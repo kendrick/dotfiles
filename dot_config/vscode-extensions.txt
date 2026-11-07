@@ -22,6 +22,7 @@ oxc.oxc-vscode
 redhat.vscode-xml
 richie5um2.vscode-sort-json
 robbowen.synthwave-vscode
+silvenon.mdx
 simonsiefke.svg-preview
 tomoki1207.pdf
 usernamehw.errorlens

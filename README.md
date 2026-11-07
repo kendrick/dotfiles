@@ -59,7 +59,7 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 | ------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | Shell (zsh)  | Powerlevel10k prompt, Znap plugin manager, aliases/functions/exports                               | `~/.config/zsh/`, sourced by `~/.zshrc`         |
 | Git          | delta pager, the aliases I actually use, `g*` shell shortcuts (`gco`, `gd`, `gs`)                  | `~/.config/git/`, `~/.gitconfig`                |
-| Terminal     | Ghostty and Herdr. Theme and font both come from a switcher (see `theme` and `font` below)         | `~/.config/ghostty/config`, `~/.config/herdr/`  |
+| Terminal     | Ghostty, Herdr, and Herdr's plugins (`[herdr]` list). Theme and font come from switchers below     | `~/.config/ghostty/config`, `~/.config/herdr/`  |
 | Editor       | VS Code settings, keybindings, snippets; extensions in profiles, each from a tracked list          | `~/Library/Application Support/Code/User/`      |
 | Apps         | Formulae, casks, and Mac App Store apps, each filed into bundles a machine opts into               | `.chezmoidata.toml`                             |
 | Node         | nvm (via Homebrew), default floored at 24, pnpm through corepack, two globals lists                | `~/.config/npm-globals.txt`, `pnpm-globals.txt` |

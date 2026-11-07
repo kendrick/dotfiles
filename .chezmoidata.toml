@@ -194,3 +194,17 @@ packages = [
   { name = "databricks/tap/databricks",   type = "brew", bundles = ["cloud"] },
   { name = "zappy",                       type = "cask", bundles = ["cloud"], min_macos = "15" },
 ]
+
+# Herdr plugins, in the OWNER/REPO[/SUBDIR] form `herdr plugin install` takes.
+# run_onchange_after_install-herdr-plugins installs them. Herdr keeps installs under
+# ~/.config/herdr/plugins, which nothing captures, so this list is the only record: a plugin
+# installed by hand on one Mac reaches the others only once it's added here.
+#
+# Its own table, not under [pkg], because these aren't Homebrew packages and the Brewfile
+# template has no use for them. herdr itself is in the ai bundle; a machine without it skips
+# the whole list.
+[herdr]
+plugins = [
+  "hhdebb/herdr-radar",               # feeds the tab-bar block in config.toml
+  "furkankly/zoetrope/herdr-plugin",  # backs the furkankly.zoetrope.open keybinding
+]

@@ -1,0 +1,54 @@
+#!/bin/bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+# Herdr plugins, reinstalled from the [herdr] list in .chezmoidata.toml. The list renders
+# inline below, so editing it changes this script and chezmoi reruns it.
+#
+# dot_config/herdr/config.toml is a chezmoi target, but the plugins it calls are installed
+# state under ~/.config/herdr/plugins. herdr-radar fills the tab bar and zoetrope backs a
+# keybinding, and when either is missing its part of the config does nothing, with no error.
+#
+# teardown:data ~/.config/herdr/plugins
+set -e
+{{ template "sh-ui.sh" . }}
+ui_trap_exit
+ui_require herdr "herdr plugins" "herdr not found"
+
+# herdr-radar's build step runs `node bin/setup.js`, and nvm's node is on PATH only once
+# nvm.sh is sourced, which an apply from launchd never does. errexit is off for the load so
+# a broken nvm can't abort the apply.
+set +e
+ui_load_nvm
+set -e
+
+step_begin "herdr plugins"
+plugin_done=0
+failed=()
+# `herdr plugin list` prints each install's source as [github:OWNER/REPO[/SUBDIR]@<sha>].
+# Matching the bracketed token, not the bare source, keeps furkankly/zoetrope from counting
+# as installed just because furkankly/zoetrope/herdr-plugin is.
+installed="$(herdr plugin list 2>/dev/null || true)"
+total={{ len .herdr.plugins }}
+install_plugin() {
+  local src="$1"
+  grep -qF "[github:$src@" <<<"$installed" && return 0
+  plugin_done=$((plugin_done + 1))
+  step_tick "$plugin_done" "$total" "$src"
+  if ! step_run herdr plugin install "$src" -y; then
+    failed+=("$src")
+  fi
+}
+{{ range .herdr.plugins -}}
+install_plugin {{ . | quote }}
+{{ end -}}
+
+# Counted before expanding: bash 3.2 renders an empty array as one empty word.
+if [ "${#failed[@]}" -gt 0 ]; then
+  step_warn "herdr plugins" "${#failed[@]} refused"
+  echo "herdr ran, but these did not install (its errors are above):"
+  printf '  %s\n' "${failed[@]}"
+else
+  step_ok "herdr plugins" "$plugin_done installed"
+fi
+
+# Exit 0 with failures named: one unreachable GitHub repo must not abort the apply.
+exit 0

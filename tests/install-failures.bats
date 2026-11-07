@@ -1126,3 +1126,101 @@ STUB
 	assert_contains "  ✓  claude plugins"
 	assert_not_contains "did not install"
 }
+
+# ---- install-herdr-plugins ----
+# Sources come out of the render, not a hardcoded copy, so these cases follow the [herdr]
+# list in .chezmoidata.toml as it changes. The stub's `plugin list` output copies the line
+# shape real herdr printed for these two installs, since that line is what the script's
+# already-installed check has to parse.
+
+# herdr_stub <exit code for `plugin install`> [sources the list reports as installed...]
+herdr_stub() {
+	local install_rc="$1"
+	shift
+	export CALL_LOG="$BATS_TEST_TMPDIR/herdr-calls.log"
+	export LIST_OUT="$BATS_TEST_TMPDIR/herdr-list.txt"
+	: >"$CALL_LOG"
+	if [ $# -eq 0 ]; then
+		echo "No plugins installed." >"$LIST_OUT"
+	else
+		echo "$# plugins installed:" >"$LIST_OUT"
+		for src in "$@"; do
+			printf -- '- %s (%s) enabled [github:%s@8619655557a4d2c2852e819d424e4af4ed83e4b1]\n' \
+				"${src%%/*}.x" "x" "$src" >>"$LIST_OUT"
+			printf '  config: %s\n' "$HOME/.config/herdr/plugins/config/x" >>"$LIST_OUT"
+		done
+	fi
+	cat >"$STUBS/herdr" <<STUB
+#!/usr/bin/env bash
+if [ "\$1" = plugin ] && [ "\$2" = list ]; then cat "$LIST_OUT"; exit 0; fi
+if [ "\$1" = plugin ] && [ "\$2" = install ]; then echo "install \$3" >>"$CALL_LOG"; exit $install_rc; fi
+exit 0
+STUB
+	chmod +x "$STUBS/herdr"
+}
+
+herdr_sources() {
+	sed -n 's/^install_plugin "\(.*\)"$/\1/p' "$1"
+}
+
+@test "install-herdr-plugins: absent tool skips clean" {
+	script="$(render_script run_onchange_after_install-herdr-plugins.sh.tmpl)"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "herdr not found"
+}
+
+@test "install-herdr-plugins: present tool failing names the item" {
+	script="$(render_script run_onchange_after_install-herdr-plugins.sh.tmpl)"
+	src="$(herdr_sources "$script" | head -1)"
+	[ -n "$src" ]
+	herdr_stub 1
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "did not install"
+	assert_contains "  $src"
+}
+
+@test "install-herdr-plugins: one failure does not stop the rest" {
+	script="$(render_script run_onchange_after_install-herdr-plugins.sh.tmpl)"
+	expected="$(herdr_sources "$script" | grep -c '')"
+	[ "$expected" -ge 2 ]
+	herdr_stub 1
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	[ "$(grep -c '' "$CALL_LOG")" -eq "$expected" ]
+}
+
+@test "install-herdr-plugins: an installed source is skipped and the rest still install" {
+	script="$(render_script run_onchange_after_install-herdr-plugins.sh.tmpl)"
+	first="$(herdr_sources "$script" | head -1)"
+	rest="$(herdr_sources "$script" | tail -n +2 | sed 's/^/install /')"
+	herdr_stub 0 "$first"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "calls=$rest" "calls=$(cat "$CALL_LOG")"
+	assert_not_contains "install $first" "$(cat "$CALL_LOG")"
+}
+
+# zoetrope's plugin lives in a subdir of its repo. The installed check has to treat
+# OWNER/REPO and OWNER/REPO/SUBDIR as different sources, or one would mask the other.
+@test "install-herdr-plugins: a subdir source installed does not mask its parent repo" {
+	script="$(render_script run_onchange_after_install-herdr-plugins.sh.tmpl)"
+	sub="$(herdr_sources "$script" | awk -F/ 'NF > 2' | head -1)"
+	[ -n "$sub" ]
+	parent="${sub%/*}"
+	sed -i '' "s|^install_plugin \".*\"\$|install_plugin \"$parent\"|" "$script"
+	herdr_stub 0 "$sub"
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "install $parent" "$(cat "$CALL_LOG")"
+}
+
+@test "install-herdr-plugins: all items succeed prints no failure summary" {
+	script="$(render_script run_onchange_after_install-herdr-plugins.sh.tmpl)"
+	herdr_stub 0
+	PATH="$STUBS:/usr/bin:/bin" run bash "$script"
+	[ "$status" -eq 0 ]
+	assert_contains "  ✓  herdr plugins"
+	assert_not_contains "did not install"
+}

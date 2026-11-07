@@ -80,7 +80,7 @@ install_plugin() {
      actually ships from claude-plugins-official. Config carried the bogus coordinate for
      a while, which left chrome-devtools-mcp enabled against a marketplace that could
      never resolve it. */ -}}
-{{ $public := list "superpowers-marketplace" "claude-plugins-official" "kendrick" -}}
+{{ $public := list "superpowers-marketplace" "claude-plugins-official" "kendrick" "ponytail" -}}
 {{ if stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") -}}
 {{   $marketplaces := include "dot_claude/private_plugins/encrypted_known_marketplaces.json.age" | decrypt | fromJson -}}
 {{   range $name, $info := $marketplaces -}}

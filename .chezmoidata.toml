@@ -124,6 +124,10 @@ packages = [
   { name = "go",                          type = "brew", bundles = ["dev"] },
   { name = "just",                        type = "brew", bundles = ["dev"] },
   { name = "nvm",                         type = "brew", bundles = ["dev"] },
+  # pnpm comes from Homebrew because corepack, which used to provide it, stopped shipping
+  # with Node in v25. repomix pulls in Homebrew's current node, so even a machine with
+  # nvm can end up on a node that has no corepack at all.
+  { name = "pnpm",                        type = "brew", bundles = ["dev"] },
   { name = "pre-commit",                  type = "brew", bundles = ["dev"] },
   { name = "python@3.13",                 type = "brew", bundles = ["dev"] },
   { name = "repomix",                     type = "brew", bundles = ["dev"] },

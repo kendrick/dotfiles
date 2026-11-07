@@ -62,7 +62,7 @@ To capture and commit in one step, skip the manual `chezmoi cd && git commit` an
 | Terminal     | Ghostty, Herdr, and Herdr's plugins (`[herdr]` list). Theme and font come from switchers below     | `~/.config/ghostty/config`, `~/.config/herdr/`  |
 | Editor       | VS Code settings, keybindings, snippets; extensions in profiles, each from a tracked list          | `~/Library/Application Support/Code/User/`      |
 | Apps         | Formulae, casks, and Mac App Store apps, each filed into bundles a machine opts into               | `.chezmoidata.toml`                             |
-| Node         | nvm (via Homebrew), default floored at 24, pnpm through corepack, two globals lists                | `~/.config/npm-globals.txt`, `pnpm-globals.txt` |
+| Node         | nvm (via Homebrew), default floored at 24, pnpm from Homebrew, two globals lists                   | `~/.config/npm-globals.txt`, `pnpm-globals.txt` |
 | Scripts      | custom bins on `$PATH`                                                                             | `~/.local/bin/`                                 |
 | macOS        | one-time `defaults write` for Finder, Dock, screenshots                                            | `run_once_after_configure-macos.sh`             |
 | Agent skills | Claude/agent skills via `npx skills`, tracked by a lockfile                                        | `~/.agents/skills/`                             |

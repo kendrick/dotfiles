@@ -69,13 +69,6 @@ if command -v nvm >/dev/null 2>&1; then
     echo "Installing node $node_floor via nvm (current default: ${have_major:-none})..."
     nvm install "$node_floor" && nvm alias default "$node_floor" && nvm use default >/dev/null 2>&1
   fi
-  # pnpm isn't bundled with node, so a fresh machine would skip every pnpm global below.
-  # corepack (which is bundled) provides the shim. Only enable it when pnpm is absent, so
-  # machines that already have pnpm some other way keep their existing binary.
-  if command -v corepack >/dev/null 2>&1 && ! command -v pnpm >/dev/null 2>&1; then
-    echo "Enabling pnpm via corepack..."
-    corepack enable pnpm 2>/dev/null || true
-  fi
 else
   step_warn "node" "nvm not found"
 fi

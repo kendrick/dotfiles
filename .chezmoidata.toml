@@ -73,7 +73,6 @@ packages = [
   { name = "1password",            type = "cask", bundles = ["core"] },
   { name = "1password-cli",        type = "cask", bundles = ["core"] },
   { name = "ghostty",              type = "cask", bundles = ["core"] },
-  { name = "glance-chamburr",      type = "cask", bundles = ["core"] },
   { name = "jordanbaird-ice",      type = "cask", bundles = ["core"] },
   { name = "raycast",              type = "cask", bundles = ["core"] },
   { name = "slack",                type = "cask", bundles = ["core"] },

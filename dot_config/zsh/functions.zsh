@@ -105,22 +105,30 @@ function skills() {
 }
 
 # `claude plugin ...` (install/uninstall, marketplace add/remove) rewrites
-# ~/.claude/plugins/{installed_plugins,known_marketplaces}.json. Capture the intent
-# behind that change rather than the file itself: the CLI bakes this box's absolute
-# installPaths, resolved versions, and git SHAs into those manifests, so the verbatim
-# `chezmoi re-add` this used to run gave two machines two different files and every
-# concurrent auto-sync collided on them. claude-plugins-capture strips them to the
-# repos and specs the reinstall script actually reads, which is identical everywhere.
-# The in-app /plugin menu bypasses this shell wrapper, so the daily dotfiles-sync
-# capture stays the real safety net.
+# ~/.claude/plugins/{installed_plugins,known_marketplaces}.json. claude-plugins-capture
+# merges the intent behind that change into source rather than copying the files, which
+# hold this box's absolute paths and SHAs. The snapshot taken before the command is how an
+# uninstall gets recorded: capture never drops a plugin just because this Mac lacks it, so
+# without the before/after diff a removal here would come back on the next sync.
+# The in-app /plugin menu bypasses this shell wrapper, so its uninstalls aren't recorded.
 function claude() {
+	if [ "$1" != plugin ] || ! command -v claude-plugins-capture >/dev/null 2>&1; then
+		command claude "$@"
+		return
+	fi
+	local snap rc
+	snap="$(mktemp -t claude-plugins)" || snap=""
+	[ -n "$snap" ] && claude-plugins-capture --snapshot "$snap" 2>/dev/null
 	command claude "$@"
-	local rc=$?
-	case "$1" in
-		plugin)
-			claude-plugins-capture >/dev/null 2>&1
-			;;
-	esac
+	rc=$?
+	# A failed snapshot leaves the file empty, and capture then skips tombstoning and
+	# still does the plain merge.
+	if [ -n "$snap" ]; then
+		claude-plugins-capture --since "$snap" >/dev/null 2>&1
+		rm -f "$snap"
+	else
+		claude-plugins-capture >/dev/null 2>&1
+	fi
 	return $rc
 }
 

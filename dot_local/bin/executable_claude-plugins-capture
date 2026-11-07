@@ -1,32 +1,44 @@
 #!/usr/bin/env python3
 """Capture the Claude plugin manifests into chezmoi source as portable intent.
 
-`chezmoi re-add` used to do this job, but it captured the manifests verbatim, and
-the CLI writes machine-local facts into them: absolute installPaths under whichever
-home dir this box uses, resolved versions, git SHAs, install timestamps. Two machines
-that install the same plugin therefore produce two different files, so every
-concurrent auto-sync collided, and the winning side left the losing box pointing at
-an installPath that doesn't exist there.
+The CLI writes machine-local facts into its manifests: absolute installPaths under
+whichever home dir this box uses, resolved versions, git SHAs, install timestamps.
+run_onchange_after_install-claude-plugins.sh.tmpl reinstalls from intent and reads
+exactly two things: each marketplace's source.repo, and each plugin's
+"<plugin>@<marketplace>" spec key. So this strips the manifests to that intent, sorts
+every key, and writes the result to source encrypted. Same intent on two machines means
+byte-identical plaintext, which keeps concurrent auto-syncs from colliding.
 
-None of that is worth syncing. run_onchange_after_install-claude-plugins.sh.tmpl
-reinstalls from intent, and it reads exactly two things: each marketplace's
-source.repo, and each plugin's "<plugin>@<marketplace>" spec key. So this strips the
-manifests to that intent, sorts every key, and writes the result to source encrypted.
-Same plugins installed on two machines now means byte-identical plaintext, which is
-what actually stops the conflicts.
+What gets written is (source ∪ installed here) − removed, never this machine's view
+alone. A personal Mac installs only the public-marketplace allowlist, so a plain rewrite
+from its live manifests dropped every work-only plugin from the shared record, and with
+it anything else this Mac hadn't installed yet. Removal has to be said out loud instead:
+encrypted_removed.json.age lists the specs and marketplaces uninstalled on purpose, and
+nothing in it comes back until it's installed again.
 
-Live ~/.claude/plugins/*.json stays CLI-owned and is no longer a chezmoi target (see
+Removals are recorded by diffing two snapshots. The `claude` zsh wrapper runs
+`claude-plugins-capture --snapshot FILE` before a `plugin` subcommand and
+`claude-plugins-capture --since FILE` after it, so whatever vanished is tombstoned and
+whatever appeared is cleared from the tombstones. Diffing beats parsing the command
+line, where `--scope user` and friends make the positional argument hard to find.
+The in-app /plugin menu skips the wrapper, so an uninstall made there isn't recorded,
+and the plugin comes back from source on the next reinstall.
+
+Live ~/.claude/plugins/*.json stays CLI-owned and is not a chezmoi target (see
 .chezmoiignore); a fresh machine gets it back from the reinstall script, not from a
 copy of some other machine's paths.
 """
 
+import argparse
 import json
 import os
 import subprocess
 import sys
 
 LIVE = os.path.expanduser("~/.claude/plugins")
-MANIFESTS = ("installed_plugins.json", "known_marketplaces.json")
+PLUGINS = "installed_plugins.json"
+MARKETPLACES = "known_marketplaces.json"
+REMOVED = "removed.json"
 
 
 def source_dir():
@@ -40,13 +52,58 @@ def sorted_dict(d):
     return {k: d[k] for k in sorted(d)}
 
 
+def read_live(name):
+    path = os.path.join(LIVE, name)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except (json.JSONDecodeError, OSError) as exc:
+        # A half-written manifest is the CLI mid-install, not a reason to fail the
+        # whole sync. Next run catches it.
+        print(f"skipping {name}: {exc}", file=sys.stderr)
+        return None
+
+
+def read_source(dest):
+    """Decrypted plaintext and parsed JSON of a source file, or (None, None)."""
+    if not os.path.exists(dest):
+        return None, None
+    current = subprocess.run(["chezmoi", "decrypt", dest], capture_output=True, text=True)
+    if current.returncode != 0:
+        return None, None
+    try:
+        return current.stdout, json.loads(current.stdout)
+    except json.JSONDecodeError:
+        return current.stdout, None
+
+
+def write_source(dest, payload, label):
+    # Only rewrite when the plaintext actually moved. age re-encrypts
+    # nondeterministically, so an unconditional write would churn the ciphertext
+    # and hand the auto-sync a bogus diff to commit on every single run.
+    current, _ = read_source(dest)
+    if current == payload:
+        return True
+    encrypted = subprocess.run(
+        ["chezmoi", "encrypt"], input=payload, capture_output=True, text=True
+    )
+    if encrypted.returncode != 0:
+        print(f"failed to encrypt {label}: {encrypted.stderr}", file=sys.stderr)
+        return False
+    with open(dest, "w") as fh:
+        fh.write(encrypted.stdout)
+    print(f"captured {label}")
+    return True
+
+
 def strip_marketplaces(live):
     """Keep the repo coordinates; drop installLocation and lastUpdated."""
-    out = {}
-    for name, info in live.items():
-        source = info.get("source", {})
-        out[name] = {"source": sorted_dict(source)}
-    return sorted_dict(out)
+    return {
+        name: {"source": sorted_dict(info.get("source", {}))}
+        for name, info in live.items()
+    }
 
 
 def strip_plugins(live):
@@ -56,69 +113,95 @@ def strip_plugins(live):
     The reinstall script ignores the value entirely, but keeping the array shape means
     the file still parses as what the CLI would recognize.
     """
-    plugins = {}
-    for spec, records in live.get("plugins", {}).items():
-        kept = []
-        for record in records:
-            if "scope" in record:
-                kept.append({"scope": record["scope"]})
-        plugins[spec] = kept
-    out = {"plugins": sorted_dict(plugins)}
-    if "version" in live:
-        out["version"] = live["version"]
-    return sorted_dict(out)
+    return {
+        spec: [{"scope": r["scope"]} for r in records if "scope" in r]
+        for spec, records in live.get("plugins", {}).items()
+    }
 
 
-STRIPPERS = {
-    "known_marketplaces.json": strip_marketplaces,
-    "installed_plugins.json": strip_plugins,
-}
+def live_intent():
+    """This machine's (plugins, marketplaces), or None for a manifest that can't be read."""
+    plugins = read_live(PLUGINS)
+    marketplaces = read_live(MARKETPLACES)
+    return (
+        None if plugins is None else strip_plugins(plugins),
+        None if marketplaces is None else strip_marketplaces(marketplaces),
+        plugins.get("version") if plugins else None,
+    )
+
+
+def snapshot(path):
+    plugins, marketplaces, _ = live_intent()
+    with open(path, "w") as fh:
+        json.dump({"plugins": sorted(plugins or {}), "marketplaces": sorted(marketplaces or {})}, fh)
+    return 0
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--snapshot", metavar="FILE", help="record what's installed now")
+    group.add_argument("--since", metavar="FILE", help="tombstone what vanished since FILE")
+    args = parser.parse_args()
+
+    if args.snapshot:
+        return snapshot(args.snapshot)
+
     try:
         dest_dir = source_dir()
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("chezmoi not available; skipping plugin capture.", file=sys.stderr)
         return 0
 
-    for name in MANIFESTS:
-        live_path = os.path.join(LIVE, name)
-        if not os.path.exists(live_path):
-            continue
+    live_plugins, live_markets, version = live_intent()
+    removed_dest = os.path.join(dest_dir, f"encrypted_{REMOVED}.age")
+    _, removed = read_source(removed_dest)
+    removed = removed or {}
+    gone_plugins = set(removed.get("plugins", []))
+    gone_markets = set(removed.get("marketplaces", []))
+
+    if args.since:
         try:
-            with open(live_path) as fh:
-                live = json.load(fh)
-        except (json.JSONDecodeError, OSError) as exc:
-            # A half-written manifest is the CLI mid-install, not a reason to fail the
-            # whole sync. Next run catches it.
-            print(f"skipping {name}: {exc}", file=sys.stderr)
+            with open(args.since) as fh:
+                before = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            before = None
+        # Without both sides of the diff, a missing manifest would read as "everything
+        # was uninstalled". Skip the tombstoning and still do the plain merge.
+        if before is not None and live_plugins is not None and live_markets is not None:
+            gone_plugins |= set(before["plugins"]) - set(live_plugins)
+            gone_plugins -= set(live_plugins) - set(before["plugins"])
+            gone_markets |= set(before["marketplaces"]) - set(live_markets)
+            gone_markets -= set(live_markets) - set(before["marketplaces"])
+
+    ok = True
+    for name, live, gone in (
+        (PLUGINS, live_plugins, gone_plugins),
+        (MARKETPLACES, live_markets, gone_markets),
+    ):
+        if live is None:
             continue
-
-        payload = json.dumps(STRIPPERS[name](live), indent=2, sort_keys=False)
         dest = os.path.join(dest_dir, f"encrypted_{name}.age")
+        _, src = read_source(dest)
+        src = src or {}
+        src_entries = src.get("plugins", {}) if name == PLUGINS else src
+        # This machine's record wins for an entry it has, so a scope change here lands.
+        merged = {**src_entries, **live}
+        merged = sorted_dict({k: v for k, v in merged.items() if k not in gone})
+        if name == PLUGINS:
+            out = {"plugins": merged}
+            if version is not None or "version" in src:
+                out["version"] = version if version is not None else src["version"]
+            merged = sorted_dict(out)
+        ok = write_source(dest, json.dumps(merged, indent=2), name) and ok
 
-        # Only rewrite when the plaintext actually moved. age re-encrypts
-        # nondeterministically, so an unconditional write would churn the ciphertext
-        # and hand the auto-sync a bogus diff to commit on every single run.
-        if os.path.exists(dest):
-            current = subprocess.run(
-                ["chezmoi", "decrypt", dest], capture_output=True, text=True
-            )
-            if current.returncode == 0 and current.stdout == payload:
-                continue
-
-        encrypted = subprocess.run(
-            ["chezmoi", "encrypt"], input=payload, capture_output=True, text=True
+    if gone_plugins or gone_markets or os.path.exists(removed_dest):
+        payload = json.dumps(
+            {"marketplaces": sorted(gone_markets), "plugins": sorted(gone_plugins)}, indent=2
         )
-        if encrypted.returncode != 0:
-            print(f"failed to encrypt {name}: {encrypted.stderr}", file=sys.stderr)
-            return 1
-        with open(dest, "w") as fh:
-            fh.write(encrypted.stdout)
-        print(f"captured {name}")
+        ok = write_source(removed_dest, payload, REMOVED) and ok
 
-    return 0
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

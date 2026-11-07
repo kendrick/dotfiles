@@ -87,6 +87,9 @@ dot_local/bin/executable_awssso
 # `teardown:data ~/.claude/plugins` declaration, which covers the whole directory.
 .claude/plugins/installed_plugins.json
 .claude/plugins/known_marketplaces.json
+# The tombstones claude-plugins-capture keeps for plugins uninstalled on purpose. Source-only;
+# the CLI has no such file.
+.claude/plugins/removed.json
 
 # Auto-sync off: don't deploy the LaunchAgent plist. The load script also unloads and
 # removes any copy already on disk, so toggling to off actually stops the scheduled sync.

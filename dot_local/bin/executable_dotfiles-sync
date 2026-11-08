@@ -497,6 +497,22 @@ else
   echo "    npmrc-normalize not found, skipping"
 fi
 
+# ---- Phase: put $HOME back where apps write this machine's absolute home path ----
+# herdr-radar rewrites its tab-bar block in Herdr's config.toml about once a minute, and it
+# writes the absolute home dir into the block's command. Committed as-is, that path points
+# nowhere on a Mac with another username (k.arnett vs kendrick), and each Mac's sync would
+# keep swapping its own path back in. The command runs through a shell, so $HOME works.
+# Runs after re-add and edits source only: radar puts the absolute path back in live
+# within a minute anyway. Matching "$HOME/" with the slash keeps /Users/kendrickX intact.
+echo "==> Restoring \$HOME in configs apps write absolute paths into"
+for rel in dot_config/herdr/config.toml; do
+  f="$SRC/$rel"
+  if [ -f "$f" ] && grep -qF "$HOME/" "$f"; then
+    DEHOME="$HOME/" perl -pi -e 's/\Q$ENV{DEHOME}\E/\$HOME\//g' "$f"
+    echo "    $rel"
+  fi
+done
+
 # ---- Phase: no unverified encrypted source reaches the commit ----
 # Exit 0 from a normalizer does not mean it read the file. It also covers "no age
 # identity", "chezmoi didn't answer", and "not installed", and the phases above cannot

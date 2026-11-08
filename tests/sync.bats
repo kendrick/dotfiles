@@ -901,3 +901,36 @@ seed_off_default_since() {
 	assert_contains "Committed locally"
 	[ "$(git -C "$REPO" rev-list --count HEAD)" -eq 2 ]
 }
+
+# herdr-radar writes this machine's absolute home dir into Herdr's config.toml about once a
+# minute. Committed as-is, the path breaks the block on a Mac with another username.
+@test "sync: herdr config is committed with \$HOME in place of this machine's home dir" {
+	fresh_repo
+	mkdir -p "$REPO/dot_config/herdr"
+	cat >"$REPO/dot_config/herdr/config.toml" <<TOML
+command = 'cat "$HOME/.local/state/herdr/plugins/hhdebb.herdr-radar/tabbar.txt" 2>/dev/null || true'
+sibling = "${HOME}X/elsewhere"
+brew = "/opt/homebrew/bin"
+TOML
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	committed="$(git -C "$REPO" show HEAD:dot_config/herdr/config.toml)"
+	assert_contains "cat \"\$HOME/.local/state/herdr/plugins/hhdebb.herdr-radar/tabbar.txt\"" "$committed"
+	assert_not_contains "$HOME/" "$committed"
+	# A prefix that only starts like the home dir, and an unrelated absolute path, stay put.
+	assert_contains "sibling = \"${HOME}X/elsewhere\"" "$committed"
+	assert_contains 'brew = "/opt/homebrew/bin"' "$committed"
+}
+
+@test "sync: an absolute home path outside the herdr config is committed untouched" {
+	fresh_repo
+	mkdir -p "$REPO/dot_config/other"
+	printf 'path = "%s/.local/x"\n' "$HOME" >"$REPO/dot_config/other/config.toml"
+
+	run bash "$SCRIPT"
+
+	[ "$status" -eq 0 ]
+	assert_contains "path = \"$HOME/.local/x\"" "$(git -C "$REPO" show HEAD:dot_config/other/config.toml)"
+}

@@ -177,9 +177,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "b8b5a86b160169d15d1af90172d3a58a395dd4e0",
+      "skillFolderHash": "6a82bb36dfff3cf03b8ccf0c4ce5df0a01790350",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-11-06T01:48:59.351Z"
+      "updatedAt": "2026-11-08T23:04:56.194Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -535,9 +535,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "handoff/SKILL.md",
-      "skillFolderHash": "f536d42413346a5b504d87c95a1078d0cf832b75",
+      "skillFolderHash": "13b0b43a283e18749617898ea158b2bd241eacda",
       "installedAt": "2026-07-27T17:29:02.387Z",
-      "updatedAt": "2026-11-06T23:05:03.171Z"
+      "updatedAt": "2026-11-08T23:04:56.253Z"
     },
     "file-issue": {
       "source": "kendrick/skills",
@@ -598,9 +598,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "0d0f10932e394ea9cc8d0c9bbd0dd6d95d7de943",
+      "skillFolderHash": "db495161304817108ae5b03b48cc9777d1061d69",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-11-03T21:10:45.666Z"
+      "updatedAt": "2026-11-08T23:04:57.079Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
@@ -735,9 +735,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "8cf65307a5a4c7ddf5043104f61613f31a32bf9b",
+      "skillFolderHash": "26b361f2a3bb9f9903f4a7853f0ee7944d3727f4",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-11-06T23:05:03.883Z"
+      "updatedAt": "2026-11-08T23:04:56.341Z"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",

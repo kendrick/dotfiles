@@ -25,10 +25,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/blader/humanizer.git",
       "skillPath": "SKILL.md",
-      "skillFolderHash": "0ef9fe5bc3572734fd3ae6c448fe00a30cd5dcf0",
+      "skillFolderHash": "b48c832f0f809c1b5658edbb838c2521b72f2413",
       "pluginName": "humanizer",
       "installedAt": "2026-05-27T13:07:25.759Z",
-      "updatedAt": "2026-10-29T21:58:24.100Z"
+      "updatedAt": "2026-11-10T19:44:47.470Z"
     },
     "systematic-debugging": {
       "source": "obra/superpowers",
@@ -177,9 +177,9 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "6a82bb36dfff3cf03b8ccf0c4ce5df0a01790350",
+      "skillFolderHash": "4128476cc6ce653e0108e254b3ad45b35dc06a52",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-11-08T23:04:56.194Z"
+      "updatedAt": "2026-11-10T19:44:47.996Z"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -598,9 +598,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "db495161304817108ae5b03b48cc9777d1061d69",
+      "skillFolderHash": "7c64ced4ca34f0e77fd4f3c5f77421cf59de3762",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-11-08T23:04:57.079Z"
+      "updatedAt": "2026-11-10T19:44:49.638Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",
@@ -735,9 +735,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "26b361f2a3bb9f9903f4a7853f0ee7944d3727f4",
+      "skillFolderHash": "c7e33b22d3521045a46eccfb94532c600861f467",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-11-08T23:04:56.341Z"
+      "updatedAt": "2026-11-10T19:44:48.157Z"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",

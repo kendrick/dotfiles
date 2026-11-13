@@ -517,9 +517,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "inbox-to-memory/SKILL.md",
-      "skillFolderHash": "62655ec64f18b2b55a4af14e3f9a210081d46517",
+      "skillFolderHash": "803ddcaeea860a4341b3ba34f199ad1fb6195978",
       "installedAt": "2026-07-10T21:06:31.566Z",
-      "updatedAt": "2026-11-12T00:22:29.745Z"
+      "updatedAt": "2026-11-13T03:42:17.690Z"
     },
     "readme-coauthorship": {
       "source": "kendrick/skills",
@@ -598,9 +598,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/cathrynlavery/diagram-design.git",
       "skillPath": "skills/diagram-design/SKILL.md",
-      "skillFolderHash": "7c64ced4ca34f0e77fd4f3c5f77421cf59de3762",
+      "skillFolderHash": "cde001a0341ed67e818207c4e3f06d4727a42cde",
       "installedAt": "2026-09-01T15:52:28.176Z",
-      "updatedAt": "2026-11-10T19:44:49.638Z"
+      "updatedAt": "2026-11-13T03:42:19.965Z"
     },
     "ask-matt": {
       "source": "mattpocock/skills",

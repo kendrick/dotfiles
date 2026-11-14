@@ -134,13 +134,6 @@ defaults write com.apple.Safari AutoOpenSafeDownloads -bool false 2>/dev/null ||
 defaults write com.apple.Safari SendDoNotTrackHTTPHeader -bool true 2>/dev/null || true
 
 ###############################################################################
-# Mail                                                                        #
-###############################################################################
-
-# Copy email addresses as `foo@example.com` instead of `Foo Bar <foo@example.com>`
-defaults write com.apple.mail AddressesIncludeNameOnPasteboard -bool false
-
-###############################################################################
 # Activity Monitor                                                            #
 ###############################################################################
 

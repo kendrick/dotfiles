@@ -105,6 +105,11 @@ Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist
 # hostnames into a public repo the first time the file shows up.
 .zshrc.local
 
+# Machine-local ssh overrides, read by the Include in private_dot_ssh/config. On a
+# proxied machine the file holds the proxy address, so it stays out of the repo for the
+# same reason .zshrc.local does.
+.ssh/config.local
+
 # Per-machine deploy key for the quantified-claude events repo. The github-qc-events
 # ssh stanza (in private_dot_ssh/config) IS synced, but the key itself stays local:
 # each machine generates its own and registers its own read-write deploy key, so one

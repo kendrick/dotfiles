@@ -2,11 +2,13 @@
 
 These apply to every project I work on, regardless of the repo or stack.
 
+When a skill or rule names a harness-specific tool or path, translate it with `~/.agents/harness-notes.md`.
+
 ## Prose
 
 Run human-facing prose through the `humanizer` skill before merge. By "human-facing" I mean anything a person is actually likely to read as writing: code comments, commit messages, PR descriptions, changesets, workshop briefs, and user-facing documentation (READMEs, guides, the docs site). It does NOT mean spec-kit planning artifacts (`spec.md`, `plan.md`, `tasks.md`, requirements checklists) or other internal intermediates that exist to drive a build or planning step rather than to be read for their own sake — those are machine-facing scaffolding, so skip the humanizer on them. When it's genuinely unclear, ask whether a human will read it as writing; if not, don't bother.
 
-"Run through" means formally invoke the skill via the Skill tool and follow its audit-and-revise loop ("draft → what makes this so obviously AI generated? → revise"). Informally applying the principles from memory is not enough — it consistently misses tells. Invoke the skill, edit the prose in place against its audit, then ship. Do this proactively, as a default step — not something you offer. Never hand me un-humanized prose with a "say the word and I'll run the skill" caveat attached; don't ask permission to humanize, just do it.
+"Run through" means formally load the `humanizer` skill using the harness's skill mechanism and follow its audit-and-revise loop ("draft → what makes this so obviously AI generated? → revise"). Informally applying the principles from memory is not enough — it consistently misses tells. Invoke the skill, edit the prose in place against its audit, then ship. Do this proactively, as a default step — not something you offer. Never hand me un-humanized prose with a "say the word and I'll run the skill" caveat attached; don't ask permission to humanize, just do it.
 
 My house rules live in `~/.agents/PROSE.md`. Whenever you invoke the humanizer, read that file fresh—never from a remembered summary—and apply its overrides on top of the audit. It amends what the skill says about lists, list dissolution, em dashes, and heading case, adds patterns the skill doesn't name yet, and adds a plain-speech pass.
 

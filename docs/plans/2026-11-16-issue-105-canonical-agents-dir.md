@@ -15,7 +15,6 @@
 **Facts verified on this machine (2026-11-16), so don't re-derive them:**
 
 - In a temp source/destination with chezmoi, relative `symlink_` sources in `dot_claude/`, `dot_codex/`, and `dot_config/opencode/` all resolved to `.agents/AGENTS.md`. The root-level `AGENTS.md` line in `.chezmoiignore` did not hide `.agents/AGENTS.md`, and no `~/AGENTS.md` was created. `.chezmoiremove` with `.claude/DELEGATION.md` deleted a pre-seeded stale copy, and a second apply followed by `chezmoi status` printed nothing.
-- `dot_claude/CLAUDE.md` has no `@RTK.md` line today, and nothing else references `RTK.md`.
 - Skill bodies under `~/.agents/skills`, `~/.claude/skills`, and the plugin cache reference `~/.claude/CLAUDE.md` (9×), `~/.claude/PROSE.md` (2×), and `~/.claude/VOICE.md` (2×). None reference `~/.claude/DELEGATION.md`.
 - `VOICE.md` links its samples by relative path (`[voice-samples-work.md](voice-samples-work.md)`), so a reader that arrives through `~/.claude/VOICE.md` looks for the samples in `~/.claude/`.
 - Live `PROSE.md`, `VOICE.md`, and the sample files contain no `~/.claude`, `Skill tool`, `AskUserQuestion`, `Task tool`, or model names.
@@ -53,7 +52,7 @@
   - `dot_claude/symlink_PROSE.md`, `symlink_VOICE.md`, `symlink_voice-samples-work.md`, `symlink_voice-samples-personal.md` → `../.agents/<same name>`
   - `dot_codex/symlink_AGENTS.md` → `../.agents/AGENTS.md`
   - `dot_config/opencode/symlink_AGENTS.md` → `../../.agents/AGENTS.md`
-- Create: `.chezmoiremove` containing `.claude/DELEGATION.md`, with a one-line comment saying why (stale copy left by the move)
+- Modify: `.chezmoiremove`. Append `.claude/DELEGATION.md`, the stale copy left by the move
 - Modify: `.chezmoiignore` keyless block. Replace the four `.claude/{VOICE,PROSE,voice-samples-*}.md` lines with `.agents/` equivalents, and also list the four `.claude/` symlink targets so a keyless machine gets no dangling links.
 - Modify: `dot_agents/AGENTS.md`. Replace `~/.claude/PROSE.md`, `~/.claude/VOICE.md`, and `~/.claude/DELEGATION.md` with `~/.agents/…` paths, so DELEGATION's removal never leaves a dangling reference.
 - Test: `tests/agents-layout.bats` (new)
@@ -88,7 +87,6 @@
 - [ ] **Step 3:** Edit `AGENTS.md`:
   - "invoke the skill via the Skill tool" → "load the `humanizer` skill using the harness's skill mechanism". Fix every other sentence that names a harness tool the same way.
   - Add one line: where a skill or rule names a harness-specific tool or path, translate it with `~/.agents/harness-notes.md`.
-  - Add a `## Claude Code Only` section, last in the file, saying that Claude Code rewrites shell commands through the `rtk` hook and that `RTK.md` in Claude Code's config directory documents it. Don't write a `~/.claude` path there, because test 1 forbids it.
 
   Write `harness-notes.md` as a table with columns: what a skill says (Claude Code), what it means, and how OpenCode and Codex do it. It needs at least these rows: `Skill` tool → "load the skill"; `AskUserQuestion` → "ask the user"; `Task`/`Agent` tool → "delegate using the harness's subagent mechanism"; `WebFetch` → "fetch"; and `~/.claude/<file>` → `~/.agents/<file>` for CLAUDE (as AGENTS), PROSE, VOICE, and DELEGATION. Run the `writing-for-agents` skill over both files.
 - [ ] **Step 4:** `bats tests/agents-docs.bats` → pass.
@@ -128,7 +126,7 @@
   4. `"against the real source tree, strict env-setup exits 0"`: `DOTFILES_RAW_BASE="file://$SRC"`, a non-empty key, and an `age` stub that copies its last argument to the path after `-o`. Then `ENV_SETUP_STRICT=1` gives `status=0`. Every path the script fetches must exist in this repo, or the run exits 1.
   5. `"remote-bootstrap.sh against the real source tree finds env-setup and the lockfile"`: `DOTFILES_RAW_BASE="file://$SRC"`, run with the name `nosuchskill`. `$stderr` contains `unknown skill: nosuchskill` and does not contain `could not fetch`.
 - [ ] **Step 2:** `bats tests/claude-bootstrap.bats` → the new cases and the moved-path cases fail.
-- [ ] **Step 3:** Change `env-setup.sh`. Stage in `$HOME/.agents/.env-setup.XXXXXX`. Fetch `dot_agents/private_DELEGATION.md`, `dot_agents/harness-notes.md`, `dot_agents/encrypted_private_{PROSE,VOICE}.md.age`, and `dot_agents/AGENTS.md`, and install each into `~/.agents/`. Keep the existing `@RTK.md` strip, the amendment logic with `~/.agents` paths, and the rc/strict semantics. After a successful `AGENTS.md` install, `mkdir -p ~/.claude && ln -sfn ../.agents/AGENTS.md ~/.claude/CLAUDE.md`. With a key, link `~/.claude/{PROSE,VOICE}.md` the same way. Without one, `rm -f` both the `~/.agents` and `~/.claude` copies. Update the header comment and the README section to describe the new layout, and run `technical-writing` on both.
+- [ ] **Step 3:** Change `env-setup.sh`. Stage in `$HOME/.agents/.env-setup.XXXXXX`. Fetch `dot_agents/private_DELEGATION.md`, `dot_agents/harness-notes.md`, `dot_agents/encrypted_private_{PROSE,VOICE}.md.age`, and `dot_agents/AGENTS.md`, and install each into `~/.agents/`. Keep the amendment logic with `~/.agents` paths, and the rc/strict semantics. After a successful `AGENTS.md` install, `mkdir -p ~/.claude && ln -sfn ../.agents/AGENTS.md ~/.claude/CLAUDE.md`. With a key, link `~/.claude/{PROSE,VOICE}.md` the same way. Without one, `rm -f` both the `~/.agents` and `~/.claude` copies. Update the header comment and the README section to describe the new layout, and run `technical-writing` on both.
 - [ ] **Step 4:** `bats tests/claude-bootstrap.bats` → pass. `bash tests/mutation-check.sh tests/claude-bootstrap.bats` → every new assertion goes red when inverted.
 - [ ] **Step 5: Commit** `fix(bootstrap): install the rules under ~/.agents, matching chezmoi's layout`
 
@@ -137,7 +135,7 @@
 **Files:**
 - Modify: `CLAUDE.md` ("Two Kinds of Claude Config"), `_working-memory/conventions.md` ("Always-loaded policy files" paths), `_working-memory/decisionLog.md` (append)
 
-- [ ] **Step 1:** Rewrite the repo `CLAUDE.md` paragraph so `dot_agents/` is the canonical user-level tree (rules for every harness), `dot_claude/` is the Claude adapter plus settings, `RTK.md`, and plugin seeds, and `.claude/` is project-scoped as before. Run `technical-writing`. In `conventions.md`, change the paths to `dot_agents/AGENTS.md` and `dot_agents/private_DELEGATION.md`. Append a `decisionLog.md` entry covering relative symlinks over templates, rung names, the `.chezmoiremove` for DELEGATION, and the sample-file symlinks.
+- [ ] **Step 1:** Rewrite the repo `CLAUDE.md` paragraph so `dot_agents/` is the canonical user-level tree (rules for every harness), `dot_claude/` is the Claude adapter plus settings and plugin seeds, and `.claude/` is project-scoped as before. Run `technical-writing`. In `conventions.md`, change the paths to `dot_agents/AGENTS.md` and `dot_agents/private_DELEGATION.md`. Append a `decisionLog.md` entry covering relative symlinks over templates, rung names, the `.chezmoiremove` for DELEGATION, and the sample-file symlinks.
 - [ ] **Step 2:** `bats tests/` → exit 0.
 - [ ] **Step 3: Commit** `docs: describe dot_agents as the canonical rules tree`
 - [ ] **Step 4: Live acceptance (after merge, once the user has pulled into `~/.local/share/chezmoi`).** Run each check and paste its output into the PR:

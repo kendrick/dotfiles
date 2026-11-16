@@ -46,8 +46,7 @@ if [ -s "$key" ] && command -v age >/dev/null 2>&1; then
 fi
 
 # Each run rebuilds CLAUDE.md from the fetched text, so a second run writes the same bytes as the first.
-if fetch dot_claude/CLAUDE.md "$tmp/CLAUDE.src"; then
-	awk '$0 != "@RTK.md"' "$tmp/CLAUDE.src" >"$tmp/CLAUDE.md" || rc=1
+if fetch dot_claude/CLAUDE.md "$tmp/CLAUDE.md"; then
 	if [ "$have_rules" = 0 ]; then
 		cat >>"$tmp/CLAUDE.md" <<'MD' || rc=1
 

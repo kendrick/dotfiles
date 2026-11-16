@@ -10,7 +10,7 @@ To sync working memory, run `/update-working-memory` or invoke the `working-memo
 
 This repo is also the chezmoi source dir, so it carries two Claude config trees that look alike but behave differently. Don't conflate them.
 
-- `dot_claude/` is the chezmoi source for `~/.claude`. Edit it and it deploys to your home dir as user-level config: global CLAUDE.md, RTK.md, settings, plugin seeds.
+- `dot_claude/` is the chezmoi source for `~/.claude`. Edit it and it deploys to your home dir as user-level config: global CLAUDE.md, settings, plugin seeds.
 - `.claude/` is this repo's own project config, holding the working-memory agents (`hydrator`, `working-memory-synchronizer`) and the `hydrate-*` skills. It loads only when you work inside this repo, and chezmoi skips it because it's dot-prefixed.
 
 The working-memory toolkit is project-scoped on purpose. Don't "fix" `.claude/` by moving it into `dot_claude/`, which would push those agents and skills into every project you open. User-level skills are managed by `npx skills`, not by dropping skill bodies into `dot_claude/skills/`.

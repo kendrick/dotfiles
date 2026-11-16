@@ -25,21 +25,11 @@ setup() {
 	export DOTFILES_RAW_BASE
 	mkdir -p "$FX/dot_claude" "$FX/scripts" "$FX/dot_local/private_state/skills" "$HOME"
 
-	# One extra @RTK.md mention that is not the whole line: only a line that is exactly @RTK.md goes, so this one has to survive.
-	cat >"$FX/dot_claude/CLAUDE.md" <<'MD'
-# Fixture rules
-
-Read ~/.claude/PROSE.md before writing prose.
-See @RTK.md for notes on the token proxy.
-@RTK.md
-Last line of the rules.
-MD
-	EXPECTED="$D/expected-CLAUDE.md"
+	EXPECTED="$FX/dot_claude/CLAUDE.md"
 	cat >"$EXPECTED" <<'MD'
 # Fixture rules
 
 Read ~/.claude/PROSE.md before writing prose.
-See @RTK.md for notes on the token proxy.
 Last line of the rules.
 MD
 	printf 'delegation fixture body\n' >"$FX/dot_claude/private_DELEGATION.md"
@@ -134,28 +124,20 @@ AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.c
 
 # ---- 1. what env-setup.sh installs (criterion 1, Decision 2) ----
 
-@test "env-setup.sh writes CLAUDE.md from the fixture minus the @RTK.md line, and DELEGATION.md" {
+@test "env-setup.sh writes CLAUDE.md from the fixture, and DELEGATION.md" {
 	run run_env
 	assert_contains "status=0" "status=$status"
-	head -n 5 "$HOME/.claude/CLAUDE.md" >"$D/head.md"
+	head -n 4 "$HOME/.claude/CLAUDE.md" >"$D/head.md"
 	assert_contains "same" "$(same_bytes "$D/head.md" "$EXPECTED")"
 	assert_contains "delegation fixture body" "$(cat "$HOME/.claude/DELEGATION.md")"
 }
 
-@test "env-setup.sh with a key writes exactly the fixture minus the @RTK.md line" {
+@test "env-setup.sh with a key writes exactly the fixture" {
 	require_age
 	install_key
 	run run_env
 	assert_contains "status=0" "status=$status"
 	assert_contains "same" "$(same_bytes "$HOME/.claude/CLAUDE.md" "$EXPECTED")"
-}
-
-@test "env-setup.sh drops an exact @RTK.md line but keeps one that only mentions it" {
-	run run_env
-	assert_contains "status=0" "status=$status"
-	assert_contains "count=0" "count=$(grep -cxF '@RTK.md' "$HOME/.claude/CLAUDE.md")"
-	assert_contains "See @RTK.md for notes on the token proxy." "$(cat "$HOME/.claude/CLAUDE.md")"
-	assert_contains "Last line of the rules." "$(cat "$HOME/.claude/CLAUDE.md")"
 }
 
 # ---- 2. a failed fetch never wedges startup (criterion 2, Decision 6) ----

@@ -1,0 +1,2 @@
+# Targets this repo used to deploy. chezmoi leaves a file behind when its source goes, so stale copies would linger on every machine without these.
+.claude/RTK.md

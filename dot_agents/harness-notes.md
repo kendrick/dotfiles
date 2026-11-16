@@ -4,7 +4,7 @@ Skills and older rules are written for Claude Code and name its tools and paths.
 
 | What a skill says (Claude Code) | What it means | OpenCode | Codex |
 | --- | --- | --- | --- |
-| `Skill` tool, "invoke the skill" | Load the skill and follow its body | `skill` tool | Mention it as `$<skill-name>`, or read its `SKILL.md` |
+| `Skill` tool, "invoke the skill" | Load the skill and follow its body | `skill` tool | Open the skill's `SKILL.md` (path is in the skill list) and follow it |
 | `AskUserQuestion` | Ask the user and wait for the answer | `question` tool | `request_user_input` where the mode offers it; otherwise ask in your reply and stop |
 | `Task` tool, `Agent` tool, "dispatch a subagent" | Delegate using the harness's subagent mechanism | `task` tool | `spawn_agent` |
 | `WebFetch` | Fetch the page | `webfetch` tool | `web_search`, or `curl` from the shell |

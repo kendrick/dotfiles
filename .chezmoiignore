@@ -67,6 +67,11 @@ dot_local/bin/executable_awssso
 {{ $key := stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") }}
 {{ if or (not $key) (eq (int $key.size) 0) }}
 .claude/settings.json
+.agents/VOICE.md
+.agents/PROSE.md
+.agents/voice-samples-work.md
+.agents/voice-samples-personal.md
+# The .claude/ symlinks to those four would dangle without their targets.
 .claude/VOICE.md
 .claude/PROSE.md
 .claude/voice-samples-work.md

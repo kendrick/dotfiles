@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 #
-# scripts/env-setup.sh and scripts/remote-bootstrap.sh (#43): give a remote Claude container the global ~/.claude/CLAUDE.md (and the files it cites) without chezmoi.
+# scripts/env-setup.sh and scripts/remote-bootstrap.sh (#43, #105): give a remote Claude container the global rules without chezmoi. The rules live in ~/.agents/, and ~/.claude/CLAUDE.md (plus PROSE.md and VOICE.md when a key is present) is a symlink into it, as chezmoi lays them out.
 #
 # Expected values come from the issue's acceptance criteria and the plan's Decisions, never from reading the scripts. Both scripts fetch "$DOTFILES_RAW_BASE/<source path>" (Decision 1), so every case points that at a file:// fixture laid out like the repo.
 
@@ -23,16 +23,17 @@ setup() {
 	KEY="$HOME/.config/chezmoi/key.txt"
 	DOTFILES_RAW_BASE="file://$FX"
 	export DOTFILES_RAW_BASE
-	mkdir -p "$FX/dot_claude" "$FX/scripts" "$FX/dot_local/private_state/skills" "$HOME"
+	mkdir -p "$FX/dot_agents" "$FX/scripts" "$FX/dot_local/private_state/skills" "$HOME"
 
-	EXPECTED="$FX/dot_claude/CLAUDE.md"
+	EXPECTED="$FX/dot_agents/AGENTS.md"
 	cat >"$EXPECTED" <<'MD'
 # Fixture rules
 
-Read ~/.claude/PROSE.md before writing prose.
+Read ~/.agents/PROSE.md, ~/.agents/VOICE.md, ~/.agents/DELEGATION.md and ~/.agents/harness-notes.md as needed.
 Last line of the rules.
 MD
-	printf 'delegation fixture body\n' >"$FX/dot_claude/private_DELEGATION.md"
+	printf 'delegation fixture body\n' >"$FX/dot_agents/private_DELEGATION.md"
+	printf 'harness notes fixture body\n' >"$FX/dot_agents/harness-notes.md"
 
 	# Copied only when present so a missing script fails the case that runs it, not setup().
 	for s in env-setup.sh remote-bootstrap.sh; do
@@ -49,8 +50,8 @@ MD
 		FX_KEY="$D/fixture-key.txt"
 		"$REAL_AGE_KEYGEN" -o "$FX_KEY" 2>/dev/null
 		recipient="$("$REAL_AGE_KEYGEN" -y "$FX_KEY")"
-		"$REAL_AGE" -r "$recipient" -o "$FX/dot_claude/encrypted_private_PROSE.md.age" "$PROSE_PLAIN"
-		"$REAL_AGE" -r "$recipient" -o "$FX/dot_claude/encrypted_private_VOICE.md.age" "$VOICE_PLAIN"
+		"$REAL_AGE" -r "$recipient" -o "$FX/dot_agents/encrypted_private_PROSE.md.age" "$PROSE_PLAIN"
+		"$REAL_AGE" -r "$recipient" -o "$FX/dot_agents/encrypted_private_VOICE.md.age" "$VOICE_PLAIN"
 	fi
 }
 
@@ -83,6 +84,11 @@ install_key() {
 # Byte comparison reported as a word, so the assert_* helpers (and the mutation check that inverts them) can gate it.
 same_bytes() {
 	if cmp -s "$1" "$2"; then echo same; else echo differ; fi
+}
+
+# -L, so a dangling symlink counts as present.
+present_link() {
+	if [ -e "$1" ] || [ -L "$1" ]; then echo present; else echo absent; fi
 }
 
 present() {
@@ -120,7 +126,7 @@ run_bootstrap() {
 }
 
 AMENDMENT_HEAD='## Missing House Rules'
-AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.claude/VOICE.md` were not installed. When a rule above says to read one of them, say that it'\''s unavailable here and continue without it.'
+AMENDMENT_BODY='This container has no age key, so `~/.agents/PROSE.md` and `~/.agents/VOICE.md` were not installed. When a rule above says to read one of them, say that it'\''s unavailable here and continue without it.'
 
 # ---- 1. what env-setup.sh installs (criterion 1, Decision 2) ----
 
@@ -129,7 +135,72 @@ AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.c
 	assert_contains "status=0" "status=$status"
 	head -n 4 "$HOME/.claude/CLAUDE.md" >"$D/head.md"
 	assert_contains "same" "$(same_bytes "$D/head.md" "$EXPECTED")"
-	assert_contains "delegation fixture body" "$(cat "$HOME/.claude/DELEGATION.md")"
+	assert_contains "delegation fixture body" "$(cat "$HOME/.agents/DELEGATION.md")"
+}
+
+@test "env-setup.sh links ~/.claude/CLAUDE.md to ../.agents/AGENTS.md" {
+	run run_env
+	assert_contains "status=0" "status=$status"
+	assert_contains "link=../.agents/AGENTS.md" "link=$(readlink "$HOME/.claude/CLAUDE.md")"
+}
+
+@test "with a key, every ~/.agents path the installed rules cite exists" {
+	require_age
+	install_key
+	run run_env
+	assert_contains "status=0" "status=$status"
+	cited="$(grep -oE '~/\.agents/[A-Za-z0-9_.-]+\.md' "$HOME/.claude/CLAUDE.md")"
+	assert_contains "~/.agents/harness-notes.md" "$cited"
+	for p in $cited; do
+		assert_contains "present" "$(present "$HOME/${p#\~/}")"
+	done
+	assert_contains "link=$(readlink -f "$HOME/.agents/PROSE.md")" "link=$(readlink -f "$HOME/.claude/PROSE.md")"
+	assert_contains "link=$(readlink -f "$HOME/.agents/VOICE.md")" "link=$(readlink -f "$HOME/.claude/VOICE.md")"
+}
+
+@test "without a key, every cited path except PROSE and VOICE exists, and no dangling adapter is left" {
+	run run_env
+	assert_contains "status=0" "status=$status"
+	cited="$(grep -oE '~/\.agents/[A-Za-z0-9_.-]+\.md' "$HOME/.claude/CLAUDE.md")"
+	for p in $cited; do
+		case "$p" in
+		*/PROSE.md | */VOICE.md) assert_contains "absent" "$(present "$HOME/${p#\~/}")" ;;
+		*) assert_contains "present" "$(present "$HOME/${p#\~/}")" ;;
+		esac
+	done
+	assert_contains "absent" "$(present_link "$HOME/.claude/PROSE.md")"
+	assert_contains "absent" "$(present_link "$HOME/.claude/VOICE.md")"
+}
+
+# The real tree catches a fetched path that the move left behind, which the fixture can't.
+@test "against the real source tree, strict env-setup exits 0" {
+	mkdir -p "$D/stubs" "$(dirname "$KEY")"
+	printf 'key\n' >"$KEY"
+	cat >"$D/stubs/age" <<'SH'
+#!/bin/sh
+# Copies the last argument (the ciphertext) to the path after -o.
+while [ "$#" -gt 1 ]; do
+	if [ "$1" = -o ]; then out="$2"; fi
+	shift
+done
+cp "$1" "$out"
+SH
+	chmod +x "$D/stubs/age"
+	PATH="$D/stubs:$PATH"
+	export PATH
+	DOTFILES_RAW_BASE="file://$SRC"
+	export DOTFILES_RAW_BASE
+	run --separate-stderr env ENV_SETUP_STRICT=1 bash "$SRC/scripts/env-setup.sh"
+	assert_contains "status=0" "status=$status"
+	assert_not_contains "could not fetch" "$stderr"
+}
+
+@test "remote-bootstrap.sh against the real source tree finds env-setup and the lockfile" {
+	DOTFILES_RAW_BASE="file://$SRC"
+	export DOTFILES_RAW_BASE
+	run --separate-stderr run_bootstrap nosuchskill
+	assert_contains "unknown skill: nosuchskill" "$stderr"
+	assert_not_contains "could not fetch" "$stderr"
 }
 
 @test "env-setup.sh with a key writes exactly the fixture" {
@@ -150,7 +221,7 @@ AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.c
 	export DOTFILES_RAW_BASE
 	run --separate-stderr bash "$SRC/scripts/env-setup.sh"
 	assert_contains "status=0" "status=$status"
-	assert_contains "CLAUDE.md" "$stderr"
+	assert_contains "AGENTS.md" "$stderr"
 	assert_contains "same" "$(same_bytes "$HOME/.claude/CLAUDE.md" "$D/seeded.md")"
 }
 
@@ -159,7 +230,7 @@ AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.c
 	export DOTFILES_RAW_BASE
 	run --separate-stderr env ENV_SETUP_STRICT=1 bash "$SRC/scripts/env-setup.sh"
 	assert_contains "status=1" "status=$status"
-	assert_contains "CLAUDE.md" "$stderr"
+	assert_contains "AGENTS.md" "$stderr"
 }
 
 @test "ENV_SETUP_STRICT=1 leaves a clean env-setup.sh run at exit 0" {
@@ -169,7 +240,7 @@ AMENDMENT_BODY='This container has no age key, so `~/.claude/PROSE.md` and `~/.c
 
 # A fetch that works but an install that doesn't is still a failure: mv can't replace a non-empty directory.
 @test "remote-bootstrap.sh exits 1 when a fetched file can't be installed" {
-	mkdir -p "$HOME/.claude/DELEGATION.md/DELEGATION.md/blocker"
+	mkdir -p "$HOME/.agents/DELEGATION.md/DELEGATION.md/blocker"
 	run run_bootstrap
 	assert_contains "status=1" "status=$status"
 }
@@ -190,8 +261,8 @@ SH
 	export PATH
 	run run_bootstrap alpha
 	assert_contains "status=0" "status=$status"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/PROSE.md" "$PROSE_PLAIN")"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/VOICE.md" "$VOICE_PLAIN")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/PROSE.md" "$PROSE_PLAIN")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/VOICE.md" "$VOICE_PLAIN")"
 }
 
 # Falsifier for ignoring env-setup: a missing base fails every fetch, and the exit status has to say so.
@@ -231,13 +302,13 @@ SH
 	run run_env
 	assert_contains "status=0" "status=$status"
 	cp "$HOME/.claude/CLAUDE.md" "$D/first-claude.md"
-	cp "$HOME/.claude/PROSE.md" "$D/first-prose.md"
-	cp "$HOME/.claude/VOICE.md" "$D/first-voice.md"
+	cp "$HOME/.agents/PROSE.md" "$D/first-prose.md"
+	cp "$HOME/.agents/VOICE.md" "$D/first-voice.md"
 	run run_env
 	assert_contains "status=0" "status=$status"
 	assert_contains "same" "$(same_bytes "$HOME/.claude/CLAUDE.md" "$D/first-claude.md")"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/PROSE.md" "$D/first-prose.md")"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/VOICE.md" "$D/first-voice.md")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/PROSE.md" "$D/first-prose.md")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/VOICE.md" "$D/first-voice.md")"
 	assert_contains "same" "$(same_bytes "$HOME/.claude/CLAUDE.md" "$EXPECTED")"
 }
 
@@ -247,13 +318,13 @@ SH
 	run run_bootstrap
 	assert_contains "status=0" "status=$status"
 	cp "$HOME/.claude/CLAUDE.md" "$D/first-claude.md"
-	cp "$HOME/.claude/PROSE.md" "$D/first-prose.md"
-	cp "$HOME/.claude/VOICE.md" "$D/first-voice.md"
+	cp "$HOME/.agents/PROSE.md" "$D/first-prose.md"
+	cp "$HOME/.agents/VOICE.md" "$D/first-voice.md"
 	run run_bootstrap
 	assert_contains "status=0" "status=$status"
 	assert_contains "same" "$(same_bytes "$HOME/.claude/CLAUDE.md" "$D/first-claude.md")"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/PROSE.md" "$D/first-prose.md")"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/VOICE.md" "$D/first-voice.md")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/PROSE.md" "$D/first-prose.md")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/VOICE.md" "$D/first-voice.md")"
 	assert_contains "same" "$(same_bytes "$HOME/.claude/CLAUDE.md" "$EXPECTED")"
 }
 
@@ -264,8 +335,8 @@ SH
 	install_key
 	run run_env
 	assert_contains "status=0" "status=$status"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/PROSE.md" "$PROSE_PLAIN")"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/VOICE.md" "$VOICE_PLAIN")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/PROSE.md" "$PROSE_PLAIN")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/VOICE.md" "$VOICE_PLAIN")"
 	assert_not_contains "$AMENDMENT_HEAD" "$(cat "$HOME/.claude/CLAUDE.md")"
 	assert_not_contains "no age key" "$(cat "$HOME/.claude/CLAUDE.md")"
 }
@@ -275,8 +346,8 @@ SH
 	install_key
 	run run_bootstrap
 	assert_contains "status=0" "status=$status"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/PROSE.md" "$PROSE_PLAIN")"
-	assert_contains "same" "$(same_bytes "$HOME/.claude/VOICE.md" "$VOICE_PLAIN")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/PROSE.md" "$PROSE_PLAIN")"
+	assert_contains "same" "$(same_bytes "$HOME/.agents/VOICE.md" "$VOICE_PLAIN")"
 	assert_not_contains "$AMENDMENT_HEAD" "$(cat "$HOME/.claude/CLAUDE.md")"
 }
 
@@ -288,8 +359,8 @@ SH
 	assert_contains "status=0" "status=$status"
 	assert_contains "$AMENDMENT_HEAD" "$(cat "$HOME/.claude/CLAUDE.md")"
 	assert_contains "$AMENDMENT_BODY" "$(cat "$HOME/.claude/CLAUDE.md")"
-	assert_contains "absent" "$(present "$HOME/.claude/PROSE.md")"
-	assert_contains "absent" "$(present "$HOME/.claude/VOICE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/PROSE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/VOICE.md")"
 }
 
 @test "with a 0-byte key file, env-setup.sh appends the amendment and installs neither PROSE.md nor VOICE.md" {
@@ -300,8 +371,8 @@ SH
 	assert_contains "status=0" "status=$status"
 	assert_contains "$AMENDMENT_HEAD" "$(cat "$HOME/.claude/CLAUDE.md")"
 	assert_contains "$AMENDMENT_BODY" "$(cat "$HOME/.claude/CLAUDE.md")"
-	assert_contains "absent" "$(present "$HOME/.claude/PROSE.md")"
-	assert_contains "absent" "$(present "$HOME/.claude/VOICE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/PROSE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/VOICE.md")"
 	assert_not_contains "key.txt" "$(cat "$AGE_LOG" 2>/dev/null)"
 }
 
@@ -310,8 +381,8 @@ SH
 	assert_contains "status=0" "status=$status"
 	assert_contains "$AMENDMENT_HEAD" "$(cat "$HOME/.claude/CLAUDE.md")"
 	assert_contains "$AMENDMENT_BODY" "$(cat "$HOME/.claude/CLAUDE.md")"
-	assert_contains "absent" "$(present "$HOME/.claude/PROSE.md")"
-	assert_contains "absent" "$(present "$HOME/.claude/VOICE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/PROSE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/VOICE.md")"
 }
 
 @test "with a 0-byte key file, remote-bootstrap.sh appends the amendment and installs neither PROSE.md nor VOICE.md" {
@@ -322,8 +393,8 @@ SH
 	assert_contains "status=0" "status=$status"
 	assert_contains "$AMENDMENT_HEAD" "$(cat "$HOME/.claude/CLAUDE.md")"
 	assert_contains "$AMENDMENT_BODY" "$(cat "$HOME/.claude/CLAUDE.md")"
-	assert_contains "absent" "$(present "$HOME/.claude/PROSE.md")"
-	assert_contains "absent" "$(present "$HOME/.claude/VOICE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/PROSE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/VOICE.md")"
 	assert_not_contains "key.txt" "$(cat "$AGE_LOG" 2>/dev/null)"
 }
 
@@ -333,12 +404,12 @@ SH
 	install_key
 	run run_env
 	assert_contains "status=0" "status=$status"
-	assert_contains "present" "$(present "$HOME/.claude/PROSE.md")"
+	assert_contains "present" "$(present "$HOME/.agents/PROSE.md")"
 	rm -f "$KEY"
 	run run_env
 	assert_contains "status=0" "status=$status"
-	assert_contains "absent" "$(present "$HOME/.claude/PROSE.md")"
-	assert_contains "absent" "$(present "$HOME/.claude/VOICE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/PROSE.md")"
+	assert_contains "absent" "$(present "$HOME/.agents/VOICE.md")"
 	assert_contains "count=1" "count=$(grep -cxF "$AMENDMENT_HEAD" "$HOME/.claude/CLAUDE.md")"
 	assert_contains "$AMENDMENT_BODY" "$(cat "$HOME/.claude/CLAUDE.md")"
 }

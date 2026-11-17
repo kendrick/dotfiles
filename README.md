@@ -117,9 +117,9 @@ This repo's own `.claude/skills/` is separate: it holds the project-scoped worki
 <details>
 <summary>How Remote Claude Containers Get the Rules</summary>
 
-A remote Claude Code container never runs chezmoi, so it starts without `~/.claude/CLAUDE.md` or the files `CLAUDE.md` tells agents to read. Two scripts under `scripts/` install them, and `.chezmoiignore` keeps both scripts out of `$HOME`.
+A remote Claude Code container never runs chezmoi, so it starts without the rules that `~/.claude/CLAUDE.md` points agents at. Two scripts under `scripts/` install them, and `.chezmoiignore` keeps both scripts out of `$HOME`.
 
-`scripts/env-setup.sh` writes `CLAUDE.md` and `DELEGATION.md` into `~/.claude`. When `~/.config/chezmoi/key.txt` holds a key and `age` is installed, it also decrypts `PROSE.md` and `VOICE.md`. Without a key, it adds a section to `CLAUDE.md` telling agents those two files aren't available. It exits 0 every time unless `ENV_SETUP_STRICT=1` is set, so a failed fetch can't stall container startup. To use it, paste this line into a Claude Code environment's setup-script field:
+`scripts/env-setup.sh` copies the rules into `~/.agents` (`AGENTS.md`, `DELEGATION.md`, `harness-notes.md`) and links `~/.claude/CLAUDE.md` to `../.agents/AGENTS.md`, the same layout chezmoi builds on your machines. When `~/.config/chezmoi/key.txt` holds a key and `age` is installed, it also decrypts `PROSE.md` and `VOICE.md` into `~/.agents` and links them from `~/.claude`. Without a key, it adds a section to `AGENTS.md` telling agents those two files aren't available. It exits 0 every time unless `ENV_SETUP_STRICT=1` is set, so a failed fetch can't stall container startup. To use it, paste this line into a Claude Code environment's setup-script field:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/kendrick/dotfiles/main/scripts/env-setup.sh | bash

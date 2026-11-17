@@ -6,9 +6,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/anthropics/skills.git",
       "skillPath": "skills/pptx/SKILL.md",
-      "skillFolderHash": "a24a49b228a479cc45a875ff000648e6bcdd5bb0",
+      "skillFolderHash": "1c0176bffc8752e4c4a22eaa8e142a55cc178990",
       "installedAt": "2026-05-12T19:52:48.145Z",
-      "updatedAt": "2026-11-06T23:04:57.846Z"
+      "updatedAt": "2026-11-16T23:22:06.301Z",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
     },
     "skill-creator": {
       "source": "anthropics/skills",
@@ -44,28 +45,31 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/anthropics/skills.git",
       "skillPath": "skills/docx/SKILL.md",
-      "skillFolderHash": "306eb29b24d14e7636470305a88826c01a4f872c",
+      "skillFolderHash": "1ee48004300dcd1b30aa2aec2246c0b4f54c5f89",
       "installedAt": "2026-05-27T23:08:46.480Z",
-      "updatedAt": "2026-11-06T23:05:00.042Z"
+      "updatedAt": "2026-11-16T23:22:06.677Z",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
     },
     "pdf": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/anthropics/skills.git",
       "skillPath": "skills/pdf/SKILL.md",
-      "skillFolderHash": "4b1916c1b9362c466332fbd36108fab908801268",
+      "skillFolderHash": "ff7f37394819e5fa311324f953e3c0053a12309d",
       "pluginName": "document-skills",
       "installedAt": "2026-05-27T23:08:46.490Z",
-      "updatedAt": "2026-11-06T23:05:00.639Z"
+      "updatedAt": "2026-11-16T23:22:06.795Z",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
     },
     "xlsx": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/anthropics/skills.git",
       "skillPath": "skills/xlsx/SKILL.md",
-      "skillFolderHash": "6d3b017b2ec669669409de726a04ab37637d11fe",
+      "skillFolderHash": "aad9fca510bd437479fdd5f55cbd70247f7b5780",
       "installedAt": "2026-05-27T23:08:46.499Z",
-      "updatedAt": "2026-11-06T23:05:02.864Z"
+      "updatedAt": "2026-11-16T23:22:07.197Z",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
     },
     "frontend-design": {
       "source": "anthropics/skills",
@@ -177,9 +181,10 @@
       "sourceUrl": "https://github.com/pbakaus/impeccable.git",
       "ref": "main",
       "skillPath": ".claude/skills/impeccable/SKILL.md",
-      "skillFolderHash": "4128476cc6ce653e0108e254b3ad45b35dc06a52",
+      "skillFolderHash": "386a1de8d69cd10d46f327af8194251e6b0a9f67",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-11-10T19:44:47.996Z"
+      "updatedAt": "2026-11-16T23:22:07.962Z",
+      "commit": "d41d9860b0094dcb68030657da63461212835aaa"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
@@ -517,9 +522,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "inbox-to-memory/SKILL.md",
-      "skillFolderHash": "803ddcaeea860a4341b3ba34f199ad1fb6195978",
+      "skillFolderHash": "21726a27d91a32c9c5d89c5d2da938ae44e91632",
       "installedAt": "2026-07-10T21:06:31.566Z",
-      "updatedAt": "2026-11-13T03:42:17.690Z"
+      "updatedAt": "2026-11-17T04:10:42.721Z",
+      "commit": "fb1838e1726dacd2f5d97bb630d7dfd2d86ed55f"
     },
     "readme-coauthorship": {
       "source": "kendrick/skills",
@@ -537,7 +543,7 @@
       "skillPath": "handoff/SKILL.md",
       "skillFolderHash": "13b0b43a283e18749617898ea158b2bd241eacda",
       "installedAt": "2026-07-27T17:29:02.387Z",
-      "updatedAt": "2026-11-09T14:09:14.601Z"
+      "updatedAt": "2026-11-08T23:04:56.253Z"
     },
     "file-issue": {
       "source": "kendrick/skills",
@@ -735,9 +741,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "69f64d32355b7c704424c58c12ebad15369bcfdf",
+      "skillFolderHash": "05075911c6289a786a99a00c4dcd0a21fca0a57f",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-11-11T19:52:10.402Z"
+      "updatedAt": "2026-11-17T04:10:43.157Z",
+      "commit": "fb1838e1726dacd2f5d97bb630d7dfd2d86ed55f"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",
@@ -753,9 +760,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-wave/SKILL.md",
-      "skillFolderHash": "a8e4857bfb41f282cc89cf32a93a80dc495e00ac",
+      "skillFolderHash": "91d0b30c815caaffd9a01eb07dca6b2d68e0316d",
       "installedAt": "2026-09-24T21:07:13.811Z",
-      "updatedAt": "2026-11-03T21:10:34.193Z"
+      "updatedAt": "2026-11-17T04:10:43.467Z",
+      "commit": "fb1838e1726dacd2f5d97bb630d7dfd2d86ed55f"
     },
     "design-control-loop": {
       "source": "humanlayer/skills",
@@ -790,9 +798,9 @@
       "sourceUrl": "https://fframes.studio/.well-known/agent-skills/fframes-video/SKILL.md",
       "skillFolderHash": "",
       "sourceBaseUrl": "https://fframes.studio",
-      "wellKnownDigest": "sha256:e6c63279a6544839f94a3a81763f244f1fe22aba77948b8f837d1a9078c4fa8b",
+      "wellKnownDigest": "sha256:bdd500e5ba1126b8629ef07c332832cf95c66c1d9a07860c7a365bb2324deb40",
       "installedAt": "2026-11-02T23:15:20.086Z",
-      "updatedAt": "2026-11-02T23:15:20.086Z"
+      "updatedAt": "2026-11-16T23:22:01.476Z"
     }
   },
   "dismissed": {

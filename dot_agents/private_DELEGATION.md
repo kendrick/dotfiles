@@ -30,7 +30,7 @@ A README rewrite reads like a docs job until you ask what checking it takes. Che
 | `deep` | correctness you can only judge against intent, or anything under the irreversibility rule below | a README rewrite |
 | `frontier` | explicit assignment, and the rung above `deep` after a `deep` task fails | — |
 
-Name the rung on every dispatch that picks a model, and pass the model that Rungs by Harness, below, maps that rung to in your harness. An omitted model usually inherits the session's, which is the most expensive one available, and a typed agent takes whatever its own definition names instead. Either way the routing evaporates while the run still looks correct. A dispatch that takes no model override has no rung to name, and naming one breaks the only contract it does have.
+Name the rung on every dispatch that picks a model, and pass the model that Rungs by Harness, below, maps that rung to in your harness. An omitted model usually inherits the session's, which is the most expensive one available, and a typed agent takes whatever its own definition names instead. Either way the routing evaporates while the run still looks correct. A mechanism that can't take a model override at all, such as a typed agent whose definition fixes its model, has no rung to name, and naming one breaks the only contract it does have.
 
 A task sitting between two rungs goes up. Guessing downward costs a revert, a retry, and the gate that caught it. Guessing upward costs the difference in price.
 
@@ -43,7 +43,7 @@ A task sitting between two rungs goes up. Guessing downward costs a revert, a re
 | `deep` | `opus` | session model | session model |
 | `frontier` | `fable` | session model | session model |
 
-A "session model" cell has no model to pass: leave the override off, and the task runs on the session's model. The rung still governs everything else keyed to it, including the irreversibility rule and the retry ladder.
+A "session model" cell has no model to pass: leave the override off, and the task runs on the session's model. Decide the rung anyway and track it yourself, since it is what the irreversibility rule routes to and what the retry ladder counts. Where the next rung maps to the same model, the retry still runs on that model with the failure attached.
 
 The models in this table are today's lineup. Model families turn over and the rung names outlive them, so when a lineup changes, re-check what each rung points at instead of assuming a model still means what it meant here.
 

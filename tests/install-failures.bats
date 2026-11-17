@@ -25,6 +25,9 @@ setup() {
 	export HOME="$BATS_TEST_TMPDIR/home"
 	export STUBS="$BATS_TEST_TMPDIR/stubs"
 	mkdir -p "$HOME" "$STUBS"
+	# Run from a terminal, the packages installer's sudo preflight would reach the real
+	# /usr/bin/sudo and prompt mid-suite. progress.bats covers the watched venue under a pty.
+	export DOTFILES_NO_PROGRESS=1
 }
 
 # A case that chmods a dir to 555 and fails before restoring it would leave

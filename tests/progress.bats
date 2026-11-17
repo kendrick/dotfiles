@@ -506,6 +506,64 @@ EOF
 	[ "$(ui_intervals "$b/tty" "$g" violations)" -gt 0 ]
 }
 
+# ---- sudo preflight: ask before brew does ---------------------------------
+
+# A venue whose brew reports every cask absent and describes them all with the
+# uninstall kinds in $1, and whose sudo starts uncached. Both stubs append to
+# calls.log, so the order sudo and brew were reached in is what the script
+# actually did, not what it printed.
+sudo_venue() {
+	local root="$1" kinds="$2" v
+	v="$(ui_ten_venue "$root" run_onchange_install-packages.sh.tmpl)"
+	cat >"$v/stubs/brew" <<STUB
+#!/bin/bash
+case "\$1" in
+info) printf '{"casks":[{"token":"some-cask","artifacts":[{"uninstall":[$kinds]},{"app":["X.app"]}]}]}' ;;
+bundle) cat >/dev/null; echo bundle >>"$v/calls.log"
+	echo "Homebrew Bundle complete! 0 Brewfile dependencies now installed." ;;
+esac
+exit 0
+STUB
+	cat >"$v/stubs/sudo" <<STUB
+#!/bin/bash
+echo "sudo \$*" >>"$v/calls.log"
+case "\$*" in
+-v) touch "$v/cached" ;;
+-n*) [ -e "$v/cached" ] || exit 1 ;;
+esac
+exit 0
+STUB
+	chmod +x "$v/stubs/brew" "$v/stubs/sudo"
+	printf '%s' "$v"
+}
+
+# Keyed on what the cask's uninstall does: perturbing launchctl to quit has to
+# drop the prompt, and losing the terminal has to drop it too, since an
+# unattended apply has nobody to ask.
+@test "sudo-preflight: a cask that sudos gets the prompt before brew runs, and nothing else does" {
+	local root="$BATS_TEST_TMPDIR/sudo" v first_v first_bundle
+	mkdir -p "$root"
+
+	v="$(sudo_venue "$root/needs" '{"launchctl":"x"},{"quit":"x"}')"
+	ui_run_ten "$v" --stdout "$v/out" --stderr "$v/err" --tty-capture "$v/tty" --timeout 60 || true
+	first_v="$(grep -n '^sudo -v$' "$v/calls.log" | head -1 | cut -d: -f1)"
+	first_bundle="$(grep -n '^bundle$' "$v/calls.log" | head -1 | cut -d: -f1)"
+	[ -n "$first_v" ]
+	[ -n "$first_bundle" ]
+	[ "$first_v" -lt "$first_bundle" ]
+	assert_contains "some-cask need sudo" "$(cat "$v/out")"
+
+	v="$(sudo_venue "$root/quit" '{"quit":"x"}')"
+	ui_run_ten "$v" --stdout "$v/out" --stderr "$v/err" --tty-capture "$v/tty" --timeout 60 || true
+	grep -q '^bundle$' "$v/calls.log"
+	run ! grep -q '^sudo -v$' "$v/calls.log"
+
+	v="$(sudo_venue "$root/detached" '{"launchctl":"x"}')"
+	ui_run_ten "$v" --setsid --stdout "$v/out" --stderr "$v/err" --timeout 60 || true
+	grep -q '^bundle$' "$v/calls.log"
+	run ! grep -q '^sudo' "$v/calls.log"
+}
+
 # ---- #33: the fetch phase narrates itself ----------------------------------
 
 # The display the whole issue is about, read off /dev/tty.

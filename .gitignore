@@ -1,20 +1,9 @@
 # Local-only active context (working-memory-kit)
 _working-memory/activeContext.md
 
-# Live guild state is per-machine and mutable: task statuses flip on every
-# dispatch, verdicts are transient, and two sessions running at once would
-# collide here. Archived runs are the opposite, immutable history worth
-# carrying, so they travel while the working state stays local.
-.agent-guild/state/*
-!.agent-guild/state/archive/
-
-# Python bytecode. render-verdict.py pulls validate-verdict.py in through importlib
-# (the hyphen makes it un-importable the normal way), and an importlib load writes a
-# __pycache__ entry next to the script. Running the guild's checks on any machine
-# therefore leaves bytecode the auto-sync will happily commit if left untracked.
+# The auto-sync commits anything untracked, Python bytecode included.
 __pycache__/
 *.pyc
-.agent-guild/state/
 
 # The normalizers replace their encrypted source by renaming a temp file into place, and
 # that temp has to sit in the source dir for os.replace to stay atomic. A SIGKILL between

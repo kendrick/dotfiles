@@ -602,10 +602,14 @@ while IFS= read -r line; do
   if [[ "$src" == *.tmpl ]]; then
     echo "    ! $tgt drifted but is a template — not captured; reconcile by hand"
     tmpl_drift=1
+  elif [[ "${src##*/}" == symlink_* ]]; then
+    # A symlink_ source holds only the link's target path. Once an atomic-rename writer swaps the link for a regular file, re-add has nowhere to put the edits, and the next apply overwrites them.
+    echo "    ! $tgt is no longer a symlink; move edits into the file it pointed at, then chezmoi apply"
+    tmpl_drift=1
   fi
 done < <(chezmoi status)
 if [[ "$tmpl_drift" -eq 1 ]]; then
-  notify "Dotfiles: template drift" "A templated file drifted and wasn't captured. See $LOG."
+  notify "Dotfiles: template drift" "A templated or symlinked file drifted and wasn't captured. See $LOG."
 else
   echo "    none"
 fi

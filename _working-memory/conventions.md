@@ -84,5 +84,5 @@
 
 `dot_agents/AGENTS.md` and `dot_agents/private_DELEGATION.md` deploy to `~/.agents/`. `AGENTS.md` loads into every session (each harness reads it through its symlink), and agents read `DELEGATION.md` at dispatch time. Every defect found in #60 was one of those documents contradicting another, and none of them was visible in the diff.
 
-So before editing either, read them side by side and walk three failure paths end to end: an ordinary subagent failing, a guild worker failing mid-job, and an irreversible task failing. Each has to land on exactly one compliant action. Where you are about to hand a step to another protocol, grep that protocol's contract for the mechanism first. A review of the diff alone passes all four defects. _(GitHub #60, decisionLog 2026-09-19, antipatterns 2026-09-19)_
+So before editing either, read them side by side and walk three failure paths end to end: an ordinary subagent failing, a worker failing mid-job under a protocol that runs its own retry ladder, and an irreversible task failing. Each has to land on exactly one compliant action. Where you are about to hand a step to another protocol, grep that protocol's contract for the mechanism first. A review of the diff alone passes all four defects. _(GitHub #60, decisionLog 2026-09-19, antipatterns 2026-09-19)_
 

@@ -25,22 +25,33 @@ A README rewrite reads like a docs job until you ask what checking it takes. Che
 | Rung | What routes here | Example |
 | --- | --- | --- |
 | stays in session | spec-defining work, and the ruling on whatever a check reports | deciding an interface; accepting or rejecting a verdict |
-| `haiku` | mechanical transcription, where a script settles correctness | a repo-wide grep-and-report; a rename; formatting |
-| `sonnet` | implementation against a settled spec, checked against stated behavior | a bats case written to behavior the spec already fixed |
-| `opus` | correctness you can only judge against intent, or anything under the irreversibility rule below | a README rewrite |
-| `fable` | explicit assignment, and the rung above `opus` after an `opus` task fails | — |
+| `quick` | mechanical transcription, where a script settles correctness | a repo-wide grep-and-report; a rename; formatting |
+| `standard` | implementation against a settled spec, checked against stated behavior | a bats case written to behavior the spec already fixed |
+| `deep` | correctness you can only judge against intent, or anything under the irreversibility rule below | a README rewrite |
+| `frontier` | explicit assignment, and the rung above `deep` after a `deep` task fails | — |
 
-Name the rung on every dispatch that picks a model. An omitted model usually inherits the session's, which is the most expensive one available, and a typed agent takes whatever its own definition names instead. Either way the routing evaporates while the run still looks correct. A dispatch that takes no model override has no rung to name, and naming one breaks the only contract it does have.
+Name the rung on every dispatch that picks a model, and pass the model that Rungs by Harness, below, maps that rung to in your harness. An omitted model usually inherits the session's, which is the most expensive one available, and a typed agent takes whatever its own definition names instead. Either way the routing evaporates while the run still looks correct. A dispatch that takes no model override has no rung to name, and naming one breaks the only contract it does have.
 
 A task sitting between two rungs goes up. Guessing downward costs a revert, a retry, and the gate that caught it. Guessing upward costs the difference in price.
 
-`haiku`, `sonnet`, `opus`, and `fable` are today's lineup. The family turns over and these names outlive the mapping, so when it changes, re-check what each rung points at instead of assuming it still means what it meant here.
+## Rungs by Harness
+
+| Rung | Claude Code | OpenCode | Codex |
+| --- | --- | --- | --- |
+| `quick` | `haiku` | session model | session model |
+| `standard` | `sonnet` | session model | session model |
+| `deep` | `opus` | session model | session model |
+| `frontier` | `fable` | session model | session model |
+
+A "session model" cell has no model to pass: leave the override off, and the task runs on the session's model. The rung still governs everything else keyed to it, including the irreversibility rule and the retry ladder.
+
+The models in this table are today's lineup. Model families turn over and the rung names outlive them, so when a lineup changes, re-check what each rung points at instead of assuming a model still means what it meant here.
 
 ## Irreversibility Beats Both Questions
 
 Both questions assume a wrong answer can be thrown away. Auth, payments, migrations, deletes, and infra are where that assumption fails. The check runs after the damage, and the retry below has nothing left to revert. A script can confirm the tables are gone and report a pass.
 
-So this overrides the routing above. Work that can't be undone goes to `opus` however cheap its check looks, and the cheapness of the check is the trap—a delete is about as script-checkable as work gets. `fable` is an escalation destination, never a routing answer.
+So this overrides the routing above. Work that can't be undone goes to `deep` however cheap its check looks, and the cheapness of the check is the trap—a delete is about as script-checkable as work gets. `frontier` is an escalation destination, never a routing answer.
 
 It overrides every retry rule, this file's and any other's. When irreversible work fails, stop and reconcile what already landed outside the repo. Restoring the owned files restores none of it, and an automatic re-dispatch runs the payment or the half-applied migration a second time. No protocol's retry ladder is exempt, since a ladder that re-dispatches on its own is the whole hazard.
 
@@ -63,4 +74,4 @@ Put these in the dispatch. A subagent has no other way to learn them, and a repo
 1. The files it owns. Write only those, and report every path touched, including the ones you didn't mean to. A stray write clobbers a peer's work that the writer never saw and can't reconcile with. Don't edit an owned path yourself while its task is in flight either, because the revert on failure can't tell your edit from the worker's.
 2. Delete only a path the task names explicitly, or one that's in the files it owns. Everything else, leave alone. A subagent reads an unassigned deletion as cleanup. Whoever dispatched it reads a missing file with no author.
 3. The verification command, actually run, with its real output. Report what the command printed, not a characterization of it. "Tests pass" is evidence of what the subagent believed; the output is evidence of what happened.
-4. Restore, then retry one rung up. This covers reversible work only; irreversible work stops instead, per the rule above. Restore the paths the task owned to the state captured before the dispatch went out, not to HEAD or to clean—ownership says where the worker could write, not that the path started clean. With no captured baseline, the owned paths have to be clean before dispatch, or the work doesn't get delegated. Restore before retrying, or the next agent spends its budget debugging the last one's leftovers, and where a contract keeps you out of those paths, put the restore in the brief for whoever picks the task up. Then re-dispatch one rung up with the failure attached, and nothing sits above `fable`, so a failure there stops the run. Where something around you runs its own retry ladder, that ladder picks the executor, the rung, and the counter, and where it says nothing about restoring the tree this rule still runs.
+4. Restore, then retry one rung up. This covers reversible work only; irreversible work stops instead, per the rule above. Restore the paths the task owned to the state captured before the dispatch went out, not to HEAD or to clean—ownership says where the worker could write, not that the path started clean. With no captured baseline, the owned paths have to be clean before dispatch, or the work doesn't get delegated. Restore before retrying, or the next agent spends its budget debugging the last one's leftovers, and where a contract keeps you out of those paths, put the restore in the brief for whoever picks the task up. Then re-dispatch one rung up with the failure attached, and nothing sits above `frontier`, so a failure there stops the run. Where something around you runs its own retry ladder, that ladder picks the executor, the rung, and the counter, and where it says nothing about restoring the tree this rule still runs.

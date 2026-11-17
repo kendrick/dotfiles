@@ -280,9 +280,8 @@ ui_trap_exit 'rm -f "$bundle_log" "$retry_log"; [ -z "${sudo_keepalive:-}" ] || 
 # output and the apply hung. Knowing up front lets the script ask before
 # anything draws.
 #
-# Errs toward asking. A cask brew can't describe, or a machine without jq, counts
-# as needing sudo, because a needless prompt costs a keystroke and a missed one
-# costs the hang.
+# A cask brew can't describe, or a machine without jq, counts as needing sudo,
+# since a needless prompt costs one keystroke and a missed one hangs the apply.
 #
 # shortcut: keyed on the artifact kinds brew is known to sudo for, not on brew's
 # own decision, so a cask that sudos from a postflight script still prompts
@@ -315,9 +314,9 @@ sudo_casks() {
     | .token' 2>/dev/null || printf '%s\n' "$pending"
 }
 
-# Ask for sudo now, on a clean screen, then keep the ticket fresh until brew is done:
-# a long fetch phase outlives sudo's 5-minute timestamp. Only with a terminal,
-# since an unattended apply has nobody to ask, and brew's own sudo fails fast there.
+# Ask for sudo now, on a clean screen, then keep the ticket fresh until brew is done,
+# because a long fetch phase outlives sudo's 5-minute timestamp. This runs only with
+# a terminal. An unattended apply has nobody to ask, and brew's own sudo fails fast there.
 sudo_keepalive=""
 if ui_watching; then
   sudo_list=$(sudo_casks)

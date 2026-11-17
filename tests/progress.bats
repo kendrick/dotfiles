@@ -537,8 +537,8 @@ STUB
 	printf '%s' "$v"
 }
 
-# Keyed on what the cask's uninstall does: perturbing launchctl to quit has to
-# drop the prompt, and losing the terminal has to drop it too, since an
+# The prompt keys on what the cask's uninstall does, so swapping launchctl for
+# quit has to drop it. Losing the terminal has to drop it too, since an
 # unattended apply has nobody to ask.
 @test "sudo-preflight: a cask that sudos gets the prompt before brew runs, and nothing else does" {
 	local root="$BATS_TEST_TMPDIR/sudo" v first_v first_bundle

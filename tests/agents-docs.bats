@@ -22,7 +22,7 @@ SRC="${BATS_TEST_DIRNAME}/.."
 	assert_contains '~/.agents/harness-notes.md' "$(cat "$SRC/dot_agents/AGENTS.md")"
 }
 
-# Rungs carry capability names so the routing reads the same in every harness. Model names belong only under "## Rungs by Harness", the one place a harness's lineup is pinned.
+# Rungs carry capability names so the routing reads the same in every harness. Model names belong only in the table rows under "## Rungs by Harness", the one place a harness's lineup is pinned; that section's prose is held to the same rule as the rest.
 MODEL_RE='haiku|sonnet|opus|fable|claude-[a-z0-9.-]+|gpt-[0-9][a-z0-9.-]*'
 
 section() {
@@ -30,7 +30,7 @@ section() {
 }
 
 models_outside_mapping() {
-	awk '/^## /{m=($0=="## Rungs by Harness")} !m' "$1" | grep -iwE "$MODEL_RE"
+	awk '/^## /{m=($0=="## Rungs by Harness")} !(m && /^\|/)' "$1" | grep -iwE "$MODEL_RE"
 }
 
 @test "model names appear only in the per-harness mapping table" {
@@ -51,4 +51,10 @@ models_outside_mapping() {
 	local copy="$BATS_TEST_TMPDIR/DELEGATION.md"
 	awk 'NR==4{print "Route this to sonnet."; print ""} 1' "$SRC/dot_agents/private_DELEGATION.md" >"$copy"
 	assert_contains 'Route this to sonnet.' "$(models_outside_mapping "$copy")"
+}
+
+@test "a planted model name in the mapping section's prose fails the check" {
+	local copy="$BATS_TEST_TMPDIR/DELEGATION.md"
+	awk '{print} /^## Rungs by Harness$/{print ""; print "Codex runs these on sonnet."}' "$SRC/dot_agents/private_DELEGATION.md" >"$copy"
+	assert_contains 'Codex runs these on sonnet.' "$(models_outside_mapping "$copy")"
 }

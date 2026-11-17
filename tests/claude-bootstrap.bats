@@ -193,6 +193,21 @@ SH
 	run --separate-stderr env ENV_SETUP_STRICT=1 bash "$SRC/scripts/env-setup.sh"
 	assert_contains "status=0" "status=$status"
 	assert_not_contains "could not fetch" "$stderr"
+	cited="$(grep -oE '~/\.agents/[A-Za-z0-9_.-]+\.md' "$HOME/.claude/CLAUDE.md")"
+	assert_contains "~/.agents/harness-notes.md" "$cited"
+	for p in $cited; do
+		assert_contains "present" "$(present "$HOME/${p#\~/}")"
+	done
+}
+
+# A failed install must not swap a working ~/.claude/CLAUDE.md for a dangling link (#43's leave-the-old-copy contract).
+@test "a failed AGENTS.md install leaves an existing regular ~/.claude/CLAUDE.md alone" {
+	mkdir -p "$HOME/.claude" "$HOME/.agents/AGENTS.md/AGENTS.md/blocker"
+	printf 'pre-existing local rules\n' >"$HOME/.claude/CLAUDE.md"
+	run env ENV_SETUP_STRICT=1 bash "$SRC/scripts/env-setup.sh"
+	assert_contains "status=1" "status=$status"
+	assert_contains "regular" "$(if [ -L "$HOME/.claude/CLAUDE.md" ]; then echo link; else echo regular; fi)"
+	assert_contains "pre-existing local rules" "$(cat "$HOME/.claude/CLAUDE.md")"
 }
 
 @test "remote-bootstrap.sh against the real source tree finds env-setup and the lockfile" {

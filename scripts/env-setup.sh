@@ -48,8 +48,8 @@ if [ -s "$key" ] && command -v age >/dev/null 2>&1; then
 	done
 	if [ "$have_rules" = 1 ]; then
 		for f in PROSE VOICE; do
-			mv -f "$tmp/$f.md" "$dest/$f.md" || rc=1
-			adapt "$f.md" "$f.md"
+			# Link only after a good install, so a failed mv can't turn a working copy into a dangling link.
+			if mv -f "$tmp/$f.md" "$dest/$f.md"; then adapt "$f.md" "$f.md"; else rc=1; fi
 		done
 	fi
 fi
@@ -64,8 +64,7 @@ if fetch dot_agents/AGENTS.md "$tmp/AGENTS.md"; then
 This container has no age key, so `~/.agents/PROSE.md` and `~/.agents/VOICE.md` were not installed. When a rule above says to read one of them, say that it's unavailable here and continue without it.
 MD
 	fi
-	mv -f "$tmp/AGENTS.md" "$dest/AGENTS.md" || rc=1
-	adapt AGENTS.md CLAUDE.md
+	if mv -f "$tmp/AGENTS.md" "$dest/AGENTS.md"; then adapt AGENTS.md CLAUDE.md; else rc=1; fi
 	# The amendment says PROSE.md and VOICE.md weren't installed, so copies and links left by an earlier keyed run have to go with it.
 	if [ "$have_rules" = 0 ]; then
 		rm -f "$dest/PROSE.md" "$dest/VOICE.md" "$HOME/.claude/PROSE.md" "$HOME/.claude/VOICE.md" || rc=1

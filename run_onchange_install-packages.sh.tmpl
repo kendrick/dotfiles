@@ -270,7 +270,70 @@ handle_bundle_result() {
 # unset trap reference just expands empty, so rm -f no-ops on the happy path instead of
 # needing a second trap registration.
 bundle_log=$(mktemp -t dotfiles-brew-bundle)
-ui_trap_exit 'rm -f "$bundle_log" "$retry_log"'
+ui_trap_exit 'rm -f "$bundle_log" "$retry_log"; [ -z "${sudo_keepalive:-}" ] || kill "$sudo_keepalive" 2>/dev/null'
+
+# Pending casks (absent, or outdated so the bundle upgrades them) whose install or
+# uninstall steps brew runs under sudo, one token per line.
+#
+# brew calls sudo mid-run, and its prompt can land where nobody sees it: on
+# 2026-11-16 a microsoft-edge upgrade sat on `sudo launchctl` behind the apply's
+# output and the apply hung. Knowing up front lets the script ask before
+# anything draws.
+#
+# A cask brew can't describe, or a machine without jq, counts as needing sudo,
+# since a needless prompt costs one keystroke and a missed one hangs the apply.
+#
+# shortcut: keyed on the artifact kinds brew is known to sudo for, not on brew's
+# own decision, so a cask that sudos from a postflight script still prompts
+# mid-run. Upgrade if one turns up.
+sudo_casks() {
+  local nl=$'\n' installed pending="" line name
+  installed="$nl$(brew list -1 --cask 2>/dev/null || true)$nl"
+  while IFS= read -r line; do
+    case "$line" in 'cask "'*) ;; *) continue ;; esac
+    name=${line#*\"}
+    name=${name%%\"*}
+    case "$installed" in *"$nl${name##*/}$nl"*) ;; *) pending="$pending$name$nl" ;; esac
+  done <<<"$brewfile"
+  pending="$pending$(brew outdated --cask --quiet 2>/dev/null || true)"
+  pending=$(printf '%s\n' "$pending" | sed '/^$/d' | sort -u)
+  [ -n "$pending" ] || return 0
+
+  local info
+  # shellcheck disable=SC2086 # one token per word is the point
+  if ! command -v jq >/dev/null 2>&1 || ! info=$(brew info --cask --json=v2 $pending 2>/dev/null); then
+    printf '%s\n' "$pending"
+    return 0
+  fi
+  printf '%s' "$info" | jq -r '.casks[]
+    | select(any(.artifacts[];
+        has("pkg") or has("installer")
+        or ((.uninstall // []) | any(.[];
+          has("launchctl") or has("pkgutil") or has("kext")
+          or has("delete") or has("rmdir") or has("script") or has("early_script")))))
+    | .token' 2>/dev/null || printf '%s\n' "$pending"
+}
+
+# Ask for sudo now, on a clean screen, then keep the ticket fresh until brew is done,
+# because a long fetch phase outlives sudo's 5-minute timestamp. This runs only with
+# a terminal. An unattended apply has nobody to ask, and brew's own sudo fails fast there.
+sudo_keepalive=""
+if ui_watching; then
+  sudo_list=$(sudo_casks)
+  if [ -n "$sudo_list" ]; then
+    if ! sudo -n true 2>/dev/null; then
+      say "packages: $(printf '%s\n' "$sudo_list" | paste -sd ' ' -) need sudo; asking now"
+      sudo -v || say "packages: no sudo; brew may stop to ask again"
+    fi
+    if sudo -n true 2>/dev/null; then
+      (while kill -0 "$$" 2>/dev/null; do
+        sudo -n -v 2>/dev/null
+        sleep 50
+      done) </dev/null >/dev/null 2>&1 &
+      sudo_keepalive=$!
+    fi
+  fi
+fi
 
 # The step line opens here and settles after brew exits. In between the
 # installer owns one live line, and only for as long as brew has nothing to say.

@@ -23,4 +23,4 @@ com.apple.dock mru-spaces bool 0
 com.apple.dock showhidden bool 1
 com.apple.dock show-recents bool 0
 com.apple.ActivityMonitor OpenMainWindow bool 1
-com.apple.ActivityMonitor ShowCategory int 100
+com.apple.ActivityMonitor ShowCategory int 0

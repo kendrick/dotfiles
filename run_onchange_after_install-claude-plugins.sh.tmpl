@@ -64,12 +64,18 @@ install_plugin() {
      reachable without work credentials, not who wrote it; slalom-agent-kit is the
      work-only one this file is encrypted for.
 
+     The name here is "kendrick", not "agent-plugins": these entries match the marketplace
+     name the CLI registers, and it takes that from the repo's own
+     .claude-plugin/marketplace.json rather than from the repo or plugin name. A wrong name
+     never matches the presence probe, so the add runs, succeeds, and re-registers the same
+     marketplace on every apply without reporting anything.
+
      No chrome-devtools-plugins entry for the same reason it isn't a marketplace at all:
      ChromeDevTools/chrome-devtools-mcp is the MCP server's own repo, and the plugin
      actually ships from claude-plugins-official. Config carried the bogus coordinate for
      a while, which left chrome-devtools-mcp enabled against a marketplace that could
      never resolve it. */ -}}
-{{ $public := list "superpowers-marketplace" "claude-plugins-official" "ponytail" -}}
+{{ $public := list "superpowers-marketplace" "claude-plugins-official" "kendrick" "ponytail" -}}
 {{ if stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") -}}
 {{   $marketplaces := include "dot_claude/private_plugins/encrypted_known_marketplaces.json.age" | decrypt | fromJson -}}
 {{   range $name, $info := $marketplaces -}}

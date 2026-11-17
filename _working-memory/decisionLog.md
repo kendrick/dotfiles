@@ -8,9 +8,9 @@
 <!-- **Alternatives considered:** What was rejected and why -->
 
 ## 2026-11-16 — agent-guild is removed from this repo and from the plugin installs
-**Context:** c0ad783 deleted `.agent-guild/`, but the repo still imported `.agent-guild/CLAUDE.md`, gitignored its state dir, and installed `agent-guild@kendrick` from the `kendrick` marketplace on every machine. The plugin was already disabled on this Mac.
-**Decision:** Remove all of it. That covers the `@` import, the `.gitignore` lines, the plugin and marketplace entries in the encrypted manifests and settings, and `kendrick` in the installer's personal-machine allowlist. `encrypted_removed.json.age` tombstones the plugin and marketplace so `claude-plugins-capture` can't bring them back from another machine. This supersedes the 2026-08-06 "two halves" entry. Older entries and antipatterns that cite the guild stay as written, because their lessons about dispatcher contracts still apply.
-**Alternatives considered:** Deleting only the import. Rejected because the plugin entries would keep reinstalling a tool nothing uses.
+**Context:** c0ad783 deleted `.agent-guild/`, but the repo still imported `.agent-guild/CLAUDE.md`, gitignored its state dir, and listed `agent-guild@kendrick` in the plugin manifest, so every machine reinstalled it. The `kendrick` marketplace itself now points at `kendrick/agent-plugins` and serves `handoff-on-compact@kendrick`.
+**Decision:** Remove the `@` import, the `.gitignore` lines, and the `agent-guild@kendrick` manifest entry. `encrypted_removed.json.age` tombstones that plugin alone so `claude-plugins-capture` can't merge it back from another machine. The `kendrick` marketplace stays, along with its place in the installer's personal allowlist. This supersedes the 2026-08-06 "two halves" entry. Older entries and antipatterns that cite the guild stay as written, because their lessons about dispatcher contracts still apply.
+**Alternatives considered:** Tombstoning the `kendrick` marketplace too. Rejected, because the marketplace name outlived agent-guild and would take handoff-on-compact with it.
 
 ## 2026-11-16 — `~/.agents` is the canonical home for the user-level rules
 **Context:** Claude Code, Codex, and OpenCode each read their own copy of the user-level rules, and the only real copy lived in `dot_claude/`, so the rules cited `~/.claude` paths, Claude Code tool names, and Claude model names. Other harnesses got rules written for a different tool. (GitHub #105, parent #104)

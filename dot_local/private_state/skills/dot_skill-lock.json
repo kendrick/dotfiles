@@ -522,10 +522,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "inbox-to-memory/SKILL.md",
-      "skillFolderHash": "122735aa84353659c88deeccd5c816f041b29fef",
+      "skillFolderHash": "21726a27d91a32c9c5d89c5d2da938ae44e91632",
       "installedAt": "2026-07-10T21:06:31.566Z",
-      "updatedAt": "2026-11-16T16:15:13.604Z",
-      "commit": "a2d11521860f0fe43ebe5b4c922e83f196bf935a"
+      "updatedAt": "2026-11-18T15:36:29.849Z",
+      "commit": "b1dcabce1ba8adf828f0c2a9b6103f46ff26e244"
     },
     "readme-coauthorship": {
       "source": "kendrick/skills",
@@ -568,9 +568,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "technical-writing/SKILL.md",
-      "skillFolderHash": "08407750f7c8dc889c3fc43f0af3f82bda36edee",
+      "skillFolderHash": "809544b99342fe982181f822a633a7251cd1acf6",
       "installedAt": "2026-08-20T17:19:36.512Z",
-      "updatedAt": "2026-10-27T03:59:47.840Z"
+      "updatedAt": "2026-11-18T15:36:30.393Z",
+      "commit": "b1dcabce1ba8adf828f0c2a9b6103f46ff26e244"
     },
     "jd-audit": {
       "source": "kendrick/skills",
@@ -715,9 +716,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "divvy-up/SKILL.md",
-      "skillFolderHash": "7895ad08fb9cbf299767ccfb986a29f02c067277",
+      "skillFolderHash": "3856912aa229cca8bca31f4d373ca862c53f26bc",
       "installedAt": "2026-09-02T02:46:12.250Z",
-      "updatedAt": "2026-11-04T04:00:04.881Z"
+      "updatedAt": "2026-11-18T15:36:30.816Z",
+      "commit": "b1dcabce1ba8adf828f0c2a9b6103f46ff26e244"
     },
     "jira-refine": {
       "source": "kendrick/skills",
@@ -742,9 +744,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-issue/SKILL.md",
-      "skillFolderHash": "69f64d32355b7c704424c58c12ebad15369bcfdf",
+      "skillFolderHash": "4d7fd3636cdb0f7dfa1fad7b66a713c3c04c2672",
       "installedAt": "2026-09-18T01:38:20.355Z",
-      "updatedAt": "2026-11-11T19:57:57.115Z"
+      "updatedAt": "2026-11-18T15:36:31.566Z",
+      "commit": "b1dcabce1ba8adf828f0c2a9b6103f46ff26e244"
     },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",
@@ -760,9 +763,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kendrick/skills.git",
       "skillPath": "work-wave/SKILL.md",
-      "skillFolderHash": "a8e4857bfb41f282cc89cf32a93a80dc495e00ac",
+      "skillFolderHash": "91d0b30c815caaffd9a01eb07dca6b2d68e0316d",
       "installedAt": "2026-09-24T21:07:13.811Z",
-      "updatedAt": "2026-11-03T21:10:34.193Z"
+      "updatedAt": "2026-11-18T15:36:32.126Z",
+      "commit": "b1dcabce1ba8adf828f0c2a9b6103f46ff26e244"
     },
     "design-control-loop": {
       "source": "humanlayer/skills",

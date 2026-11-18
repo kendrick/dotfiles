@@ -30,6 +30,8 @@ alias sb="npm run storybook"
 alias sshh='ssh $SSH_HOME'
 alias ssid='/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '"'"'/ SSID/ {print substr($0, index($0, $2))}'"'"''
 alias top='htop'
+# Usage: 7pw out.7z file-or-dir...  (prompts for the password; -mhe=on also encrypts filenames)
+alias 7pw='7zz a -t7z -p -mhe=on'
 alias xkp='xkp "-/:;$&@.,?" -p wswswsddp -n 10'
 alias youtube-mp3='youtube-dl --extract-audio --audio-format mp3 --audio-quality 0'
 

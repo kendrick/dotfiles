@@ -67,6 +67,11 @@ dot_local/bin/executable_awssso
 {{ $key := stat (joinPath .chezmoi.homeDir ".config" "chezmoi" "key.txt") }}
 {{ if or (not $key) (eq (int $key.size) 0) }}
 .claude/settings.json
+.agents/VOICE.md
+.agents/PROSE.md
+.agents/voice-samples-work.md
+.agents/voice-samples-personal.md
+# The .claude/ symlinks to those four would dangle without their targets.
 .claude/VOICE.md
 .claude/PROSE.md
 .claude/voice-samples-work.md
@@ -104,6 +109,11 @@ Library/LaunchAgents/com.k-arnett.dotfiles-auto-sync.plist
 # proxy exports. This line is what stops a re-add from lifting a client's gateway
 # hostnames into a public repo the first time the file shows up.
 .zshrc.local
+
+# Machine-local ssh overrides, read by the Include in private_dot_ssh/config. On a
+# proxied machine the file holds the proxy address, so it stays out of the repo for the
+# same reason .zshrc.local does.
+.ssh/config.local
 
 # Per-machine deploy key for the quantified-claude events repo. The github-qc-events
 # ssh stanza (in private_dot_ssh/config) IS synced, but the key itself stays local:

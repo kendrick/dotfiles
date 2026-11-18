@@ -328,6 +328,23 @@ touch_at() {
 	[ "$(wc -l <"$READD_LOG" | tr -d ' ')" -eq 1 ]
 }
 
+@test "sync-guard: a symlink source whose target became a regular file is flagged as drift" {
+	fresh_repo
+	mkdir -p "$REPO/dot_claude" "$HOME/.claude"
+	printf '../.agents/AGENTS.md' >"$REPO/dot_claude/symlink_CLAUDE.md"
+	commit_at "$OLD_EPOCH" dot_claude/symlink_CLAUDE.md
+	printf '%s\t%s\n' .claude/CLAUDE.md "$REPO/dot_claude/symlink_CLAUDE.md" >>"$SRC_MAP"
+	# An atomic-rename writer swapped the link for an edited regular file. The newer mtime keeps the preflight guard out of the way, so the case reaches the drift phase.
+	printf 'edited rules\n' >"$HOME/.claude/CLAUDE.md"
+	touch_at "$NEW_EPOCH" "$HOME/.claude/CLAUDE.md"
+	write_status "MM .claude/CLAUDE.md"
+
+	run bash "$SCRIPT"
+
+	assert_contains "    ! .claude/CLAUDE.md is no longer a symlink; move edits into the file it pointed at, then chezmoi apply"
+	assert_contains "symlinked file drifted" "$(cat "$OSA_LOG")"
+}
+
 @test "sync-guard: source file with no commits falls back to today's behavior" {
 	fresh_repo
 	printf 'untracked\n' >"$REPO/dot_nocommits"

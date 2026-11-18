@@ -386,6 +386,10 @@ while IFS= read -r line; do
   if [[ "$src" == *.tmpl ]]; then
     echo "    $tgt  (edit the source template, or reconcile by hand)"
     tmpl_drift=1
+  elif [[ "${src##*/}" == symlink_* ]]; then
+    # Same gap as a template: re-add can't capture edits made to a regular file that replaced a managed symlink, and the next apply overwrites them.
+    echo "    $tgt  is no longer a symlink; move edits into the file it pointed at, then chezmoi apply"
+    tmpl_drift=1
   fi
 done < <(chezmoi status)
 [[ "$tmpl_drift" -eq 0 ]] && echo "    none — templated files match their source"

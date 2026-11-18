@@ -63,7 +63,6 @@ packages = [
   { name = "powerlevel10k",        type = "brew", bundles = ["core"] },
   { name = "procs",                type = "brew", bundles = ["core"] },
   { name = "ripgrep",              type = "brew", bundles = ["core"] },
-  { name = "rtk",                  type = "brew", bundles = ["core"] },
   { name = "shellcheck",           type = "brew", bundles = ["core"] },
   { name = "uv",                   type = "brew", bundles = ["core"] },
   { name = "wget",                 type = "brew", bundles = ["core"] },

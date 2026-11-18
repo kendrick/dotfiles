@@ -5,6 +5,12 @@ Include ~/.orbstack/ssh/config
 
 Include ~/.ssh/conductor_config
 
+# Machine-local overrides. ssh keeps the first value it finds for each option, so this
+# Include must sit above the Host blocks below for its values to win. On a Mac behind
+# Zscaler, which blocks port 22, the file sends the GitHub hosts to port 443 through the
+# local proxy. ssh skips the Include on machines that don't have the file.
+Include ~/.ssh/config.local
+
 Host github_personal
 	HostName github.com
 	IdentityFile ~/.ssh/personal_1p.pub

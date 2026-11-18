@@ -2,15 +2,17 @@
 
 These apply to every project I work on, regardless of the repo or stack.
 
+When a skill or rule names a harness-specific tool or path, translate it with `~/.agents/harness-notes.md`.
+
 ## Prose
 
 Run human-facing prose through the `humanizer` skill before merge. By "human-facing" I mean anything a person is actually likely to read as writing: code comments, commit messages, PR descriptions, changesets, workshop briefs, and user-facing documentation (READMEs, guides, the docs site). It does NOT mean spec-kit planning artifacts (`spec.md`, `plan.md`, `tasks.md`, requirements checklists) or other internal intermediates that exist to drive a build or planning step rather than to be read for their own sake — those are machine-facing scaffolding, so skip the humanizer on them. When it's genuinely unclear, ask whether a human will read it as writing; if not, don't bother.
 
-"Run through" means formally invoke the skill via the Skill tool and follow its audit-and-revise loop ("draft → what makes this so obviously AI generated? → revise"). Informally applying the principles from memory is not enough — it consistently misses tells. Invoke the skill, edit the prose in place against its audit, then ship. Do this proactively, as a default step — not something you offer. Never hand me un-humanized prose with a "say the word and I'll run the skill" caveat attached; don't ask permission to humanize, just do it.
+"Run through" means formally load the `humanizer` skill using the harness's skill mechanism and follow its audit-and-revise loop ("draft → what makes this so obviously AI generated? → revise"). Informally applying the principles from memory is not enough — it consistently misses tells. Invoke the skill, edit the prose in place against its audit, then ship. Do this proactively, as a default step — not something you offer. Never hand me un-humanized prose with a "say the word and I'll run the skill" caveat attached; don't ask permission to humanize, just do it.
 
-My house rules live in `~/.claude/PROSE.md`. Whenever you invoke the humanizer, read that file fresh—never from a remembered summary—and apply its overrides on top of the audit. It amends what the skill says about lists, list dissolution, em dashes, and heading case, adds patterns the skill doesn't name yet, and adds a plain-speech pass.
+My house rules live in `~/.agents/PROSE.md`. Whenever you invoke the humanizer, read that file fresh—never from a remembered summary—and apply its overrides on top of the audit. It amends what the skill says about lists, list dissolution, em dashes, and heading case, adds patterns the skill doesn't name yet, and adds a plain-speech pass.
 
-For developer-facing or technical prose — commit messages, code comments, PR descriptions, changesets, workshop briefs, and technical docs — the `technical-writing` skill owns the flow: invoke it and follow its dispatch and audit steps rather than reaching for the humanizer directly. Its Step 2 audit satisfies the humanizer mandate above; don't run the humanizer a second time on top. Where that skill names a role instead of a tool, resolve it here: the prose-audit skill is `humanizer`, and the house rules are `~/.claude/PROSE.md`. Messages to people still route to VOICE.md per the Voice section below, which replaces all of this.
+For developer-facing or technical prose — commit messages, code comments, PR descriptions, changesets, workshop briefs, and technical docs — the `technical-writing` skill owns the flow: invoke it and follow its dispatch and audit steps rather than reaching for the humanizer directly. Its Step 2 audit satisfies the humanizer mandate above; don't run the humanizer a second time on top. Where that skill names a role instead of a tool, resolve it here: the prose-audit skill is `humanizer`, and the house rules are `~/.agents/PROSE.md`. Messages to people still route to VOICE.md per the Voice section below, which replaces all of this.
 
 One em-dash mechanic holds everywhere, chat included, and it applies before any skill fires. Always chain em dashes directly to the text on either side—like this—and never wrap them in spaces. PROSE.md carries the fuller rule about when an em dash is worth keeping.
 
@@ -44,13 +46,13 @@ Write comments in the voice and tone of a helpful technical writer who is also i
 
 ## Voice
 
-Before drafting anything addressed to a person—emails above all, but also DMs, letters, and notes—read `~/.claude/VOICE.md` and follow its process. The trigger is the artifact type, not my asking for "my voice": if you're drafting a message, the file applies. Open it fresh each time; don't work from a remembered summary.
+Before drafting anything addressed to a person—emails above all, but also DMs, letters, and notes—read `~/.agents/VOICE.md` and follow its process. The trigger is the artifact type, not my asking for "my voice": if you're drafting a message, the file applies. Open it fresh each time; don't work from a remembered summary.
 
 That's a separate job from the humanizer pass above, and for messages it replaces it: VOICE.md drafts from verbatim samples of my sent mail and carries its own audit checklist, so don't run the humanizer on top—it would sand the voice back off.
 
 ## Delegation
 
-Before dispatching any subagent, read `~/.claude/DELEGATION.md` and route the task by it. The trigger is the dispatch, fan-out or not: one subagent for one task counts the same as a wave of nine. Open the file fresh each time; don't work from a remembered summary.
+Before dispatching any subagent, read `~/.agents/DELEGATION.md` and route the task by it. The trigger is the dispatch, fan-out or not: one subagent for one task counts the same as a wave of nine. Open the file fresh each time; don't work from a remembered summary.
 
 The file carries the rungs, the floor below which delegating costs more than it saves, the constraints every dispatch has to spell out, and who wins when something else already says how it dispatches.
 

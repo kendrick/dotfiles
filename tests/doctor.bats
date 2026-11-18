@@ -41,8 +41,10 @@ setup() {
 	cat >"$STUBS/chezmoi" <<'STUB'
 #!/usr/bin/env bash
 case "$1" in
-source-path) echo "$FIXTURE" ;;
-status) : ;;
+source-path)
+  if [ -n "${2:-}" ] && [ -n "${DRIFT_SRC:-}" ]; then echo "$DRIFT_SRC"; else echo "$FIXTURE"; fi
+  ;;
+status) [ ! -f "$FIXTURE/status.txt" ] || cat "$FIXTURE/status.txt" ;;
 execute-template)
   case "$2" in
   *taps*) cat "$FIXTURE/taps.json" ;;
@@ -772,6 +774,14 @@ write_typed_packages() {
 run_fix_answering() {
 	local answer="$1"
 	run bash -c 'printf "%s\n" "$1" | bash "$2" --fix' _ "$answer" "$SCRIPT"
+}
+
+# What an atomic-rename writer leaves behind: chezmoi still maps the target to a symlink_ source, but the live path is now an edited regular file, so status reports it modified.
+@test "doctor: a symlink source whose target became a regular file is reported as drift" {
+	echo "MM .claude/CLAUDE.md" >"$FIXTURE/status.txt"
+	export DRIFT_SRC="$FIXTURE/dot_claude/symlink_CLAUDE.md"
+	run bash -c "bash '$SCRIPT' 2>&1 | sed -n '/== Template drift ==/,/^\$/p'"
+	assert_contains ".claude/CLAUDE.md  is no longer a symlink; move edits into the file it pointed at, then chezmoi apply"
 }
 
 @test "doctor --help documents --fix and exits 0" {

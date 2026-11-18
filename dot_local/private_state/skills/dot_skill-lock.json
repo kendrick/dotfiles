@@ -8,7 +8,7 @@
       "skillPath": "skills/pptx/SKILL.md",
       "skillFolderHash": "1c0176bffc8752e4c4a22eaa8e142a55cc178990",
       "installedAt": "2026-05-12T19:52:48.145Z",
-      "updatedAt": "2026-11-16T16:15:05.060Z",
+      "updatedAt": "2026-11-16T23:22:06.301Z",
       "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
     },
     "skill-creator": {
@@ -47,7 +47,7 @@
       "skillPath": "skills/docx/SKILL.md",
       "skillFolderHash": "1ee48004300dcd1b30aa2aec2246c0b4f54c5f89",
       "installedAt": "2026-05-27T23:08:46.480Z",
-      "updatedAt": "2026-11-16T16:15:07.191Z",
+      "updatedAt": "2026-11-16T23:22:06.677Z",
       "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
     },
     "pdf": {
@@ -58,7 +58,7 @@
       "skillFolderHash": "ff7f37394819e5fa311324f953e3c0053a12309d",
       "pluginName": "document-skills",
       "installedAt": "2026-05-27T23:08:46.490Z",
-      "updatedAt": "2026-11-16T16:15:07.690Z",
+      "updatedAt": "2026-11-16T23:22:06.795Z",
       "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
     },
     "xlsx": {
@@ -68,7 +68,7 @@
       "skillPath": "skills/xlsx/SKILL.md",
       "skillFolderHash": "aad9fca510bd437479fdd5f55cbd70247f7b5780",
       "installedAt": "2026-05-27T23:08:46.499Z",
-      "updatedAt": "2026-11-16T16:15:09.680Z",
+      "updatedAt": "2026-11-16T23:22:07.197Z",
       "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
     },
     "frontend-design": {
@@ -183,7 +183,7 @@
       "skillPath": ".claude/skills/impeccable/SKILL.md",
       "skillFolderHash": "386a1de8d69cd10d46f327af8194251e6b0a9f67",
       "installedAt": "2026-05-28T22:41:05.138Z",
-      "updatedAt": "2026-11-16T16:15:12.197Z",
+      "updatedAt": "2026-11-16T23:22:07.962Z",
       "commit": "d41d9860b0094dcb68030657da63461212835aaa"
     },
     "doc-coauthoring": {
@@ -803,7 +803,7 @@
       "sourceBaseUrl": "https://fframes.studio",
       "wellKnownDigest": "sha256:bdd500e5ba1126b8629ef07c332832cf95c66c1d9a07860c7a365bb2324deb40",
       "installedAt": "2026-11-02T23:15:20.086Z",
-      "updatedAt": "2026-11-16T16:14:32.757Z"
+      "updatedAt": "2026-11-16T23:22:01.476Z"
     },
     "memory-index": {
       "source": "kendrick/skills",
